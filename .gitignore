@@ -1,0 +1,4 @@
+*.log
+go_wrapper/main
+go_wrapper/xdump_config
+*.dat
