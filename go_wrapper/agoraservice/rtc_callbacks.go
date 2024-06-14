@@ -105,11 +105,11 @@ func goOnUserOffline(cCon unsafe.Pointer, uid *C.char, reason C.int) {
 	agoraService.connectionRWMutex.RLock()
 	con := agoraService.consByCCon[cCon]
 	agoraService.connectionRWMutex.RUnlock()
-	if con == nil || con.handler == nil || con.handler.OnUserOffline == nil {
+	if con == nil || con.handler == nil || con.handler.OnUserLeft == nil {
 		return
 	}
 	// note： best practise is never reelase handler until app is exiting
-	con.handler.OnUserOffline(con, C.GoString(uid), int(reason))
+	con.handler.OnUserLeft(con, C.GoString(uid), int(reason))
 }
 
 //export goOnStreamMessageError

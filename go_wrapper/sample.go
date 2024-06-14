@@ -18,6 +18,11 @@ func main() {
 		SubVideo:       false,
 		ClientRole:     1,
 		ChannelProfile: 1,
+
+		SubAudioConfig: &agoraservice.SubscribeAudioConfig{
+			SampleRate: 16000,
+			Channels:   1,
+		},
 	}
 	conSignal := make(chan struct{})
 	conHandler := agoraservice.RtcConnectionEventHandler{
@@ -26,16 +31,28 @@ func main() {
 			fmt.Println("Connected")
 			conSignal <- struct{}{}
 		},
+		OnDisconnected: func(con *agoraservice.RtcConnection, info *agoraservice.RtcConnectionInfo, reason int) {
+			// do something
+			fmt.Println("Disconnected")
+		},
+		OnUserJoined: func(con *agoraservice.RtcConnection, uid string) {
+			fmt.Println("user joined, " + uid)
+		},
+		OnUserLeft: func(con *agoraservice.RtcConnection, uid string, reason int) {
+			fmt.Println("user left, " + uid)
+		},
 	}
 	conCfg.ConnectionHandler = &conHandler
 	conCfg.AudioFrameObserver = &agoraservice.RtcConnectionAudioFrameObserver{
 		OnPlaybackAudioFrameBeforeMixing: func(con *agoraservice.RtcConnection, channelId string, userId string, frame *agoraservice.PcmAudioFrame) {
 			// do something
-			fmt.Printf("Playback audio frame before mixing: %v\n", frame)
+			fmt.Printf("Playback audio frame before mixing, from userId %s\n", userId)
 		},
 	}
 	con := agoraservice.NewConnection(&conCfg)
+	defer con.Release()
 	sender := con.NewPcmSender()
+	defer sender.Release()
 	con.Connect("", "lhztest", "0")
 	<-conSignal
 	sender.Start()
@@ -56,10 +73,10 @@ func main() {
 	}
 	defer file.Close()
 
-	for i := 0; i < 500; i++ {
-		_, err := file.Read(frame.Data)
-		if err != nil {
-			fmt.Println("Error reading file:", err)
+	for {
+		dataLen, err := file.Read(frame.Data)
+		if err != nil || dataLen < 320 {
+			fmt.Println("Finished reading file:", err)
 			break
 		}
 
@@ -67,8 +84,7 @@ func main() {
 		time.Sleep(10 * time.Millisecond)
 	}
 	sender.Stop()
-	sender.Release()
 	con.Disconnect()
-	con.Release()
+
 	agoraservice.Destroy()
 }

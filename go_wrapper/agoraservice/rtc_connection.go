@@ -50,7 +50,7 @@ type RtcConnectionEventHandler struct {
 	OnTokenPrivilegeWillExpire func(con *RtcConnection, token string)
 	OnTokenPrivilegeDidExpire  func(con *RtcConnection)
 	OnUserJoined               func(con *RtcConnection, uid string)
-	OnUserOffline              func(con *RtcConnection, uid string, reason int)
+	OnUserLeft                 func(con *RtcConnection, uid string, reason int)
 	OnStreamMessageError       func(con *RtcConnection, uid string, streamId int, errCode int, missed int, cached int)
 	OnStreamMessage            func(con *RtcConnection, uid string, streamId int, data []byte)
 }
@@ -97,18 +97,24 @@ func NewConnection(cfg *RtcConnectionConfig) *RtcConnection {
 		audioObserver:  cfg.AudioFrameObserver,
 	}
 	ret.cLocalUser = C.agora_rtc_conn_get_local_user(ret.cConnection)
+	// C.agora_local_user_subscribe_all_audio(ret.cLocalUser)
 	if ret.handler != nil {
 		ret.cHandler, ret.cLocalUserObserver = CRtcConnectionEventHandler(ret.handler)
 		C.agora_rtc_conn_register_observer(ret.cConnection, ret.cHandler)
 		C.agora_local_user_register_observer(ret.cLocalUser, ret.cLocalUserObserver)
 	}
+	if ret.subAudioConfig == nil {
+		ret.subAudioConfig = &SubscribeAudioConfig{
+			SampleRate: 16000,
+			Channels:   1,
+		}
+	}
+	C.agora_local_user_set_playback_audio_frame_before_mixing_parameters(
+		ret.cLocalUser, C.uint(ret.subAudioConfig.Channels), C.uint(ret.subAudioConfig.SampleRate))
+
 	if ret.audioObserver != nil {
 		ret.cAudioObserver = CAudioFrameObserver(ret.audioObserver)
 		C.agora_local_user_register_audio_frame_observer(ret.cLocalUser, ret.cAudioObserver)
-	}
-	if ret.subAudioConfig != nil {
-		C.agora_local_user_set_playback_audio_frame_before_mixing_parameters(
-			ret.cLocalUser, C.uint(ret.subAudioConfig.Channels), C.uint(ret.subAudioConfig.SampleRate))
 	}
 
 	agoraService.connectionRWMutex.Lock()

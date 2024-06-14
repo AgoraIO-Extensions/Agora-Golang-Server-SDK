@@ -10,7 +10,9 @@ package agoraservice
 #include "agora_media_base.h"
 */
 import "C"
-import "unsafe"
+import (
+	"unsafe"
+)
 
 //export goOnPlaybackAudioFrameBeforeMixing
 func goOnPlaybackAudioFrameBeforeMixing(cLocalUser unsafe.Pointer, channelId *C.char, uid *C.char, frame *C.struct__audio_frame) {
