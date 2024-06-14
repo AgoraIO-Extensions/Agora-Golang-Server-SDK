@@ -70,7 +70,11 @@ func TestBaseCase(t *testing.T) {
 
 	waitSenderJoin := make(chan struct{}, 1)
 	waitForAudio := make(chan struct{}, 1)
+	recvAudio := new(bool)
+	*recvAudio = false
 	waitForData := make(chan struct{}, 1)
+	recvData := new(bool)
+	*recvData = false
 	recvCfg := RtcConnectionConfig{
 		SubAudio:       true,
 		SubVideo:       false,
@@ -92,7 +96,10 @@ func TestBaseCase(t *testing.T) {
 			},
 			OnStreamMessage: func(con *RtcConnection, uid string, streamId int, data []byte) {
 				t.Log("stream message")
-				waitForAudio <- struct{}{}
+				if !*recvAudio {
+					*recvAudio = true
+					waitForAudio <- struct{}{}
+				}
 			},
 			OnStreamMessageError: func(con *RtcConnection, uid string, streamId int, errCode int, missed int, cached int) {
 				t.Log("stream message error")
@@ -101,7 +108,10 @@ func TestBaseCase(t *testing.T) {
 		AudioFrameObserver: &RtcConnectionAudioFrameObserver{
 			OnPlaybackAudioFrameBeforeMixing: func(con *RtcConnection, channelId string, userId string, frame *PcmAudioFrame) {
 				t.Log("Playback audio frame before mixing")
-				waitForData <- struct{}{}
+				if !*recvData {
+					*recvData = true
+					waitForData <- struct{}{}
+				}
 			},
 		},
 	}
@@ -109,16 +119,12 @@ func TestBaseCase(t *testing.T) {
 	defer recvCon.Release()
 	recvCon.Connect("", "lhzuttest", "222")
 	timer := time.NewTimer(10 * time.Second)
-	recvAudio := false
-	recvData := false
 	select {
 	case <-waitSenderJoin:
 	case <-waitForAudio:
-		recvAudio = true
 	case <-waitForData:
-		recvData = true
 	case <-timer.C:
-		t.Error("wait audio or data timeout, recvAudio: ", recvAudio, ", recvData: ", recvData)
+		t.Error("wait audio or data timeout, recvAudio: ", *recvAudio, ", recvData: ", *recvData)
 		t.Fail()
 	}
 	*stopSend = true
