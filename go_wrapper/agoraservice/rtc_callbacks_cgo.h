@@ -35,4 +35,18 @@
 //   void (*on_upload_log_result)(AGORA_HANDLE agora_rtc_conn, const char* request_id, int success, int reason);
 // } rtc_conn_observer;
 
+//connection
 extern void cgo_on_connected(AGORA_HANDLE agora_rtc_conn, const rtc_conn_info* conn_info, int reason);
+extern void cgo_on_disconnected(AGORA_HANDLE agora_rtc_conn, const rtc_conn_info* conn_info, int reason);
+extern void cgo_on_reconnecting(AGORA_HANDLE agora_rtc_conn, const rtc_conn_info* conn_info, int reason);
+extern void cgo_on_reconnected(AGORA_HANDLE agora_rtc_conn, const rtc_conn_info* conn_info);
+
+//token
+extern void cgo_on_token_privilege_will_expire(AGORA_HANDLE agora_rtc_conn, const char* token);
+
+//user state
+extern void cgo_on_user_joined(AGORA_HANDLE agora_rtc_conn, user_id_t user_id);
+extern void cgo_on_user_left(AGORA_HANDLE agora_rtc_conn, user_id_t user_id, int reason);
+
+//steam message 
+extern void cgo_on_stream_message_error(AGORA_HANDLE agora_rtc_conn, user_id_t user_id, int stream_id, int code, int missed, int cached);
