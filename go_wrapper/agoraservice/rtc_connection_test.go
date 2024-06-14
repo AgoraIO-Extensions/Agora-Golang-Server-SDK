@@ -119,13 +119,16 @@ func TestBaseCase(t *testing.T) {
 	defer recvCon.Release()
 	recvCon.Connect("", "lhzuttest", "222")
 	timer := time.NewTimer(10 * time.Second)
-	select {
-	case <-waitSenderJoin:
-	case <-waitForAudio:
-	case <-waitForData:
-	case <-timer.C:
-		t.Error("wait audio or data timeout, recvAudio: ", *recvAudio, ", recvData: ", *recvData)
-		t.Fail()
+	for *recvAudio == false || *recvData == false {
+		select {
+		case <-waitSenderJoin:
+		case <-waitForAudio:
+		case <-waitForData:
+		case <-timer.C:
+			t.Error("wait audio or data timeout, recvAudio: ", *recvAudio, ", recvData: ", *recvData)
+			t.Fail()
+			break
+		}
 	}
 	*stopSend = true
 	waitSenderStop.Wait()
