@@ -34,7 +34,15 @@ type RtcConnectionInfo struct {
 }
 
 type RtcConnectionEventHandler struct {
-	OnConnected func(*RtcConnection, *RtcConnectionInfo, int)
+	OnConnected                func(*RtcConnection, *RtcConnectionInfo, int)
+	OnDisconnected             func(*RtcConnection, *RtcConnectionInfo, int)
+	OnReconnecting             func(*RtcConnection, *RtcConnectionInfo, int)
+	onReconnected              func(*RtcConnection, *RtcConnectionInfo)
+	OnTokenPrivilegeDidExpire  func(*RtcConnection, *RtcConnectionInfo)
+	OnTokenPrivilegeWillExpire func(*RtcConnection, *RtcConnectionInfo)
+	OnUserJoined               func(*RtcConnection, *RtcConnectionInfo, int)
+	OnUserOffline              func(*RtcConnection, *RtcConnectionInfo, int, int)
+	OnStreamMessageError       func(*RtcConnection, *RtcConnectionInfo, int, int, int)
 }
 
 type RtcConnectionConfig struct {
