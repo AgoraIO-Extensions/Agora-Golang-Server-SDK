@@ -11,6 +11,7 @@ package agoraservice
 #include "agora_service.h"
 #include "agora_media_base.h"
 #include "rtc_callbacks_cgo.h"
+#include "audio_observer_cgo.h"
 */
 import "C"
 import "unsafe"
@@ -71,4 +72,28 @@ func CRtcConnectionEventHandler(handler *RtcConnectionEventHandler) *C.struct__r
 
 func FreeCRtcConnectionEventHandler(handler *C.struct__rtc_conn_observer) {
 	C.free(unsafe.Pointer(handler))
+}
+
+func CAudioFrameObserver(observer *RtcConnectionAudioFrameObserver) *C.struct__audio_frame_observer {
+	ret := (*C.struct__audio_frame_observer)(C.malloc(C.sizeof_struct__audio_frame_observer))
+	C.memset(unsafe.Pointer(ret), 0, C.sizeof_struct__audio_frame_observer)
+	ret.on_playback_audio_frame_before_mixing = (*[0]byte)(C.cgo_on_playback_audio_frame_before_mixing)
+	return ret
+}
+
+func FreeCAudioFrameObserver(observer *C.struct__audio_frame_observer) {
+	C.free(unsafe.Pointer(observer))
+}
+
+func GoPcmAudioFrame(frame *C.struct__audio_frame) *PcmAudioFrame {
+	bufferLen := frame.samples_per_channel * frame.bytes_per_sample * frame.channels
+	ret := &PcmAudioFrame{
+		Data:              C.GoBytes(unsafe.Pointer(frame.buffer), bufferLen),
+		Timestamp:         int64(frame.render_time_ms),
+		SamplesPerChannel: int(frame.samples_per_channel),
+		BytesPerSample:    int(frame.bytes_per_sample),
+		NumberOfChannels:  int(frame.channels),
+		SampleRate:        int(frame.samples_per_sec),
+	}
+	return ret
 }

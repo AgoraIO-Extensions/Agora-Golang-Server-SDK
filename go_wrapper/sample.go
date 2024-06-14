@@ -27,7 +27,14 @@ func main() {
 			conSignal <- struct{}{}
 		},
 	}
-	con := agoraservice.NewConnection(&conCfg, &conHandler)
+	conCfg.ConnectionHandler = &conHandler
+	conCfg.AudioFrameObserver = &agoraservice.RtcConnectionAudioFrameObserver{
+		OnPlaybackAudioFrameBeforeMixing: func(con *agoraservice.RtcConnection, channelId string, userId string, frame *agoraservice.PcmAudioFrame) {
+			// do something
+			fmt.Printf("Playback audio frame before mixing: %v\n", frame)
+		},
+	}
+	con := agoraservice.NewConnection(&conCfg)
 	sender := con.NewPcmSender()
 	con.Connect("", "lhztest", "0")
 	<-conSignal
@@ -35,7 +42,7 @@ func main() {
 
 	frame := agoraservice.PcmAudioFrame{
 		Data:              make([]byte, 320),
-		CaptureTimestamp:  0,
+		Timestamp:         0,
 		SamplesPerChannel: 160,
 		BytesPerSample:    2,
 		NumberOfChannels:  1,

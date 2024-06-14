@@ -14,22 +14,21 @@ import "unsafe"
 
 //export goOnConnected
 func goOnConnected(cCon unsafe.Pointer, cConInfo *C.struct__rtc_conn_info, reason C.int) {
-	agoraService.connectionMutex.Lock()
-	con := agoraService.connections[cCon]
-	agoraService.connectionMutex.Unlock()
-	if con == nil || con.handler == nil {
+	agoraService.connectionRWMutex.RLock()
+	con := agoraService.consByCCon[cCon]
+	agoraService.connectionRWMutex.RUnlock()
+	if con == nil || con.handler == nil || con.handler.OnConnected == nil {
 		return
 	}
-	// note： best practise is never reelase handler until app is exiting
 	con.handler.OnConnected(con, GoRtcConnectionInfo(cConInfo), int(reason))
 }
 
 //export goOnDisconnected
 func goOnDisconnected(cCon unsafe.Pointer, cConInfo *C.struct__rtc_conn_info, reason C.int) {
-	agoraService.connectionMutex.Lock()
-	con := agoraService.connections[cCon]
-	agoraService.connectionMutex.Unlock()
-	if con == nil || con.handler == nil {
+	agoraService.connectionRWMutex.RLock()
+	con := agoraService.consByCCon[cCon]
+	agoraService.connectionRWMutex.RUnlock()
+	if con == nil || con.handler == nil || con.handler.OnDisconnected == nil {
 		return
 	}
 	// note： best practise is never reelase handler until app is exiting
@@ -39,10 +38,10 @@ func goOnDisconnected(cCon unsafe.Pointer, cConInfo *C.struct__rtc_conn_info, re
 
 //export goOnReconnecting
 func goOnReconnecting(cCon unsafe.Pointer, cConInfo *C.struct__rtc_conn_info, reason C.int) {
-	agoraService.connectionMutex.Lock()
-	con := agoraService.connections[cCon]
-	agoraService.connectionMutex.Unlock()
-	if con == nil || con.handler == nil {
+	agoraService.connectionRWMutex.RLock()
+	con := agoraService.consByCCon[cCon]
+	agoraService.connectionRWMutex.RUnlock()
+	if con == nil || con.handler == nil || con.handler.OnReconnecting == nil {
 		return
 	}
 	// note： best practise is never reelase handler until app is exiting
@@ -52,10 +51,10 @@ func goOnReconnecting(cCon unsafe.Pointer, cConInfo *C.struct__rtc_conn_info, re
 //export goOnReconnected
 func goOnReconnected(cCon unsafe.Pointer, cConInfo *C.struct__rtc_conn_info) {
 
-	agoraService.connectionMutex.Lock()
-	con := agoraService.connections[cCon]
-	agoraService.connectionMutex.Unlock()
-	if con == nil || con.handler == nil {
+	agoraService.connectionRWMutex.RLock()
+	con := agoraService.consByCCon[cCon]
+	agoraService.connectionRWMutex.RUnlock()
+	if con == nil || con.handler == nil || con.handler.onReconnected == nil {
 		return
 	}
 	// note： best practise is never reelase handler until app is exiting
@@ -63,65 +62,64 @@ func goOnReconnected(cCon unsafe.Pointer, cConInfo *C.struct__rtc_conn_info) {
 }
 
 //export goOnTokenPrivilegeWillExpire
-func goOnTokenPrivilegeWillExpire(cCon unsafe.Pointer, cConInfo *C.struct__rtc_conn_info) {
-	agoraService.connectionMutex.Lock()
-	con := agoraService.connections[cCon]
-	agoraService.connectionMutex.Unlock()
-	if con == nil || con.handler == nil {
+func goOnTokenPrivilegeWillExpire(cCon unsafe.Pointer, ctoken *C.char) {
+	agoraService.connectionRWMutex.RLock()
+	con := agoraService.consByCCon[cCon]
+	agoraService.connectionRWMutex.RUnlock()
+	if con == nil || con.handler == nil || con.handler.OnTokenPrivilegeWillExpire == nil {
 		return
 	}
 	// note： best practise is never reelase handler until app is exiting
-	con.handler.OnTokenPrivilegeWillExpire(con, GoRtcConnectionInfo(cConInfo))
+	con.handler.OnTokenPrivilegeWillExpire(con, C.GoString(ctoken))
 }
 
 //export goOnTokenPrivilegeDidExpire
-func goOnTokenPrivilegeDidExpire(cCon unsafe.Pointer, cConInfo *C.struct__rtc_conn_info) {
+func goOnTokenPrivilegeDidExpire(cCon unsafe.Pointer) {
 
-	agoraService.connectionMutex.Lock()
-	con := agoraService.connections[cCon]
-	agoraService.connectionMutex.Unlock()
-	if con == nil || con.handler == nil {
+	agoraService.connectionRWMutex.RLock()
+	con := agoraService.consByCCon[cCon]
+	agoraService.connectionRWMutex.RUnlock()
+	if con == nil || con.handler == nil || con.handler.OnTokenPrivilegeDidExpire == nil {
 		return
 	}
 	// note： best practise is never reelase handler until app is exiting
-	con.handler.OnTokenPrivilegeDidExpire(con, GoRtcConnectionInfo(cConInfo))
+	con.handler.OnTokenPrivilegeDidExpire(con)
 }
 
 //export goOnUserJoined
-func goOnUserJoined(cCon unsafe.Pointer, cConInfo *C.struct__rtc_conn_info, uid C.int) {
+func goOnUserJoined(cCon unsafe.Pointer, uid *C.char) {
 
-	agoraService.connectionMutex.Lock()
-	con := agoraService.connections[cCon]
-	agoraService.connectionMutex.Unlock()
-	if con == nil || con.handler == nil {
+	agoraService.connectionRWMutex.RLock()
+	con := agoraService.consByCCon[cCon]
+	agoraService.connectionRWMutex.RUnlock()
+	if con == nil || con.handler == nil || con.handler.OnUserJoined == nil {
 		return
 	}
 	// note： best practise is never reelase handler until app is exiting
-	con.handler.OnUserJoined(con, GoRtcConnectionInfo(cConInfo), int(uid))
+	con.handler.OnUserJoined(con, C.GoString(uid))
 }
 
 //export goOnUserOffline
-func goOnUserOffline(cCon unsafe.Pointer, cConInfo *C.struct__rtc_conn_info, uid C.int, reason C.int) {
+func goOnUserOffline(cCon unsafe.Pointer, uid *C.char, reason C.int) {
 
-	agoraService.connectionMutex.Lock()
-	con := agoraService.connections[cCon]
-	agoraService.connectionMutex.Unlock()
-	if con == nil || con.handler == nil {
+	agoraService.connectionRWMutex.RLock()
+	con := agoraService.consByCCon[cCon]
+	agoraService.connectionRWMutex.RUnlock()
+	if con == nil || con.handler == nil || con.handler.OnUserOffline == nil {
 		return
 	}
 	// note： best practise is never reelase handler until app is exiting
-	con.handler.OnUserOffline(con, GoRtcConnectionInfo(cConInfo), int(uid), int(reason))
+	con.handler.OnUserOffline(con, C.GoString(uid), int(reason))
 }
 
 //export goOnStreamMessageError
-func goOnStreamMessageError(cCon unsafe.Pointer, cConInfo *C.struct__rtc_conn_info, uid C.int, streamId C.int, error C.int) {
-
-	agoraService.connectionMutex.Lock()
-	con := agoraService.connections[cCon]
-	agoraService.connectionMutex.Unlock()
-	if con == nil || con.handler == nil {
+func goOnStreamMessageError(cCon unsafe.Pointer, uid *C.char, streamId C.int, err C.int, missed C.int, cached C.int) {
+	agoraService.connectionRWMutex.RLock()
+	con := agoraService.consByCCon[cCon]
+	agoraService.connectionRWMutex.RUnlock()
+	if con == nil || con.handler == nil || con.handler.OnStreamMessageError == nil {
 		return
 	}
 	// note： best practise is never reelase handler until app is exiting
-	con.handler.OnStreamMessageError(con, GoRtcConnectionInfo(cConInfo), int(uid), int(streamId), int(error))
+	con.handler.OnStreamMessageError(con, C.GoString(uid), int(streamId), int(err), int(missed), int(cached))
 }

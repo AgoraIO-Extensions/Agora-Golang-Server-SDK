@@ -2,3 +2,4 @@
 go_wrapper/main
 go_wrapper/xdump_config
 *.dat
+agora_sdk/*

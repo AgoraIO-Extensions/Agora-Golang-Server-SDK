@@ -18,15 +18,6 @@ import "unsafe"
 // 	BytesPerSample int
 // }
 
-type PcmAudioFrame struct {
-	Data              []byte
-	CaptureTimestamp  int64
-	SamplesPerChannel int
-	BytesPerSample    int
-	NumberOfChannels  int
-	SampleRate        int
-}
-
 type PcmSender struct {
 	// config       *PcmSenderConfig
 	cLocalUser   unsafe.Pointer
@@ -63,7 +54,7 @@ func (sender *PcmSender) SendPcmData(frame *PcmAudioFrame) int {
 	cData := C.CBytes(frame.Data)
 	defer C.free(cData)
 	return int(C.agora_audio_pcm_data_sender_send(sender.cAudioSender, cData,
-		C.uint(frame.CaptureTimestamp), C.uint(frame.SamplesPerChannel),
+		C.uint(frame.Timestamp), C.uint(frame.SamplesPerChannel),
 		C.uint(frame.BytesPerSample), C.uint(frame.NumberOfChannels),
 		C.uint(frame.SampleRate)))
 }

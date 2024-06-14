@@ -43,6 +43,7 @@ extern void cgo_on_reconnected(AGORA_HANDLE agora_rtc_conn, const rtc_conn_info*
 
 //token
 extern void cgo_on_token_privilege_will_expire(AGORA_HANDLE agora_rtc_conn, const char* token);
+extern void cgo_on_token_privilege_did_expire(AGORA_HANDLE agora_rtc_conn);
 
 //user state
 extern void cgo_on_user_joined(AGORA_HANDLE agora_rtc_conn, user_id_t user_id);

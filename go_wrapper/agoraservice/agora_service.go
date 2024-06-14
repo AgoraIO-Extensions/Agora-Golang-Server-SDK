@@ -20,20 +20,22 @@ type AgoraServiceConfig struct {
 }
 
 type AgoraService struct {
-	inited          bool
-	service         unsafe.Pointer
-	mediaFactory    unsafe.Pointer
-	connections     map[unsafe.Pointer]*RtcConnection
-	connectionMutex *sync.Mutex
+	inited            bool
+	service           unsafe.Pointer
+	mediaFactory      unsafe.Pointer
+	consByCCon        map[unsafe.Pointer]*RtcConnection
+	consByCLocalUser  map[unsafe.Pointer]*RtcConnection
+	connectionRWMutex *sync.RWMutex
 }
 
 func newAgoraService() *AgoraService {
 	return &AgoraService{
-		inited:          false,
-		service:         nil,
-		mediaFactory:    nil,
-		connections:     make(map[unsafe.Pointer]*RtcConnection),
-		connectionMutex: &sync.Mutex{},
+		inited:            false,
+		service:           nil,
+		mediaFactory:      nil,
+		consByCCon:        make(map[unsafe.Pointer]*RtcConnection),
+		consByCLocalUser:  make(map[unsafe.Pointer]*RtcConnection),
+		connectionRWMutex: &sync.RWMutex{},
 	}
 }
 
