@@ -49,7 +49,7 @@ func goOnReconnecting(cCon unsafe.Pointer, cConInfo *C.struct__rtc_conn_info, re
 }
 
 //export goOnReconnected
-func goOnReconnected(cCon unsafe.Pointer, cConInfo *C.struct__rtc_conn_info) {
+func goOnReconnected(cCon unsafe.Pointer, cConInfo *C.struct__rtc_conn_info, reason C.int) {
 
 	agoraService.connectionRWMutex.RLock()
 	con := agoraService.consByCCon[cCon]
@@ -58,7 +58,7 @@ func goOnReconnected(cCon unsafe.Pointer, cConInfo *C.struct__rtc_conn_info) {
 		return
 	}
 	// note： best practise is never reelase handler until app is exiting
-	con.handler.onReconnected(con, GoRtcConnectionInfo(cConInfo))
+	con.handler.onReconnected(con, GoRtcConnectionInfo(cConInfo), int(reason))
 }
 
 //export goOnTokenPrivilegeWillExpire
@@ -122,4 +122,16 @@ func goOnStreamMessageError(cCon unsafe.Pointer, uid *C.char, streamId C.int, er
 	}
 	// note： best practise is never reelase handler until app is exiting
 	con.handler.OnStreamMessageError(con, C.GoString(uid), int(streamId), int(err), int(missed), int(cached))
+}
+
+//export goOnStreamMessage
+func goOnStreamMessage(cLocalUser unsafe.Pointer, uid *C.char, streamId C.int, data *C.char, length C.size_t) {
+	agoraService.connectionRWMutex.RLock()
+	con := agoraService.consByCLocalUser[cLocalUser]
+	agoraService.connectionRWMutex.RUnlock()
+	if con == nil || con.handler == nil || con.handler.OnStreamMessage == nil {
+		return
+	}
+	// note： best practise is never reelase handler until app is exiting
+	con.handler.OnStreamMessage(con, C.GoString(uid), int(streamId), C.GoBytes(unsafe.Pointer(data), C.int(length)))
 }

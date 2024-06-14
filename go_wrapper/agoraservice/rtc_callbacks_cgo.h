@@ -39,7 +39,7 @@
 extern void cgo_on_connected(AGORA_HANDLE agora_rtc_conn, const rtc_conn_info* conn_info, int reason);
 extern void cgo_on_disconnected(AGORA_HANDLE agora_rtc_conn, const rtc_conn_info* conn_info, int reason);
 extern void cgo_on_reconnecting(AGORA_HANDLE agora_rtc_conn, const rtc_conn_info* conn_info, int reason);
-extern void cgo_on_reconnected(AGORA_HANDLE agora_rtc_conn, const rtc_conn_info* conn_info);
+extern void cgo_on_reconnected(AGORA_HANDLE agora_rtc_conn, const rtc_conn_info* conn_info, int reason);
 
 //token
 extern void cgo_on_token_privilege_will_expire(AGORA_HANDLE agora_rtc_conn, const char* token);
@@ -51,3 +51,4 @@ extern void cgo_on_user_left(AGORA_HANDLE agora_rtc_conn, user_id_t user_id, int
 
 //steam message 
 extern void cgo_on_stream_message_error(AGORA_HANDLE agora_rtc_conn, user_id_t user_id, int stream_id, int code, int missed, int cached);
+extern void cgo_on_stream_message(AGORA_HANDLE agora_local_user, user_id_t user_id, int stream_id, const char* data, size_t length);

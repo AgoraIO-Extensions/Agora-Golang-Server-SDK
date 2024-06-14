@@ -15,9 +15,9 @@ void cgo_on_reconnecting(AGORA_HANDLE agora_rtc_conn, const rtc_conn_info* conn_
   goOnReconnecting(agora_rtc_conn, conn_info, reason);
 }
 
-extern void goOnReconnected(void* agora_rtc_conn, struct _rtc_conn_info* conn_info);
-void cgo_on_reconnected(AGORA_HANDLE agora_rtc_conn, const rtc_conn_info* conn_info)  {
-  goOnReconnected(agora_rtc_conn, conn_info);
+extern void goOnReconnected(void* agora_rtc_conn, struct _rtc_conn_info* conn_info, int reason);
+void cgo_on_reconnected(AGORA_HANDLE agora_rtc_conn, const rtc_conn_info* conn_info, int reason)  {
+  goOnReconnected(agora_rtc_conn, conn_info, reason);
 }
 
 //token
@@ -46,4 +46,9 @@ void cgo_on_user_left(AGORA_HANDLE agora_rtc_conn, user_id_t user_id, int reason
 extern void goOnStreamMessageError(void* agora_rtc_conn, user_id_t user_id, int stream_id, int code, int missed, int cached);
 void cgo_on_stream_message_error(AGORA_HANDLE agora_rtc_conn, user_id_t user_id, int stream_id, int code, int missed, int cached) {
   goOnStreamMessageError(agora_rtc_conn, user_id, stream_id, code, missed, cached);
+}
+
+extern void goOnStreamMessage(void* agora_local_user, user_id_t user_id, int stream_id, const char* data, size_t length);
+void cgo_on_stream_message(AGORA_HANDLE agora_local_user, user_id_t user_id, int stream_id, const char* data, size_t length) {
+  goOnStreamMessage(agora_local_user, user_id, stream_id, data, length);
 }

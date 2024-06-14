@@ -63,14 +63,30 @@ func GoRtcConnectionInfo(cInfo *C.struct__rtc_conn_info) *RtcConnectionInfo {
 	return ret
 }
 
-func CRtcConnectionEventHandler(handler *RtcConnectionEventHandler) *C.struct__rtc_conn_observer {
+func CRtcConnectionEventHandler(handler *RtcConnectionEventHandler) (*C.struct__rtc_conn_observer, *C.struct__local_user_observer) {
 	ret := (*C.struct__rtc_conn_observer)(C.malloc(C.sizeof_struct__rtc_conn_observer))
 	C.memset(unsafe.Pointer(ret), 0, C.sizeof_struct__rtc_conn_observer)
 	ret.on_connected = (*[0]byte)(C.cgo_on_connected)
-	return ret
+	ret.on_disconnected = (*[0]byte)(C.cgo_on_disconnected)
+	ret.on_reconnecting = (*[0]byte)(C.cgo_on_reconnecting)
+	ret.on_reconnected = (*[0]byte)(C.cgo_on_reconnected)
+	ret.on_token_privilege_will_expire = (*[0]byte)(C.cgo_on_token_privilege_will_expire)
+	ret.on_token_privilege_did_expire = (*[0]byte)(C.cgo_on_token_privilege_did_expire)
+	ret.on_user_joined = (*[0]byte)(C.cgo_on_user_joined)
+	ret.on_user_left = (*[0]byte)(C.cgo_on_user_left)
+	ret.on_stream_message_error = (*[0]byte)(C.cgo_on_stream_message_error)
+
+	ret1 := (*C.struct__local_user_observer)(C.malloc(C.sizeof_struct__local_user_observer))
+	C.memset(unsafe.Pointer(ret1), 0, C.sizeof_struct__local_user_observer)
+	ret1.on_stream_message = (*[0]byte)(C.cgo_on_stream_message)
+	return ret, ret1
 }
 
 func FreeCRtcConnectionEventHandler(handler *C.struct__rtc_conn_observer) {
+	C.free(unsafe.Pointer(handler))
+}
+
+func FreeCLocalUserObserver(handler *C.struct__local_user_observer) {
 	C.free(unsafe.Pointer(handler))
 }
 

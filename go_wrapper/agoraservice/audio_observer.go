@@ -17,10 +17,7 @@ func goOnPlaybackAudioFrameBeforeMixing(cLocalUser unsafe.Pointer, channelId *C.
 	agoraService.connectionRWMutex.RLock()
 	con := agoraService.consByCLocalUser[cLocalUser]
 	agoraService.connectionRWMutex.RUnlock()
-	if con == nil {
-		return
-	}
-	if con.audioObserver.OnPlaybackAudioFrameBeforeMixing == nil {
+	if con == nil || con.audioObserver == nil || con.audioObserver.OnPlaybackAudioFrameBeforeMixing == nil {
 		return
 	}
 	goChannelId := C.GoString(channelId)
