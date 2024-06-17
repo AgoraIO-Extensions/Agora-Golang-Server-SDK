@@ -96,9 +96,9 @@ func TestBaseCase(t *testing.T) {
 			},
 			OnStreamMessage: func(con *RtcConnection, uid string, streamId int, data []byte) {
 				t.Log("stream message")
-				if !*recvAudio {
-					*recvAudio = true
-					waitForAudio <- struct{}{}
+				if !*recvData {
+					*recvData = true
+					waitForData <- struct{}{}
 				}
 			},
 			OnStreamMessageError: func(con *RtcConnection, uid string, streamId int, errCode int, missed int, cached int) {
@@ -108,9 +108,9 @@ func TestBaseCase(t *testing.T) {
 		AudioFrameObserver: &RtcConnectionAudioFrameObserver{
 			OnPlaybackAudioFrameBeforeMixing: func(con *RtcConnection, channelId string, userId string, frame *PcmAudioFrame) {
 				t.Log("Playback audio frame before mixing")
-				if !*recvData {
-					*recvData = true
-					waitForData <- struct{}{}
+				if !*recvAudio {
+					*recvAudio = true
+					waitForAudio <- struct{}{}
 				}
 			},
 		},
