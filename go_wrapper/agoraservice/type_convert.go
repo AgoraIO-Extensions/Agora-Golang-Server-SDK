@@ -12,6 +12,7 @@ package agoraservice
 #include "agora_media_base.h"
 #include "rtc_callbacks_cgo.h"
 #include "audio_observer_cgo.h"
+#include "video_observer_cgo.h"
 */
 import "C"
 import "unsafe"
@@ -110,6 +111,49 @@ func GoPcmAudioFrame(frame *C.struct__audio_frame) *PcmAudioFrame {
 		BytesPerSample:    int(frame.bytes_per_sample),
 		NumberOfChannels:  int(frame.channels),
 		SampleRate:        int(frame.samples_per_sec),
+	}
+	return ret
+}
+
+func CVideoFrameObserver(observer *RtcConnectionVideoFrameObserver) unsafe.Pointer {
+	// ret := (*C.struct__video_frame_observer2)(C.malloc(C.sizeof_struct__video_frame_observer2))
+	ret := C.struct__video_frame_observer2{}
+	C.memset(unsafe.Pointer(&ret), 0, C.sizeof_struct__video_frame_observer2)
+	ret.on_frame = (*[0]byte)(C.cgo_on_video_frame)
+	obs := C.agora_video_frame_observer2_create(&ret)
+	return obs
+}
+
+func FreeCVideoFrameObserver(observer unsafe.Pointer) {
+	C.agora_video_frame_observer2_destroy(observer)
+}
+
+func Uint8PtrToUintptr(p *C.uint8_t) uintptr {
+	return uintptr(unsafe.Pointer(p))
+}
+
+func GoVideoFrame(frame *C.struct__video_frame) *VideoFrame {
+	var buf []byte = nil
+	bufLen := frame.y_stride*frame.height + frame.u_stride*frame.height/2 + frame.v_stride*frame.height/2
+	uStart := frame.y_stride * frame.height
+	vStart := uStart + frame.u_stride*frame.height/2
+	if (Uint8PtrToUintptr(frame.u_buffer)-Uint8PtrToUintptr(frame.y_buffer)) == uintptr(uStart) &&
+		(Uint8PtrToUintptr(frame.v_buffer)-Uint8PtrToUintptr(frame.y_buffer)) == uintptr(vStart) {
+		buf = C.GoBytes(unsafe.Pointer(frame.y_buffer), bufLen)
+	} else {
+		buf = make([]byte, bufLen)
+		copy(buf, unsafe.Slice((*byte)(unsafe.Pointer(frame.y_buffer)), frame.y_stride*frame.height))
+		copy(buf[uStart:], unsafe.Slice((*byte)(unsafe.Pointer(frame.u_buffer)), frame.u_stride*frame.height/2))
+		copy(buf[vStart:], unsafe.Slice((*byte)(unsafe.Pointer(frame.v_buffer)), frame.v_stride*frame.height/2))
+	}
+	ret := &VideoFrame{
+		Buffer:    buf,
+		Width:     int(frame.width),
+		Height:    int(frame.height),
+		YStride:   int(frame.y_stride),
+		UStride:   int(frame.u_stride),
+		VStride:   int(frame.v_stride),
+		Timestamp: int64(frame.render_time_ms),
 	}
 	return ret
 }
