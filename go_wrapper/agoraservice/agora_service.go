@@ -31,12 +31,13 @@ type AgoraService struct {
 
 func newAgoraService() *AgoraService {
 	return &AgoraService{
-		inited:            false,
-		service:           nil,
-		mediaFactory:      nil,
-		consByCCon:        make(map[unsafe.Pointer]*RtcConnection),
-		consByCLocalUser:  make(map[unsafe.Pointer]*RtcConnection),
-		connectionRWMutex: &sync.RWMutex{},
+		inited:               false,
+		service:              nil,
+		mediaFactory:         nil,
+		consByCCon:           make(map[unsafe.Pointer]*RtcConnection),
+		consByCLocalUser:     make(map[unsafe.Pointer]*RtcConnection),
+		consByCVideoObserver: make(map[unsafe.Pointer]*RtcConnection),
+		connectionRWMutex:    &sync.RWMutex{},
 	}
 }
 

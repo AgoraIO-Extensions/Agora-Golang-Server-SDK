@@ -37,7 +37,7 @@ func TestBaseCase(t *testing.T) {
 	var stopSend *bool = new(bool)
 	*stopSend = false
 	waitSenderStop := &sync.WaitGroup{}
-	waitSenderStop.Add(3)
+	waitSenderStop.Add(1)
 	go func() {
 		defer waitSenderStop.Done()
 		data := make([]byte, 320)
@@ -55,6 +55,7 @@ func TestBaseCase(t *testing.T) {
 		sender.Stop()
 	}()
 
+	waitSenderStop.Add(1)
 	go func() {
 		defer waitSenderStop.Done()
 		streamId, ret := senderCon.CreateDataStream(true, true)
@@ -69,17 +70,38 @@ func TestBaseCase(t *testing.T) {
 		}
 	}()
 
-	// go func() {
-	// 	defer senderCon.ReleaseVideoSender()
-	// 	sender := senderCon.GetVideoSender()
-	// 	data := make([]byte, 256)
-	// 	for !*stopSend {
-	// 		senderCon.SendStreamMessage(streamId, data)
-	// 		time.Sleep(100 * time.Millisecond)
-	// 	}
-	// }()
+	waitSenderStop.Add(1)
+	go func() {
+		defer func() {
+			senderCon.ReleaseVideoSender()
+			waitSenderStop.Done()
+		}()
+		sender := senderCon.GetVideoSender()
+		w := 320
+		h := 640
+		dataSize := w * h * 3 / 2
+		data := make([]byte, dataSize)
+		sender.Start()
+		for !*stopSend {
+			// senderCon.SendStreamMessage(streamId, data)
+			sender.SendVideoFrame(&VideoFrame{
+				Buffer:    data,
+				Width:     w,
+				Height:    h,
+				YStride:   w,
+				UStride:   w / 2,
+				VStride:   w / 2,
+				Timestamp: 0,
+			})
+			time.Sleep(100 * time.Millisecond)
+		}
+		sender.Stop()
+	}()
 
 	waitSenderJoin := make(chan struct{}, 1)
+	waitForVideo := make(chan struct{}, 1)
+	recvVideo := new(bool)
+	*recvVideo = false
 	waitForAudio := make(chan struct{}, 1)
 	recvAudio := new(bool)
 	*recvAudio = false
@@ -88,7 +110,7 @@ func TestBaseCase(t *testing.T) {
 	*recvData = false
 	recvCfg := RtcConnectionConfig{
 		SubAudio:       true,
-		SubVideo:       false,
+		SubVideo:       true,
 		ClientRole:     2,
 		ChannelProfile: 1,
 		ConnectionHandler: &RtcConnectionEventHandler{
@@ -125,18 +147,28 @@ func TestBaseCase(t *testing.T) {
 				}
 			},
 		},
+		VideoFrameObserver: &RtcConnectionVideoFrameObserver{
+			OnFrame: func(con *RtcConnection, channelId, userId string, frame *VideoFrame) {
+				t.Log("on video frame")
+				if !*recvVideo {
+					*recvVideo = true
+					waitForVideo <- struct{}{}
+				}
+			},
+		},
 	}
 	recvCon := NewConnection(&recvCfg)
 	defer recvCon.Release()
 	recvCon.Connect("", "lhzuttest", "222")
 	timer := time.NewTimer(10 * time.Second)
-	for *recvAudio == false || *recvData == false {
+	for *recvAudio == false || *recvData == false || *recvVideo == false {
 		select {
 		case <-waitSenderJoin:
 		case <-waitForAudio:
 		case <-waitForData:
+		case <-waitForVideo:
 		case <-timer.C:
-			t.Error("wait audio or data timeout, recvAudio: ", *recvAudio, ", recvData: ", *recvData)
+			t.Error("wait video, audio or data timeout, recvVideo: ", *recvVideo, ", recvAudio: ", *recvAudio, ", recvData: ", *recvData)
 			t.Fail()
 			break
 		}
