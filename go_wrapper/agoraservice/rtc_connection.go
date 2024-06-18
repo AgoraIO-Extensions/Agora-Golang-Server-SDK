@@ -42,6 +42,20 @@ type PcmAudioFrame struct {
 	SampleRate        int
 }
 
+// support YUV I420 only
+type VideoFrame struct {
+	// YBuffer is Buffer [0:YStart+Height*YStride]
+	// UBuffer is Buffer [UStart:UStart+Height/2*UStride]
+	// VBuffer is Buffer [VStart:VStart+Height/2*VStride]
+	Buffer    []byte
+	Width     int
+	Height    int
+	YStride   int
+	UStride   int
+	VStride   int
+	Timestamp int64
+}
+
 type RtcConnectionEventHandler struct {
 	OnConnected                func(con *RtcConnection, conInfo *RtcConnectionInfo, reason int)
 	OnDisconnected             func(con *RtcConnection, conInfo *RtcConnectionInfo, reason int)
@@ -56,7 +70,11 @@ type RtcConnectionEventHandler struct {
 }
 
 type RtcConnectionAudioFrameObserver struct {
-	OnPlaybackAudioFrameBeforeMixing func(*RtcConnection, string, string, *PcmAudioFrame)
+	OnPlaybackAudioFrameBeforeMixing func(con *RtcConnection, channelId string, uid string, frame *PcmAudioFrame)
+}
+
+type RtcConnectionVideoFrameObserver struct {
+	OnFrame func(con *RtcConnection, channelId string, userId string, frame *VideoFrame)
 }
 
 type SubscribeAudioConfig struct {
@@ -73,6 +91,7 @@ type RtcConnectionConfig struct {
 	SubAudioConfig     *SubscribeAudioConfig
 	ConnectionHandler  *RtcConnectionEventHandler
 	AudioFrameObserver *RtcConnectionAudioFrameObserver
+	VideoFrameObserver *RtcConnectionVideoFrameObserver
 }
 
 type RtcConnection struct {
@@ -84,6 +103,10 @@ type RtcConnection struct {
 	cLocalUserObserver *C.struct__local_user_observer
 	audioObserver      *RtcConnectionAudioFrameObserver
 	cAudioObserver     *C.struct__audio_frame_observer
+	videoObserver      *RtcConnectionVideoFrameObserver
+	cVideoObserver     unsafe.Pointer
+
+	videoSender *VideoSender
 }
 
 func NewConnection(cfg *RtcConnectionConfig) *RtcConnection {
@@ -95,6 +118,7 @@ func NewConnection(cfg *RtcConnectionConfig) *RtcConnection {
 		subAudioConfig: cfg.SubAudioConfig,
 		handler:        cfg.ConnectionHandler,
 		audioObserver:  cfg.AudioFrameObserver,
+		videoObserver:  cfg.VideoFrameObserver,
 	}
 	ret.cLocalUser = C.agora_rtc_conn_get_local_user(ret.cConnection)
 	// C.agora_local_user_subscribe_all_audio(ret.cLocalUser)
@@ -117,9 +141,15 @@ func NewConnection(cfg *RtcConnectionConfig) *RtcConnection {
 		C.agora_local_user_register_audio_frame_observer(ret.cLocalUser, ret.cAudioObserver)
 	}
 
+	if ret.videoObserver != nil {
+		ret.cVideoObserver = CVideoFrameObserver(ret.videoObserver)
+		C.agora_local_user_register_video_frame_observer(ret.cLocalUser, ret.cVideoObserver)
+	}
+
 	agoraService.connectionRWMutex.Lock()
 	agoraService.consByCCon[ret.cConnection] = ret
 	agoraService.consByCLocalUser[ret.cLocalUser] = ret
+	agoraService.consByCVideoObserver[ret.cVideoObserver] = ret
 	agoraService.connectionRWMutex.Unlock()
 	return ret
 }
@@ -131,20 +161,25 @@ func (conn *RtcConnection) Release() {
 	agoraService.connectionRWMutex.Lock()
 	delete(agoraService.consByCCon, conn.cConnection)
 	delete(agoraService.consByCLocalUser, conn.cLocalUser)
+	delete(agoraService.consByCVideoObserver, conn.cVideoObserver)
 	agoraService.connectionRWMutex.Unlock()
 	C.agora_rtc_conn_destroy(conn.cConnection)
 	conn.cConnection = nil
-	if conn.cHandler != nil {
-		FreeCRtcConnectionEventHandler(conn.cHandler)
-		conn.cHandler = nil
+	if conn.cAudioObserver != nil {
+		FreeCAudioFrameObserver(conn.cAudioObserver)
+		conn.cAudioObserver = nil
+	}
+	if conn.cVideoObserver != nil {
+		FreeCVideoFrameObserver(conn.cVideoObserver)
+		conn.cVideoObserver = nil
 	}
 	if conn.cLocalUserObserver != nil {
 		FreeCLocalUserObserver(conn.cLocalUserObserver)
 		conn.cLocalUserObserver = nil
 	}
-	if conn.cAudioObserver != nil {
-		FreeCAudioFrameObserver(conn.cAudioObserver)
-		conn.cAudioObserver = nil
+	if conn.cHandler != nil {
+		FreeCRtcConnectionEventHandler(conn.cHandler)
+		conn.cHandler = nil
 	}
 }
 

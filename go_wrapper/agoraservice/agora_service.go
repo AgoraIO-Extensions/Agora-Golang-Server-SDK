@@ -20,12 +20,13 @@ type AgoraServiceConfig struct {
 }
 
 type AgoraService struct {
-	inited            bool
-	service           unsafe.Pointer
-	mediaFactory      unsafe.Pointer
-	consByCCon        map[unsafe.Pointer]*RtcConnection
-	consByCLocalUser  map[unsafe.Pointer]*RtcConnection
-	connectionRWMutex *sync.RWMutex
+	inited               bool
+	service              unsafe.Pointer
+	mediaFactory         unsafe.Pointer
+	consByCCon           map[unsafe.Pointer]*RtcConnection
+	consByCLocalUser     map[unsafe.Pointer]*RtcConnection
+	consByCVideoObserver map[unsafe.Pointer]*RtcConnection
+	connectionRWMutex    *sync.RWMutex
 }
 
 func newAgoraService() *AgoraService {
