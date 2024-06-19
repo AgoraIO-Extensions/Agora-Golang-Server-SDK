@@ -83,7 +83,7 @@ func TestBaseCase(t *testing.T) {
 		dataSize := w * h * 3 / 2
 		data := make([]byte, dataSize)
 		// read yuv from file 103_RaceHorses_416x240p30_300.yuv
-		file, err := os.Open("../agora_sdk/103_RaceHorses_416x240p30_300.yuv")
+		file, err := os.Open("../../agora_sdk/103_RaceHorses_416x240p30_300.yuv")
 		if err != nil {
 			fmt.Println("Error opening file:", err)
 			return
@@ -91,7 +91,7 @@ func TestBaseCase(t *testing.T) {
 		defer file.Close()
 
 		sender.SetVideoEncoderConfig(&VideoEncoderConfig{
-			CodecType:         1,
+			CodecType:         2,
 			Width:             320,
 			Height:            240,
 			Framerate:         30,
