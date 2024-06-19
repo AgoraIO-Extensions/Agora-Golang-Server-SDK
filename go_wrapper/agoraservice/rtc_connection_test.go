@@ -2,6 +2,7 @@ package agoraservice
 
 import (
 	"fmt"
+	"os"
 	"sync"
 	"testing"
 	"time"
@@ -77,12 +78,35 @@ func TestBaseCase(t *testing.T) {
 			waitSenderStop.Done()
 		}()
 		sender := senderCon.GetVideoSender()
-		w := 320
-		h := 640
+		w := 416
+		h := 240
 		dataSize := w * h * 3 / 2
 		data := make([]byte, dataSize)
+		// read yuv from file 103_RaceHorses_416x240p30_300.yuv
+		file, err := os.Open("../agora_sdk/103_RaceHorses_416x240p30_300.yuv")
+		if err != nil {
+			fmt.Println("Error opening file:", err)
+			return
+		}
+		defer file.Close()
+
+		sender.SetVideoEncoderConfig(&VideoEncoderConfig{
+			CodecType:         1,
+			Width:             320,
+			Height:            240,
+			Framerate:         30,
+			Bitrate:           500,
+			MinBitrate:        100,
+			OrientationMode:   0,
+			DegradePreference: 0,
+		})
 		sender.Start()
 		for !*stopSend {
+			dataLen, err := file.Read(data)
+			if err != nil || dataLen < dataSize {
+				file.Seek(0, 0)
+				continue
+			}
 			// senderCon.SendStreamMessage(streamId, data)
 			sender.SendVideoFrame(&VideoFrame{
 				Buffer:    data,
@@ -93,7 +117,7 @@ func TestBaseCase(t *testing.T) {
 				VStride:   w / 2,
 				Timestamp: 0,
 			})
-			time.Sleep(100 * time.Millisecond)
+			time.Sleep(33 * time.Millisecond)
 		}
 		sender.Stop()
 	}()
@@ -151,8 +175,18 @@ func TestBaseCase(t *testing.T) {
 			OnFrame: func(con *RtcConnection, channelId, userId string, frame *VideoFrame) {
 				t.Log("on video frame")
 				if !*recvVideo {
-					*recvVideo = true
-					waitForVideo <- struct{}{}
+					defer func() {
+						*recvVideo = true
+						waitForVideo <- struct{}{}
+					}()
+					// write frame to file
+					file, err := os.Create(fmt.Sprintf("recv_%dx%d.yuv", frame.Width, frame.Height))
+					if err != nil {
+						fmt.Println("Error opening file:", err)
+						return
+					}
+					defer file.Close()
+					file.Write(frame.Buffer)
 				}
 			},
 		},
