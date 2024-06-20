@@ -43,11 +43,14 @@ func (sender *PcmSender) Release() {
 }
 
 func (sender *PcmSender) Start() int {
+	C.agora_local_audio_track_set_enabled(sender.cAudioTrack, C.int(1))
 	return int(C.agora_local_user_publish_audio(sender.cLocalUser, sender.cAudioTrack))
 }
 
 func (sender *PcmSender) Stop() int {
-	return int(C.agora_local_user_unpublish_audio(sender.cLocalUser, sender.cAudioTrack))
+	ret := int(C.agora_local_user_unpublish_audio(sender.cLocalUser, sender.cAudioTrack))
+	C.agora_local_audio_track_set_enabled(sender.cAudioTrack, C.int(0))
+	return ret
 }
 
 func (sender *PcmSender) SendPcmData(frame *PcmAudioFrame) int {
@@ -57,4 +60,8 @@ func (sender *PcmSender) SendPcmData(frame *PcmAudioFrame) int {
 		C.uint(frame.Timestamp), C.uint(frame.SamplesPerChannel),
 		C.uint(frame.BytesPerSample), C.uint(frame.NumberOfChannels),
 		C.uint(frame.SampleRate)))
+}
+
+func (sender *PcmSender) AdjustVolume(volume int) int {
+	return int(C.agora_local_audio_track_adjust_publish_volume(sender.cAudioTrack, C.int(volume)))
 }
