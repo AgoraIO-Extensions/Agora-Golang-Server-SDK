@@ -73,6 +73,8 @@ func main() {
 	}
 	defer file.Close()
 
+	sendCount := 0
+	adjustVolume := 0
 	for {
 		dataLen, err := file.Read(frame.Data)
 		if err != nil || dataLen < 320 {
@@ -81,6 +83,12 @@ func main() {
 		}
 
 		sender.SendPcmData(&frame)
+		sendCount++
+		if sendCount%50 == 0 {
+			adjustVolume += 40
+			adjustVolume %= 400
+			sender.AdjustVolume(adjustVolume)
+		}
 		time.Sleep(10 * time.Millisecond)
 	}
 	sender.Stop()
