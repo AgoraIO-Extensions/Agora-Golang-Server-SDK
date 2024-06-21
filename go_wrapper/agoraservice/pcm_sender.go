@@ -65,3 +65,14 @@ func (sender *PcmSender) SendPcmData(frame *PcmAudioFrame) int {
 func (sender *PcmSender) AdjustVolume(volume int) int {
 	return int(C.agora_local_audio_track_adjust_publish_volume(sender.cAudioTrack, C.int(volume)))
 }
+
+// NOTICE: these interface below is temporary, may be removed in the future
+// size is the number of 10ms audio frames
+// the default value of this param is 30, ie. 300ms
+func (sender *PcmSender) SetSendBufferSize(size int) int {
+	return int(C.agora_local_audio_track_set_max_buffer_audio_frame_number(sender.cAudioTrack, C.int(size)))
+}
+
+func (sender *PcmSender) ClearSendBuffer() int {
+	return int(C.agora_local_audio_track_clear_buffer(sender.cAudioTrack))
+}

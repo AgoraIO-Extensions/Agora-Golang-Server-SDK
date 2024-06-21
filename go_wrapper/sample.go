@@ -73,23 +73,25 @@ func main() {
 	}
 	defer file.Close()
 
-	sendCount := 0
-	adjustVolume := 0
+	sender.AdjustVolume(40)
+
+	bStop := false
 	for {
-		dataLen, err := file.Read(frame.Data)
-		if err != nil || dataLen < 320 {
-			fmt.Println("Finished reading file:", err)
+		// send 100ms audio data
+		for i := 0; i < 10; i++ {
+			dataLen, err := file.Read(frame.Data)
+			if err != nil || dataLen < 320 {
+				fmt.Println("Finished reading file:", err)
+				bStop = true
+				break
+			}
+
+			sender.SendPcmData(&frame)
+		}
+		if bStop {
 			break
 		}
-
-		sender.SendPcmData(&frame)
-		sendCount++
-		if sendCount%50 == 0 {
-			adjustVolume += 40
-			adjustVolume %= 400
-			sender.AdjustVolume(adjustVolume)
-		}
-		time.Sleep(10 * time.Millisecond)
+		time.Sleep(90 * time.Millisecond)
 	}
 	sender.Stop()
 	con.Disconnect()
