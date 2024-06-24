@@ -2,7 +2,8 @@ package agoraservice
 
 /*
 #cgo CFLAGS: -I../../agora_sdk/include_c/api2 -I../../agora_sdk/include_c/base
-#cgo LDFLAGS: -L../../agora_sdk/ -lagora_rtc_sdk -lagora-fdkaac -lagora-ffmpeg
+#cgo darwin arm64 LDFLAGS: -L../../agora_sdk_mac/arm64 -lAgoraRtcKit -lAgorafdkaac -lAgoraffmpeg
+#cgo linux LDFLAGS: -L../../agora_sdk/ -lagora_rtc_sdk -lagora-fdkaac -lagora-ffmpeg
 
 #include "agora_local_user.h"
 #include "agora_rtc_conn.h"
@@ -69,10 +70,10 @@ func (sender *PcmSender) AdjustVolume(volume int) int {
 // NOTICE: these interface below is temporary, may be removed in the future
 // size is the number of 10ms audio frames
 // the default value of this param is 30, ie. 300ms
-// func (sender *PcmSender) SetSendBufferSize(size int) int {
-// 	return int(C.agora_local_audio_track_set_max_buffer_audio_frame_number(sender.cAudioTrack, C.int(size)))
-// }
+func (sender *PcmSender) SetSendBufferSize(bufSize int) {
+	C.agora_local_audio_track_set_max_buffer_audio_frame_number(sender.cAudioTrack, C.int(bufSize))
+}
 
-// func (sender *PcmSender) ClearSendBuffer() int {
-// 	return int(C.agora_local_audio_track_clear_buffer(sender.cAudioTrack))
-// }
+func (sender *PcmSender) ClearSendBuffer() int {
+	return int(C.agora_local_audio_track_clear_buffer(sender.cAudioTrack))
+}

@@ -83,7 +83,7 @@ func TestBaseCase(t *testing.T) {
 		dataSize := w * h * 3 / 2
 		data := make([]byte, dataSize)
 		// read yuv from file 103_RaceHorses_416x240p30_300.yuv
-		file, err := os.Open("../../agora_sdk/103_RaceHorses_416x240p30_300.yuv")
+		file, err := os.Open("../../test_data/103_RaceHorses_416x240p30_300.yuv")
 		if err != nil {
 			fmt.Println("Error opening file:", err)
 			return
@@ -318,4 +318,126 @@ func TestDatastreamCase(t *testing.T) {
 
 	t.Log("recvMsgs count: ", len(recvMsgs))
 	t.Log("recvMsgs: ", recvMsgs)
+}
+
+func TestVadCase(t *testing.T) {
+	// Test code here
+	t.Log("Test case executed")
+	svcCfg := AgoraServiceConfig{
+		AppId: "aab8b8f5a8cd4469a63042fcfafe7063",
+	}
+	Init(&svcCfg)
+	senderCfg := RtcConnectionConfig{
+		SubAudio:       false,
+		SubVideo:       false,
+		ClientRole:     1,
+		ChannelProfile: 1,
+		ConnectionHandler: &RtcConnectionEventHandler{
+			OnConnected: func(con *RtcConnection, info *RtcConnectionInfo, reason int) {
+				t.Log("sender Connected")
+			},
+			OnDisconnected: func(con *RtcConnection, info *RtcConnectionInfo, reason int) {
+				t.Log("sender Disconnected")
+			},
+		},
+	}
+	senderCon := NewConnection(&senderCfg)
+	defer senderCon.Release()
+	sender := senderCon.NewPcmSender()
+	defer sender.Release()
+	senderCon.Connect("", "lhzuttest", "111")
+	sender.Start()
+	var stopSend *bool = new(bool)
+	*stopSend = false
+	waitSenderStop := &sync.WaitGroup{}
+	waitSenderStop.Add(1)
+	go func() {
+		defer waitSenderStop.Done()
+		file, err := os.Open("../../test_data/vad_test.pcm")
+		if err != nil {
+			fmt.Println("Error opening file:", err)
+			return
+		}
+		defer file.Close()
+
+		data := make([]byte, 320)
+		for !*stopSend {
+			dataLen, err := file.Read(data)
+			if err != nil || dataLen < 320 {
+				break
+			}
+			sender.SendPcmData(&PcmAudioFrame{
+				Data:              data,
+				Timestamp:         0,
+				SamplesPerChannel: 160,
+				BytesPerSample:    2,
+				NumberOfChannels:  1,
+				SampleRate:        16000,
+			})
+			time.Sleep(10 * time.Millisecond)
+		}
+		sender.Stop()
+	}()
+
+	vad := NewAudioVad(&AudioVadConfig{
+		StartRecognizeCount: 32,
+		MaxRecognizeCount:   80,
+		ActivePercent:       0.6,
+		InactivePercent:     0.2,
+	})
+	defer vad.Release()
+	recvCfg := RtcConnectionConfig{
+		SubAudio:       true,
+		SubVideo:       false,
+		ClientRole:     2,
+		ChannelProfile: 1,
+		//NOTICE: the input audio format of vad is fixed to 16k, 1 channel, 16bit
+		SubAudioConfig: &SubscribeAudioConfig{
+			SampleRate: 16000,
+			Channels:   1,
+		},
+		ConnectionHandler: &RtcConnectionEventHandler{
+			OnConnected: func(con *RtcConnection, info *RtcConnectionInfo, reason int) {
+				t.Log("recver Connected")
+			},
+			OnDisconnected: func(con *RtcConnection, info *RtcConnectionInfo, reason int) {
+				t.Log("recver Disconnected")
+			},
+			OnUserJoined: func(con *RtcConnection, uid string) {
+				t.Log("user joined, " + uid)
+			},
+			OnUserLeft: func(con *RtcConnection, uid string, reason int) {
+				t.Log("user left, " + uid)
+			},
+			OnStreamMessage: func(con *RtcConnection, uid string, streamId int, data []byte) {
+				t.Log("stream message")
+			},
+			OnStreamMessageError: func(con *RtcConnection, uid string, streamId int, errCode int, missed int, cached int) {
+				t.Log("stream message error")
+			},
+		},
+		AudioFrameObserver: &RtcConnectionAudioFrameObserver{
+			OnPlaybackAudioFrameBeforeMixing: func(con *RtcConnection, channelId string, userId string, frame *PcmAudioFrame) {
+				// t.Log("Playback audio frame before mixing")
+				out, ret := vad.ProcessPcmFrame(frame)
+				if ret < 0 {
+					t.Log("vad process frame failed")
+					t.Fail()
+				}
+				if out != nil {
+					t.Logf("vad state %d, out frame time: %d, duration %d\n", ret, out.Timestamp, out.SamplesPerChannel/16)
+				} else {
+					t.Logf("vad state %d\n", ret)
+				}
+			},
+		},
+		VideoFrameObserver: nil,
+	}
+	recvCon := NewConnection(&recvCfg)
+	defer recvCon.Release()
+	recvCon.Connect("", "lhzuttest", "222")
+
+	waitSenderStop.Wait()
+	senderCon.Disconnect()
+	recvCon.Disconnect()
 }
