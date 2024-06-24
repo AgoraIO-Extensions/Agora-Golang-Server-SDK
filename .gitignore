@@ -3,5 +3,7 @@ go_wrapper/main
 go_wrapper/xdump_config
 *.dat
 agora_sdk/*
+agora_sdk_mac/*
+test_data/*
 *.pcm
 *.yuv

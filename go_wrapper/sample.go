@@ -66,7 +66,7 @@ func main() {
 		SampleRate:        16000,
 	}
 
-	file, err := os.Open("../agora_sdk/demo.pcm")
+	file, err := os.Open("../test_data/demo.pcm")
 	if err != nil {
 		fmt.Println("Error opening file:", err)
 		return
@@ -74,6 +74,7 @@ func main() {
 	defer file.Close()
 
 	sender.AdjustVolume(40)
+	sender.SetSendBufferSize(1000)
 
 	bStop := false
 	for {

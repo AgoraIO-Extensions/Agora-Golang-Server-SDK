@@ -1,14 +1,12 @@
 package agoraservice
 
-/*
-#cgo CFLAGS: -I../../agora_sdk/include_c/api2 -I../../agora_sdk/include_c/base
-#cgo LDFLAGS: -L../../agora_sdk/ -lagora_rtc_sdk -lagora-fdkaac -lagora-ffmpeg
-
-#include "agora_local_user.h"
-#include "agora_rtc_conn.h"
-#include "agora_service.h"
-#include "agora_media_base.h"
-*/
+// #cgo CFLAGS: -I${SRCDIR}/../../agora_sdk/include_c/api2 -I${SRCDIR}/../../agora_sdk/include_c/base
+// #cgo darwin arm64 LDFLAGS: -L../../agora_sdk_mac/arm64 -lAgoraRtcKit -lAgorafdkaac -lAgoraffmpeg
+// #cgo linux LDFLAGS: -L../../agora_sdk/ -lagora_rtc_sdk -lagora-fdkaac -lagora-ffmpeg
+// #include "agora_local_user.h"
+// #include "agora_rtc_conn.h"
+// #include "agora_service.h"
+// #include "agora_media_base.h"
 import "C"
 import (
 	"sync"
