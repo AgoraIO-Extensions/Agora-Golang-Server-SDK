@@ -3,7 +3,7 @@ package agoraservice
 /*
 #cgo CFLAGS: -I${SRCDIR}/../../agora_sdk/include_c/api2 -I${SRCDIR}/../../agora_sdk/include_c/base
 #cgo darwin arm64 LDFLAGS: -L../../agora_sdk_mac/arm64 -lAgoraRtcKit -lAgorafdkaac -lAgoraffmpeg
-#cgo linux LDFLAGS: -L../../agora_sdk/ -lagora_rtc_sdk -lagora-fdkaac -lagora-ffmpeg
+#cgo linux LDFLAGS: -L../../agora_sdk/ -lagora_rtc_sdk -lagora-fdkaac -lagora-core
 
 #include <stdlib.h>
 #include <string.h>

@@ -27,7 +27,7 @@ type AudioVadConfig struct {
 type AudioVad struct {
 	vadCfg     *AudioVadConfig
 	cVad       unsafe.Pointer
-	lastOutTs  uint64
+	lastOutTs  int64
 	lastStatus int
 }
 
@@ -46,7 +46,7 @@ func NewAudioVad(cfg *AudioVadConfig) *AudioVad {
 		lastStatus: VAD_WAIT_SPEEKING,
 	}
 	cVadCfg := C.struct_Vad_Config_{}
-	C.memest(&cVadCfg, 0, C.sizeof_struct_Vad_Config_)
+	C.memset((unsafe.Pointer)(&cVadCfg), 0, C.sizeof_struct_Vad_Config_)
 	cVadCfg.fftSz = C.int(1024)
 	cVadCfg.anaWindowSz = C.int(768)
 	cVadCfg.hopSz = C.int(160)
@@ -75,7 +75,7 @@ func (vad *AudioVad) Release() {
 }
 
 func (vad *AudioVad) ProcessPcmFrame(frame *PcmAudioFrame) (*PcmAudioFrame, int) {
-	if frame.SampleRate != 16000 || frame.Channels != 1 || frame.BytesPerSample != 2 {
+	if frame.SampleRate != 16000 || frame.NumberOfChannels != 1 || frame.BytesPerSample != 2 {
 		return nil, -1
 	}
 	cData := C.CBytes(frame.Data)
@@ -85,6 +85,7 @@ func (vad *AudioVad) ProcessPcmFrame(frame *PcmAudioFrame) (*PcmAudioFrame, int)
 		size:      C.int(len(frame.Data)),
 	}
 	var out C.Vad_AudioData
+	C.memset((unsafe.Pointer)(&out), 0, C.sizeof_struct_Vad_AudioData_)
 	ret := int(C.Agora_UAP_VAD_Proc(vad.cVad, &in, &out))
 	if ret < 0 {
 		return nil, ret
@@ -117,5 +118,5 @@ func (vad *AudioVad) ProcessPcmFrame(frame *PcmAudioFrame) (*PcmAudioFrame, int)
 	}
 	vad.lastOutTs += int64(frameDuration)
 
-	return outFrame, ret
+	return outFrame, vad.lastStatus
 }
