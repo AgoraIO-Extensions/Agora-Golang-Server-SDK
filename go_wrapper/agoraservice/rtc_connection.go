@@ -9,6 +9,7 @@ package agoraservice
 #include "agora_rtc_conn.h"
 #include "agora_service.h"
 #include "agora_media_base.h"
+#include "agora_parameter.h"
 */
 import "C"
 import "unsafe"
@@ -239,4 +240,17 @@ func (conn *RtcConnection) UnsubscribeAudio(uid string) int {
 	cUid := C.CString(uid)
 	defer C.free(unsafe.Pointer(cUid))
 	return int(C.agora_local_user_unsubscribe_audio(conn.cLocalUser, cUid))
+}
+
+func (conn *RtcConnection) SetParameters(parameters string) int {
+	if conn.cConnection == nil {
+		return -1
+	}
+	cParamHdl := C.agora_rtc_conn_get_agora_parameter(conn.cConnection)
+	if cParamHdl == nil {
+		return -1
+	}
+	cParameters := C.CString(parameters)
+	defer C.free(unsafe.Pointer(cParameters))
+	return int(C.agora_parameter_set_parameters(cParamHdl, cParameters))
 }
