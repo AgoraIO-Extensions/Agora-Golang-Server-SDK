@@ -25,6 +25,7 @@ func CAgoraServiceConfig(cfg *AgoraServiceConfig) *C.struct__agora_service_confi
 	ret.enable_audio_device = C.int(0)
 	ret.enable_audio_processor = C.int(1)
 	ret.enable_video = C.int(1)
+	ret.audio_scenario = C.int(cfg.AudioScenario)
 	return ret
 }
 

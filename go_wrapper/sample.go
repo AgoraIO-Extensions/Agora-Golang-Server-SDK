@@ -10,7 +10,8 @@ import (
 
 func main() {
 	svcCfg := agoraservice.AgoraServiceConfig{
-		AppId: "aab8b8f5a8cd4469a63042fcfafe7063",
+		AppId:         "aab8b8f5a8cd4469a63042fcfafe7063",
+		AudioScenario: agoraservice.AUDIO_SCENARIO_CHORUS,
 	}
 	agoraservice.Init(&svcCfg)
 	conCfg := agoraservice.RtcConnectionConfig{

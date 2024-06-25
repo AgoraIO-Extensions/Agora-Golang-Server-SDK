@@ -12,7 +12,10 @@ func TestBaseCase(t *testing.T) {
 	// Test code here
 	t.Log("Test case executed")
 	svcCfg := AgoraServiceConfig{
-		AppId: "aab8b8f5a8cd4469a63042fcfafe7063",
+		AppId:         "aab8b8f5a8cd4469a63042fcfafe7063",
+		AudioScenario: AUDIO_SCENARIO_CHORUS,
+		LogPath:       "./agora_rtc_log/agorasdk.log",
+		LogSize:       512 * 1024,
 	}
 	Init(&svcCfg)
 	senderCfg := RtcConnectionConfig{
@@ -193,6 +196,8 @@ func TestBaseCase(t *testing.T) {
 	}
 	recvCon := NewConnection(&recvCfg)
 	defer recvCon.Release()
+	recvCon.SetParameters("{\"rtc.video.playout_delay_max\": 250," +
+		"\"rtc.video.broadcaster_playout_delay_max\": 250}")
 	recvCon.Connect("", "lhzuttest", "222")
 	timer := time.NewTimer(10 * time.Second)
 	for *recvAudio == false || *recvData == false || *recvVideo == false {
