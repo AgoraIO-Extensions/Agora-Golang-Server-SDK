@@ -2,7 +2,7 @@ package agoraservice
 
 /*
 #cgo CFLAGS: -I../../agora_sdk/include_c/api2 -I../../agora_sdk/include_c/base
-#cgo darwin arm64 LDFLAGS: -L../../agora_sdk_mac
+#cgo darwin LDFLAGS: -Wl,-rpath,../../agora_sdk_mac -L../../agora_sdk_mac -luap_aed
 #cgo linux LDFLAGS: -L../../agora_sdk/ -lagora_uap_aed
 #include <string.h>
 #include "vad.h"

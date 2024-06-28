@@ -1,4 +1,4 @@
-# Build sdk
+# Build and run on linux
 ## Required OS and go version
 - supported linux version: 
   - Ubuntu 18.04 LTS and above
@@ -21,7 +21,7 @@ cd go_wrapper
 go build main
 ```
 
-# Test
+## Test
 - download and unzip [test_data.zip](https://share.weiyun.com/d3BuJNkZ)
 - make **test_data** directory in the same directory with **go_wrapper**
 - run main
@@ -37,7 +37,30 @@ cd go_wrapper/agoraservice
 go test -v -count=1 -timeout 20s -run ^TestBaseCase$ agoraservice
 ```
 
+# Build and run on mac
+- download and unzip [agora_sdk_mac.zip](https://share.weiyun.com/eyK5E4Y1)
+```
+unzip agora_sdk_mac.zip
+```
+- make **agora_sdk_mac** directory in the same directory with **go_wrapper**
+- download and unzip [test_data.zip](https://share.weiyun.com/d3BuJNkZ)
+- make **test_data** directory in the same directory with **go_wrapper**
+- build and run main
+```
+cd go_wrapper
+./build_for_mac.sh
+./main
+```
+- build and test ut
+```
+export CGO_LDFLAGS_ALLOW="-Wl,-rpath,.*"
+cd go_wrapper/agoraservice
+go test -v -count=1 -timeout 20s -run ^TestBaseCase$ agoraservice
+```
+
 # Change log
+## 2024.06.28
+- support build and test on mac
 ## 2024.06.25
 - Make VAD available, for details see UT case TestVadCase in agoraservice/rtc_connection_test.go
 - Reduce audio delay, by setting AudioScenario to AUDIO_SCENARIO_CHORUS, for details see UT case TestBaseCase in agoraservice/rtc_connection_test.go
