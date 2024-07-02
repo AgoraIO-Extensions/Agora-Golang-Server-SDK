@@ -240,6 +240,20 @@ func (conn *RtcConnection) UnsubscribeAudio(uid string) int {
 	return int(C.agora_local_user_unsubscribe_audio(conn.cLocalUser, cUid))
 }
 
+func (conn *RtcConnection) SubscribeAllAudio() int {
+	if conn.cLocalUser == nil {
+		return -1
+	}
+	return int(C.agora_local_user_subscribe_all_audio(conn.cLocalUser))
+}
+
+func (conn *RtcConnection) UnsubscribeAllAudio() int {
+	if conn.cLocalUser == nil {
+		return -1
+	}
+	return int(C.agora_local_user_unsubscribe_all_audio(conn.cLocalUser))
+}
+
 func (conn *RtcConnection) SetParameters(parameters string) int {
 	if conn.cConnection == nil {
 		return -1

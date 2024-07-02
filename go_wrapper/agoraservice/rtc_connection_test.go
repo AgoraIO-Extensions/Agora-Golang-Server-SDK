@@ -446,3 +446,178 @@ func TestVadCase(t *testing.T) {
 	senderCon.Disconnect()
 	recvCon.Disconnect()
 }
+
+func TestSubAudio(t *testing.T) {
+	// Test code here
+	t.Log("Test case executed")
+	svcCfg := AgoraServiceConfig{
+		AppId: "aab8b8f5a8cd4469a63042fcfafe7063",
+	}
+	Init(&svcCfg)
+	senderCfg := RtcConnectionConfig{
+		SubAudio:       false,
+		SubVideo:       false,
+		ClientRole:     1,
+		ChannelProfile: 1,
+		ConnectionHandler: &RtcConnectionEventHandler{
+			OnConnected: func(con *RtcConnection, info *RtcConnectionInfo, reason int) {
+				t.Log("sender Connected")
+			},
+			OnDisconnected: func(con *RtcConnection, info *RtcConnectionInfo, reason int) {
+				t.Log("sender Disconnected")
+			},
+		},
+	}
+	var stopSend *bool = new(bool)
+	*stopSend = false
+	waitSenderStop := &sync.WaitGroup{}
+	const conNum = 5
+	senderCons := make([]*RtcConnection, conNum)
+	for i := 0; i < conNum; i++ {
+		senderCon := NewConnection(&senderCfg)
+		senderCons[i] = senderCon
+		senderCon.Connect("", "lhzuttestsubaudio", fmt.Sprintf("111%d", i))
+		waitSenderStop.Add(1)
+		go func(con *RtcConnection) {
+			defer waitSenderStop.Done()
+			file, err := os.Open("../../test_data/demo.pcm")
+			if err != nil {
+				fmt.Println("Error opening file:", err)
+				return
+			}
+			defer file.Close()
+			sender := con.NewPcmSender()
+			defer sender.Release()
+			sender.Start()
+
+			data := make([]byte, 320)
+			for !*stopSend {
+				dataLen, err := file.Read(data)
+				if err != nil || dataLen < 320 {
+					file.Seek(0, 0)
+					break
+				}
+				sender.SendPcmData(&PcmAudioFrame{
+					Data:              data,
+					Timestamp:         0,
+					SamplesPerChannel: 160,
+					BytesPerSample:    2,
+					NumberOfChannels:  1,
+					SampleRate:        16000,
+				})
+				time.Sleep(10 * time.Millisecond)
+			}
+			sender.Stop()
+		}(senderCon)
+	}
+
+	var setRecvState *bool = new(bool)
+	*setRecvState = true
+	recvedMutex := &sync.Mutex{}
+	recvedUsers := make(map[string]struct{}, conNum)
+	recvCfg := RtcConnectionConfig{
+		SubAudio:       true,
+		SubVideo:       false,
+		ClientRole:     2,
+		ChannelProfile: 1,
+		//NOTICE: the input audio format of vad is fixed to 16k, 1 channel, 16bit
+		SubAudioConfig: &SubscribeAudioConfig{
+			SampleRate: 16000,
+			Channels:   1,
+		},
+		ConnectionHandler: &RtcConnectionEventHandler{
+			OnConnected: func(con *RtcConnection, info *RtcConnectionInfo, reason int) {
+				t.Log("recver Connected")
+			},
+			OnDisconnected: func(con *RtcConnection, info *RtcConnectionInfo, reason int) {
+				t.Log("recver Disconnected")
+			},
+			OnUserJoined: func(con *RtcConnection, uid string) {
+				t.Log("user joined, " + uid)
+			},
+			OnUserLeft: func(con *RtcConnection, uid string, reason int) {
+				t.Log("user left, " + uid)
+			},
+			OnStreamMessage: func(con *RtcConnection, uid string, streamId int, data []byte) {
+				t.Log("stream message")
+			},
+			OnStreamMessageError: func(con *RtcConnection, uid string, streamId int, errCode int, missed int, cached int) {
+				t.Log("stream message error")
+			},
+		},
+		AudioFrameObserver: &RtcConnectionAudioFrameObserver{
+			OnPlaybackAudioFrameBeforeMixing: func(con *RtcConnection, channelId string, userId string, frame *PcmAudioFrame) {
+				// t.Log("Playback audio frame before mixing")
+				if !*setRecvState {
+					return
+				}
+				recvedMutex.Lock()
+				recvedUsers[userId] = struct{}{}
+				recvedMutex.Unlock()
+			},
+		},
+		VideoFrameObserver: nil,
+	}
+	recvCon := NewConnection(&recvCfg)
+	defer recvCon.Release()
+	recvCon.Connect("", "lhzuttestsubaudio", "222")
+
+	time.Sleep(5 * time.Second)
+	if len(recvedUsers) != conNum {
+		t.Error("not all users received audio")
+		t.Fail()
+	} else {
+		t.Log("all users received audio")
+	}
+	*setRecvState = false
+	time.Sleep(1 * time.Second)
+	recvedMutex.Lock()
+	// wrong code: recvedUsers = make(map[string]struct{}, 0)
+	for i := 0; i < conNum; i++ {
+		delete(recvedUsers, fmt.Sprintf("111%d", i))
+	}
+	recvedMutex.Unlock()
+	recvCon.UnsubscribeAllAudio()
+	// make sure no callback after unsubscribe
+	time.Sleep(2 * time.Second)
+	*setRecvState = true
+	time.Sleep(2 * time.Second)
+	if len(recvedUsers) != 0 {
+		t.Error("after unsubscribe all audio, still received audio")
+		t.Fail()
+	} else {
+		t.Log("after unsubscribe all audio, no audio received")
+	}
+
+	recvCon.SubscribeAudio("1110")
+	time.Sleep(2 * time.Second)
+	if len(recvedUsers) != 1 {
+		t.Error("after subscribe audio, not received audio")
+		t.Fail()
+	} else {
+		t.Log("after subscribe 1110 audio, received audio")
+	}
+	*setRecvState = false
+	time.Sleep(1 * time.Second)
+	recvedMutex.Lock()
+	delete(recvedUsers, "1110")
+	recvedMutex.Unlock()
+	recvCon.UnsubscribeAudio("1110")
+	time.Sleep(2 * time.Second)
+	*setRecvState = true
+	time.Sleep(2 * time.Second)
+	if len(recvedUsers) != 0 {
+		t.Error("after unsubscribe 1110 audio, still received audio")
+		t.Fail()
+	} else {
+		t.Log("after unsubscribe 1110 audio, no audio received")
+	}
+
+	*stopSend = true
+	waitSenderStop.Wait()
+	for i := 0; i < conNum; i++ {
+		senderCons[i].Disconnect()
+		senderCons[i].Release()
+	}
+	recvCon.Disconnect()
+}
