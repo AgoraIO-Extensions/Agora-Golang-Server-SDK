@@ -14,13 +14,18 @@ import "C"
 import "unsafe"
 
 type VideoEncoderConfig struct {
-	CodecType         int
-	Width             int
-	Height            int
-	Framerate         int
-	Bitrate           int
-	MinBitrate        int
-	OrientationMode   int
+	// 1: VP8, 2: H264
+	CodecType int
+	Width     int
+	Height    int
+	Framerate int
+	// kbps
+	Bitrate int
+	// kbps
+	MinBitrate int
+	// 0: adaptive, 1: fixed landscape, 2: fixed portrait
+	OrientationMode int
+	// 0: maintain, 1: maintain frame rate, 2: maintain quality
 	DegradePreference int
 }
 
@@ -65,8 +70,8 @@ func (sender *VideoSender) SetVideoEncoderConfig(cfg *VideoEncoderConfig) int {
 	cCfg.dimensions.width = C.int(cfg.Width)
 	cCfg.dimensions.height = C.int(cfg.Height)
 	cCfg.frame_rate = C.int(cfg.Framerate)
-	cCfg.bitrate = C.int(cfg.Bitrate)
-	cCfg.min_bitrate = C.int(cfg.MinBitrate)
+	cCfg.bitrate = C.int(cfg.Bitrate * 1000)
+	cCfg.min_bitrate = C.int(cfg.MinBitrate * 1000)
 	cCfg.orientation_mode = C.int(cfg.OrientationMode)
 	cCfg.degradation_preference = C.int(cfg.DegradePreference)
 	return int(C.agora_local_video_track_set_video_encoder_config(sender.cVideoTrack, &cCfg))
