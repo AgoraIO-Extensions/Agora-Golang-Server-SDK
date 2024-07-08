@@ -18,32 +18,34 @@ const (
 )
 
 type AudioVadConfig struct {
-	StartRecognizeCount int     // start recognize count, buffer size for 40ms 16KHz 16bit 1channel PCM, default value is 8
-	MaxRecognizeCount   int     // max recognize count, buffer size for 40ms 16KHz 16bit 1channel PCM, default value is 20
-	ActivePercent       float32 // active percent, if over this percent, will be recognized as speaking, default value is 0.6
-	InactivePercent     float32 // inactive percent, if below this percent, will be recognized as non-speaking, default value is 0.2
+	StartRecognizeCount    int     // start recognize count, buffer size for 10ms 16KHz 16bit 1channel PCM, default value is 10
+	StopRecognizeCount     int     // max recognize count, buffer size for 10ms 16KHz 16bit 1channel PCM, default value is 6
+	PreStartRecognizeCount int     // pre start recognize count, buffer size for 10ms 16KHz 16bit 1channel PCM, default value is 10
+	ActivePercent          float32 // active percent, if over this percent, will be recognized as speaking, default value is 0.6
+	InactivePercent        float32 // inactive percent, if below this percent, will be recognized as non-speaking, default value is 0.2
 }
 
 type AudioVad struct {
-	vadCfg     *AudioVadConfig
-	cVad       unsafe.Pointer
-	lastOutTs  int64
-	lastStatus int
+	vadCfg    *AudioVadConfig
+	cVad      unsafe.Pointer
+	lastOutTs int64
+	// lastStatus int
 }
 
 func NewAudioVad(cfg *AudioVadConfig) *AudioVad {
 	if cfg == nil {
 		cfg = &AudioVadConfig{
-			StartRecognizeCount: 8,
-			MaxRecognizeCount:   20,
-			ActivePercent:       0.6,
-			InactivePercent:     0.2,
+			StartRecognizeCount:    10,
+			StopRecognizeCount:     6,
+			PreStartRecognizeCount: 10,
+			ActivePercent:          0.6,
+			InactivePercent:        0.2,
 		}
 	}
 	vad := &AudioVad{
-		vadCfg:     cfg,
-		lastOutTs:  0,
-		lastStatus: VAD_WAIT_SPEEKING,
+		vadCfg:    cfg,
+		lastOutTs: 0,
+		// lastStatus: VAD_WAIT_SPEEKING,
 	}
 	cVadCfg := C.struct_Vad_Config_{}
 	C.memset((unsafe.Pointer)(&cVadCfg), 0, C.sizeof_struct_Vad_Config_)
@@ -57,7 +59,8 @@ func NewAudioVad(cfg *AudioVadConfig) *AudioVad {
 	cVadCfg.jointThr = C.float(0.0)
 	cVadCfg.aggressive = C.float(2.0)
 	cVadCfg.startRecognizeCount = C.int(cfg.StartRecognizeCount)
-	cVadCfg.maxRecognizeCount = C.int(cfg.MaxRecognizeCount)
+	cVadCfg.stopRecognizeCount = C.int(cfg.StopRecognizeCount)
+	cVadCfg.preStartRecognizeCount = C.int(cfg.PreStartRecognizeCount)
 	cVadCfg.activePercent = C.float(cfg.ActivePercent)
 	cVadCfg.inactivePercent = C.float(cfg.InactivePercent)
 	ret := int(C.Agora_UAP_VAD_Create(&vad.cVad, &cVadCfg))
@@ -84,26 +87,12 @@ func (vad *AudioVad) ProcessPcmFrame(frame *PcmAudioFrame) (*PcmAudioFrame, int)
 		audioData: (unsafe.Pointer)(cData),
 		size:      C.int(len(frame.Data)),
 	}
+	var vadState C.enum_VAD_STATE = C.enum_VAD_STATE(0)
 	var out C.Vad_AudioData
 	C.memset((unsafe.Pointer)(&out), 0, C.sizeof_struct_Vad_AudioData_)
-	ret := int(C.Agora_UAP_VAD_Proc(vad.cVad, &in, &out))
+	ret := int(C.Agora_UAP_VAD_Proc(vad.cVad, &in, &out, &vadState))
 	if ret < 0 {
 		return nil, ret
-	}
-	if out.size == 0 || out.size == 2 {
-		if vad.lastStatus == VAD_IS_SPEEKING ||
-			vad.lastStatus == VAD_START_SPEEKING {
-			vad.lastStatus = VAD_STOP_SPEEKING
-			return nil, VAD_STOP_SPEEKING
-		}
-		vad.lastStatus = VAD_WAIT_SPEEKING
-		return nil, VAD_WAIT_SPEEKING
-	}
-	if vad.lastStatus == VAD_WAIT_SPEEKING ||
-		vad.lastStatus == VAD_STOP_SPEEKING {
-		vad.lastStatus = VAD_START_SPEEKING
-	} else {
-		vad.lastStatus = VAD_IS_SPEEKING
 	}
 	samplesPerChannel := int(out.size) / 2 / 1
 	frameDuration := 1000 * samplesPerChannel / 16000
@@ -118,5 +107,5 @@ func (vad *AudioVad) ProcessPcmFrame(frame *PcmAudioFrame) (*PcmAudioFrame, int)
 	}
 	vad.lastOutTs += int64(frameDuration)
 
-	return outFrame, vad.lastStatus
+	return outFrame, int(vadState)
 }
