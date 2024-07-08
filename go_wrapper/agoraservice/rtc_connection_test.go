@@ -196,8 +196,8 @@ func TestBaseCase(t *testing.T) {
 	}
 	recvCon := NewConnection(&recvCfg)
 	defer recvCon.Release()
-	recvCon.SetParameters("{\"rtc.video.playout_delay_max\": 250," +
-		"\"rtc.video.broadcaster_playout_delay_max\": 250}")
+	recvCon.SetParameters("{\"rtc.video.playout_delay_max\": 250}")
+	recvCon.SetParameters("{\"rtc.video.broadcaster_playout_delay_max\": 250}")
 	recvCon.Connect("", "lhzuttest", "222")
 	timer := time.NewTimer(10 * time.Second)
 	for *recvAudio == false || *recvData == false || *recvVideo == false {
