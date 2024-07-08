@@ -163,6 +163,18 @@ func (conn *RtcConnection) Release() {
 	delete(agoraService.consByCLocalUser, conn.cLocalUser)
 	delete(agoraService.consByCVideoObserver, conn.cVideoObserver)
 	agoraService.connectionRWMutex.Unlock()
+	if conn.cAudioObserver != nil {
+		C.agora_local_user_unregister_audio_frame_observer(conn.cLocalUser)
+	}
+	if conn.cVideoObserver != nil {
+		C.agora_local_user_unregister_video_frame_observer(conn.cLocalUser, conn.cVideoObserver)
+	}
+	if conn.cLocalUserObserver != nil {
+		C.agora_local_user_unregister_observer(conn.cLocalUser)
+	}
+	if conn.cHandler != nil {
+		C.agora_rtc_conn_unregister_observer(conn.cConnection)
+	}
 	C.agora_rtc_conn_destroy(conn.cConnection)
 	conn.cConnection = nil
 	if conn.cAudioObserver != nil {
