@@ -53,11 +53,23 @@ func goOnReconnected(cCon unsafe.Pointer, cConInfo *C.struct__rtc_conn_info, rea
 	agoraService.connectionRWMutex.RLock()
 	con := agoraService.consByCCon[cCon]
 	agoraService.connectionRWMutex.RUnlock()
-	if con == nil || con.handler == nil || con.handler.onReconnected == nil {
+	if con == nil || con.handler == nil || con.handler.OnReconnected == nil {
 		return
 	}
 	// note： best practise is never reelase handler until app is exiting
-	con.handler.onReconnected(con, GoRtcConnectionInfo(cConInfo), int(reason))
+	con.handler.OnReconnected(con, GoRtcConnectionInfo(cConInfo), int(reason))
+}
+
+//export goOnConnectionLost
+func goOnConnectionLost(cCon unsafe.Pointer, cConInfo *C.struct__rtc_conn_info) {
+	agoraService.connectionRWMutex.RLock()
+	con := agoraService.consByCCon[cCon]
+	agoraService.connectionRWMutex.RUnlock()
+	if con == nil || con.handler == nil || con.handler.OnConnectionLost == nil {
+		return
+	}
+	// note： best practise is never reelase handler until app is exiting
+	con.handler.OnConnectionLost(con, GoRtcConnectionInfo(cConInfo))
 }
 
 //export goOnTokenPrivilegeWillExpire
