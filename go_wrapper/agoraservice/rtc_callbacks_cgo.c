@@ -20,6 +20,11 @@ void cgo_on_reconnected(AGORA_HANDLE agora_rtc_conn, const rtc_conn_info* conn_i
   goOnReconnected(agora_rtc_conn, conn_info, reason);
 }
 
+extern void goOnConnectionLost(void* agora_rtc_conn, struct _rtc_conn_info* conn_info);
+void cgo_on_connection_lost(AGORA_HANDLE agora_rtc_conn, const rtc_conn_info* conn_info) {
+  goOnConnectionLost(agora_rtc_conn, conn_info);
+}
+
 //token
 extern void goOnTokenPrivilegeWillExpire(void* agora_rtc_conn, const char* token);
 void cgo_on_token_privilege_will_expire(AGORA_HANDLE agora_rtc_conn, const char* token) {

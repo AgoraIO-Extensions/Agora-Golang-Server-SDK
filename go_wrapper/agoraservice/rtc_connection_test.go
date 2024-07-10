@@ -358,7 +358,7 @@ func TestVadCase(t *testing.T) {
 	waitSenderStop.Add(1)
 	go func() {
 		defer waitSenderStop.Done()
-		file, err := os.Open("../../test_data/vad_test.pcm")
+		file, err := os.Open("../../test_data/demo.raw")
 		if err != nil {
 			fmt.Println("Error opening file:", err)
 			return
@@ -444,6 +444,7 @@ func TestVadCase(t *testing.T) {
 	recvCon.Connect("", "lhzuttest", "222")
 
 	waitSenderStop.Wait()
+	time.Sleep(5 * time.Second)
 	senderCon.Disconnect()
 	recvCon.Disconnect()
 }
@@ -621,4 +622,126 @@ func TestSubAudio(t *testing.T) {
 		senderCons[i].Release()
 	}
 	recvCon.Disconnect()
+}
+
+func TestReconnect(t *testing.T) {
+	// Test code here
+	t.Log("Test case executed")
+	svcCfg := AgoraServiceConfig{
+		AppId: "aab8b8f5a8cd4469a63042fcfafe7063",
+	}
+	Init(&svcCfg)
+	connectedSignal := make(chan struct{}, 1)
+	senderCfg := RtcConnectionConfig{
+		SubAudio:       true,
+		SubVideo:       true,
+		ClientRole:     1,
+		ChannelProfile: 1,
+		ConnectionHandler: &RtcConnectionEventHandler{
+			OnConnected: func(con *RtcConnection, info *RtcConnectionInfo, reason int) {
+				t.Log("sender Connected")
+				connectedSignal <- struct{}{}
+			},
+			OnDisconnected: func(con *RtcConnection, info *RtcConnectionInfo, reason int) {
+				t.Log("sender Disconnected")
+			},
+		},
+	}
+	con := NewConnection(&senderCfg)
+	defer con.Release()
+	con.Connect("", "lhzuttestreconnect", "111")
+
+	select {
+	case <-connectedSignal:
+	case <-time.After(10 * time.Second):
+		t.Error("connect timeout")
+		t.Fail()
+	}
+
+	con.Disconnect()
+
+	con.Connect("", "lhzuttestreconnect", "111")
+
+	select {
+	case <-connectedSignal:
+	case <-time.After(10 * time.Second):
+		t.Error("connect timeout")
+		t.Fail()
+	}
+
+	con.Disconnect()
+}
+
+func TestVad1(t *testing.T) {
+	agoraVad := NewAudioVad(&AudioVadConfig{
+		StartRecognizeCount:    10,
+		StopRecognizeCount:     6,
+		PreStartRecognizeCount: 10,
+		ActivePercent:          0.6,
+		InactivePercent:        0.2,
+	})
+	defer agoraVad.Release()
+	f, err := os.ReadFile("../../test_data/demo.raw")
+	if err != nil {
+		t.Error(err)
+	}
+	for len(f) > 0 {
+		dataSize := 320
+		if len(f) < dataSize {
+			break
+		} else {
+			data := f[:dataSize]
+			f = f[dataSize:]
+			out, ret := agoraVad.ProcessPcmFrame(&PcmAudioFrame{
+				Data:              data,
+				SampleRate:        16000,
+				NumberOfChannels:  1,
+				BytesPerSample:    2,
+				SamplesPerChannel: 160,
+			})
+			t.Log(ret, len(out.Data))
+		}
+	}
+}
+
+func TestConnLost(t *testing.T) {
+	// Test code here
+	t.Log("Test case executed")
+	svcCfg := AgoraServiceConfig{
+		AppId: "aab8b8f5a8cd4469a63042fcfafe6666",
+	}
+	Init(&svcCfg)
+	defer Destroy()
+
+	connectedSignal := make(chan struct{}, 1)
+	senderCfg := RtcConnectionConfig{
+		SubAudio:       true,
+		SubVideo:       true,
+		ClientRole:     1,
+		ChannelProfile: 1,
+		ConnectionHandler: &RtcConnectionEventHandler{
+			OnConnected: func(con *RtcConnection, info *RtcConnectionInfo, reason int) {
+				t.Log("sender Connected")
+				connectedSignal <- struct{}{}
+			},
+			OnDisconnected: func(con *RtcConnection, info *RtcConnectionInfo, reason int) {
+				t.Log("sender Disconnected ", reason)
+			},
+			OnConnectionLost: func(con *RtcConnection, info *RtcConnectionInfo) {
+				t.Log("sender ConnectionLost")
+			},
+		},
+	}
+	con := NewConnection(&senderCfg)
+	defer con.Release()
+	con.Connect("", "lhzuttestreconnect", "111")
+
+	select {
+	case <-connectedSignal:
+		t.Fail()
+	case <-time.After(10 * time.Second):
+		t.Log("connect timeout")
+	}
+
+	con.Disconnect()
 }

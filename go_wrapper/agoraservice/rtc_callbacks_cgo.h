@@ -40,6 +40,7 @@ extern void cgo_on_connected(AGORA_HANDLE agora_rtc_conn, const rtc_conn_info* c
 extern void cgo_on_disconnected(AGORA_HANDLE agora_rtc_conn, const rtc_conn_info* conn_info, int reason);
 extern void cgo_on_reconnecting(AGORA_HANDLE agora_rtc_conn, const rtc_conn_info* conn_info, int reason);
 extern void cgo_on_reconnected(AGORA_HANDLE agora_rtc_conn, const rtc_conn_info* conn_info, int reason);
+extern void cgo_on_connection_lost(AGORA_HANDLE agora_rtc_conn, const rtc_conn_info* conn_info);
 
 //token
 extern void cgo_on_token_privilege_will_expire(AGORA_HANDLE agora_rtc_conn, const char* token);

@@ -71,6 +71,7 @@ func CRtcConnectionEventHandler(handler *RtcConnectionEventHandler) (*C.struct__
 	ret.on_disconnected = (*[0]byte)(C.cgo_on_disconnected)
 	ret.on_reconnecting = (*[0]byte)(C.cgo_on_reconnecting)
 	ret.on_reconnected = (*[0]byte)(C.cgo_on_reconnected)
+	ret.on_connection_lost = (*[0]byte)(C.cgo_on_connection_lost)
 	ret.on_token_privilege_will_expire = (*[0]byte)(C.cgo_on_token_privilege_will_expire)
 	ret.on_token_privilege_did_expire = (*[0]byte)(C.cgo_on_token_privilege_did_expire)
 	ret.on_user_joined = (*[0]byte)(C.cgo_on_user_joined)
