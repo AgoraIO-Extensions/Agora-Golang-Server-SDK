@@ -730,6 +730,9 @@ func TestConnLost(t *testing.T) {
 			OnConnectionLost: func(con *RtcConnection, info *RtcConnectionInfo) {
 				t.Log("sender ConnectionLost")
 			},
+			OnConnectionFailure: func(con *RtcConnection, info *RtcConnectionInfo, reason int) {
+				t.Log("sender ConnectionFailure ", reason)
+			},
 		},
 	}
 	con := NewConnection(&senderCfg)
