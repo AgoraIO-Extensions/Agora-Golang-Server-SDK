@@ -72,6 +72,7 @@ func CRtcConnectionEventHandler(handler *RtcConnectionEventHandler) (*C.struct__
 	ret.on_reconnecting = (*[0]byte)(C.cgo_on_reconnecting)
 	ret.on_reconnected = (*[0]byte)(C.cgo_on_reconnected)
 	ret.on_connection_lost = (*[0]byte)(C.cgo_on_connection_lost)
+	ret.on_connection_failure = (*[0]byte)(C.cgo_on_connection_failure)
 	ret.on_token_privilege_will_expire = (*[0]byte)(C.cgo_on_token_privilege_will_expire)
 	ret.on_token_privilege_did_expire = (*[0]byte)(C.cgo_on_token_privilege_did_expire)
 	ret.on_user_joined = (*[0]byte)(C.cgo_on_user_joined)
@@ -81,6 +82,7 @@ func CRtcConnectionEventHandler(handler *RtcConnectionEventHandler) (*C.struct__
 	ret1 := (*C.struct__local_user_observer)(C.malloc(C.sizeof_struct__local_user_observer))
 	C.memset(unsafe.Pointer(ret1), 0, C.sizeof_struct__local_user_observer)
 	ret1.on_stream_message = (*[0]byte)(C.cgo_on_stream_message)
+	ret1.on_user_info_updated = (*[0]byte)(C.cgo_on_user_info_updated)
 	return ret, ret1
 }
 

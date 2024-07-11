@@ -25,6 +25,11 @@ void cgo_on_connection_lost(AGORA_HANDLE agora_rtc_conn, const rtc_conn_info* co
   goOnConnectionLost(agora_rtc_conn, conn_info);
 }
 
+extern void goOnConnectionFailure(AGORA_HANDLE agora_rtc_conn, struct _rtc_conn_info* conn_info, int reason);
+void cgo_on_connection_failure(AGORA_HANDLE agora_rtc_conn, const rtc_conn_info* conn_info, int reason) {
+  goOnConnectionFailure(agora_rtc_conn, conn_info, reason);
+}
+
 //token
 extern void goOnTokenPrivilegeWillExpire(void* agora_rtc_conn, const char* token);
 void cgo_on_token_privilege_will_expire(AGORA_HANDLE agora_rtc_conn, const char* token) {
@@ -56,4 +61,9 @@ void cgo_on_stream_message_error(AGORA_HANDLE agora_rtc_conn, user_id_t user_id,
 extern void goOnStreamMessage(void* agora_local_user, user_id_t user_id, int stream_id, const char* data, size_t length);
 void cgo_on_stream_message(AGORA_HANDLE agora_local_user, user_id_t user_id, int stream_id, const char* data, size_t length) {
   goOnStreamMessage(agora_local_user, user_id, stream_id, data, length);
+}
+
+extern void goOnUserInfoUpdated(void* agora_local_user, user_id_t user_id, int msg, int val);
+void cgo_on_user_info_updated(AGORA_HANDLE agora_local_user, user_id_t user_id, int msg, int val) {
+  goOnUserInfoUpdated(agora_local_user, user_id, msg, val);
 }

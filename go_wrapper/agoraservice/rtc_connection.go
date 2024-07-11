@@ -12,6 +12,25 @@ package agoraservice
 import "C"
 import "unsafe"
 
+const (
+	/**
+	* 0: The user has muted the audio.
+	 */
+	USER_MEDIA_INFO_MUTE_AUDIO = 0
+	/**
+	* 1: The user has muted the video.
+	 */
+	USER_MEDIA_INFO_MUTE_VIDEO = 1
+	/**
+	* 4: The user has enabled the video, which includes video capturing and encoding.
+	 */
+	USER_MEDIA_INFO_ENABLE_VIDEO = 4
+	/**
+	* 8: The user has enabled the local video capturing.
+	 */
+	USER_MEDIA_INFO_ENABLE_LOCAL_VIDEO = 8
+)
+
 type RtcConnectionInfo struct {
 	ConnectionId uint
 	/**
@@ -62,12 +81,16 @@ type RtcConnectionEventHandler struct {
 	OnReconnecting             func(con *RtcConnection, conInfo *RtcConnectionInfo, reason int)
 	OnReconnected              func(con *RtcConnection, conInfo *RtcConnectionInfo, reason int)
 	OnConnectionLost           func(con *RtcConnection, conInfo *RtcConnectionInfo)
+	OnConnectionFailure        func(con *RtcConnection, conInfo *RtcConnectionInfo, errCode int)
 	OnTokenPrivilegeWillExpire func(con *RtcConnection, token string)
 	OnTokenPrivilegeDidExpire  func(con *RtcConnection)
 	OnUserJoined               func(con *RtcConnection, uid string)
 	OnUserLeft                 func(con *RtcConnection, uid string, reason int)
 	OnStreamMessageError       func(con *RtcConnection, uid string, streamId int, errCode int, missed int, cached int)
 	OnStreamMessage            func(con *RtcConnection, uid string, streamId int, data []byte)
+	// userMediaInfo: USER_MEDIA_INFO_XXX
+	// val: 0 for false, 1 for true
+	OnUserInfoUpdated func(con *RtcConnection, uid string, userMediaInfo int, val int)
 }
 
 type RtcConnectionAudioFrameObserver struct {
