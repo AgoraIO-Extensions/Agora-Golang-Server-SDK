@@ -12,6 +12,8 @@ func main() {
 	svcCfg := agoraservice.AgoraServiceConfig{
 		AppId:         "aab8b8f5a8cd4469a63042fcfafe7063",
 		AudioScenario: agoraservice.AUDIO_SCENARIO_CHORUS,
+		LogPath:       "./agora_rtc_log/agorasdk.log",
+		LogSize:       512 * 1024,
 	}
 	agoraservice.Init(&svcCfg)
 	conCfg := agoraservice.RtcConnectionConfig{
@@ -54,7 +56,7 @@ func main() {
 	defer con.Release()
 	sender := con.NewPcmSender()
 	defer sender.Release()
-	con.Connect("", "lhztest", "0")
+	con.Connect("", "lhztest1", "0")
 	<-conSignal
 	sender.Start()
 
@@ -74,13 +76,27 @@ func main() {
 	}
 	defer file.Close()
 
-	sender.AdjustVolume(40)
-	sender.SetSendBufferSize(1000)
+	sender.AdjustVolume(100)
+	// sender.SetSendBufferSize(30)
+
+	sendCount := 0
+	// send 180ms audio data
+	for i := 0; i < 18; i++ {
+		dataLen, err := file.Read(frame.Data)
+		if err != nil || dataLen < 320 {
+			fmt.Println("Finished reading file:", err)
+			break
+		}
+		sendCount++
+		ret := sender.SendPcmData(&frame)
+		fmt.Printf("SendPcmData %d ret: %d\n", sendCount, ret)
+	}
 
 	bStop := false
-	for {
-		// send 100ms audio data
-		for i := 0; i < 10; i++ {
+	firstSendTime := time.Now()
+	for !bStop {
+		shouldSendCount := int(time.Since(firstSendTime).Milliseconds()/10) - (sendCount - 18)
+		for i := 0; i < shouldSendCount; i++ {
 			dataLen, err := file.Read(frame.Data)
 			if err != nil || dataLen < 320 {
 				fmt.Println("Finished reading file:", err)
@@ -88,12 +104,12 @@ func main() {
 				break
 			}
 
-			sender.SendPcmData(&frame)
+			sendCount++
+			ret := sender.SendPcmData(&frame)
+			fmt.Printf("SendPcmData %d ret: %d\n", sendCount, ret)
 		}
-		if bStop {
-			break
-		}
-		time.Sleep(90 * time.Millisecond)
+		fmt.Printf("Sent %d frames this time\n", shouldSendCount)
+		time.Sleep(50 * time.Millisecond)
 	}
 	sender.Stop()
 	con.Disconnect()
