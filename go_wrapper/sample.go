@@ -3,12 +3,25 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/signal"
 	"time"
 
 	"agora.io/agoraservice"
 )
 
 func main() {
+	bStop := new(bool)
+	*bStop = false
+	// catch ternimal signal
+	go func() {
+		c := make(chan os.Signal, 1)
+		signal.Notify(c, os.Interrupt)
+		<-c
+		*bStop = true
+		fmt.Println("Application terminated")
+		os.Exit(0)
+	}()
+
 	svcCfg := agoraservice.AgoraServiceConfig{
 		AppId:         "aab8b8f5a8cd4469a63042fcfafe7063",
 		AudioScenario: agoraservice.AUDIO_SCENARIO_CHORUS,
@@ -92,16 +105,16 @@ func main() {
 		fmt.Printf("SendPcmData %d ret: %d\n", sendCount, ret)
 	}
 
-	bStop := false
 	firstSendTime := time.Now()
-	for !bStop {
+	for !(*bStop) {
 		shouldSendCount := int(time.Since(firstSendTime).Milliseconds()/10) - (sendCount - 18)
 		for i := 0; i < shouldSendCount; i++ {
 			dataLen, err := file.Read(frame.Data)
 			if err != nil || dataLen < 320 {
 				fmt.Println("Finished reading file:", err)
-				bStop = true
-				break
+				file.Seek(0, 0)
+				i--
+				continue
 			}
 
 			sendCount++
