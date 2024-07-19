@@ -8,7 +8,7 @@
   - not tested on go 1.19 and below
 
 ## Prepare C version of agora rtc sdk
-- download and unzip [agora_sdk.zip](https://share.weiyun.com/l6dcsV4g)
+- download and unzip [agora_sdk.zip](https://share.weiyun.com/1tuBWw6O)
 ```
 unzip agora_sdk.zip
 ```
