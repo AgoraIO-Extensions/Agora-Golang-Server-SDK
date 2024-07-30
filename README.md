@@ -58,6 +58,25 @@ cd go_wrapper/agoraservice
 go test -v -count=1 -timeout 20s -run ^TestBaseCase$ agoraservice
 ```
 
+# vad usage
+- call NewAudioVad to create a new vad instance
+- call ProcessPcmFrame to process one audio frame, the frame is a slice of 16 bits,16khze and mono pcm
+data,
+- ProcessPcmFrame(frame *PcmInAudioFrame) (*PcmOutAudioFrame, int) is a function with a dual return - value, indicating an update of the speech state. The int parameter represents the current Voice Activity Detection (VAD) state, where:
+
+- 0 represents no speech detected;
+- 1 represents the start of speech;
+- 2 represents speech in progress;
+- 3 represents the end of the current speech segment;
+- -1 represents an error occurred.
+- If the function is in states 1, 2, or 3, the PcmOutAudioFrame will contain the PCM data corresponding to the VAD state.
+
+- When a user wants to perform ASR/TTS processing, they should send the data from the PcmOutAudioFrame to the ASR system.
+- call Release() when the vad instance is no longer needed
+-- NOTE： 
+- The VAD instance should be released after the ASR system is no longer needed.
+- One VAD instance corresponds to one audio stream
+
 # Change log
 ## 2024.06.28
 - support build and test on mac
