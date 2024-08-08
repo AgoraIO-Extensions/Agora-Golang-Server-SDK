@@ -11,8 +11,13 @@ import (
 func TestBaseCase(t *testing.T) {
 	// Test code here
 	t.Log("Test case executed")
+	appid := os.Getenv("AGORA_APP_ID")
+	if appid == "" {
+		fmt.Println("Please set AGORA_APP_ID environment variable")
+		t.FailNow()
+	}
 	svcCfg := AgoraServiceConfig{
-		AppId:         "aab8b8f5a8cd4469a63042fcfafe7063",
+		AppId:         appid,
 		AudioScenario: AUDIO_SCENARIO_CHORUS,
 		LogPath:       "./agora_rtc_log/agorasdk.log",
 		LogSize:       512 * 1024,
@@ -221,8 +226,13 @@ func TestBaseCase(t *testing.T) {
 func TestDatastreamCase(t *testing.T) {
 	// Test code here
 	t.Log("Test case executed")
+	appid := os.Getenv("AGORA_APP_ID")
+	if appid == "" {
+		fmt.Println("Please set AGORA_APP_ID environment variable")
+		t.FailNow()
+	}
 	svcCfg := AgoraServiceConfig{
-		AppId: "aab8b8f5a8cd4469a63042fcfafe7063",
+		AppId: appid,
 	}
 	Init(&svcCfg)
 	senderCfg := RtcConnectionConfig{
@@ -328,8 +338,13 @@ func TestDatastreamCase(t *testing.T) {
 func TestVadCase(t *testing.T) {
 	// Test code here
 	t.Log("Test case executed")
+	appid := os.Getenv("AGORA_APP_ID")
+	if appid == "" {
+		fmt.Println("Please set AGORA_APP_ID environment variable")
+		t.FailNow()
+	}
 	svcCfg := AgoraServiceConfig{
-		AppId: "aab8b8f5a8cd4469a63042fcfafe7063",
+		AppId: appid,
 	}
 	Init(&svcCfg)
 	senderCfg := RtcConnectionConfig{
@@ -452,8 +467,13 @@ func TestVadCase(t *testing.T) {
 func TestSubAudio(t *testing.T) {
 	// Test code here
 	t.Log("Test case executed")
+	appid := os.Getenv("AGORA_APP_ID")
+	if appid == "" {
+		fmt.Println("Please set AGORA_APP_ID environment variable")
+		t.FailNow()
+	}
 	svcCfg := AgoraServiceConfig{
-		AppId: "aab8b8f5a8cd4469a63042fcfafe7063",
+		AppId: appid,
 	}
 	Init(&svcCfg)
 	senderCfg := RtcConnectionConfig{
@@ -627,8 +647,13 @@ func TestSubAudio(t *testing.T) {
 func TestReconnect(t *testing.T) {
 	// Test code here
 	t.Log("Test case executed")
+	appid := os.Getenv("AGORA_APP_ID")
+	if appid == "" {
+		fmt.Println("Please set AGORA_APP_ID environment variable")
+		t.FailNow()
+	}
 	svcCfg := AgoraServiceConfig{
-		AppId: "aab8b8f5a8cd4469a63042fcfafe7063",
+		AppId: appid,
 	}
 	Init(&svcCfg)
 	connectedSignal := make(chan struct{}, 1)
@@ -752,8 +777,13 @@ func TestConnLost(t *testing.T) {
 func TestUserInfoUpdated(t *testing.T) {
 	// Test code here
 	t.Log("Test case executed")
+	appid := os.Getenv("AGORA_APP_ID")
+	if appid == "" {
+		fmt.Println("Please set AGORA_APP_ID environment variable")
+		t.FailNow()
+	}
 	svcCfg := AgoraServiceConfig{
-		AppId:         "aab8b8f5a8cd4469a63042fcfafe7063",
+		AppId:         appid,
 		AudioScenario: AUDIO_SCENARIO_CHORUS,
 		LogPath:       "./agora_rtc_log/agorasdk.log",
 		LogSize:       512 * 1024,
