@@ -22,8 +22,15 @@ func main() {
 		os.Exit(0)
 	}()
 
+	// get environment variable
+	appid := os.Getenv("AGORA_APP_ID")
+	token := os.Getenv("AGORA_TOKEN")
+	if appid == "" {
+		fmt.Println("Please set AGORA_APP_ID environment variable, and AGORA_TOKEN if needed")
+		return
+	}
 	svcCfg := agoraservice.AgoraServiceConfig{
-		AppId:         "aab8b8f5a8cd4469a63042fcfafe7063",
+		AppId:         appid,
 		AudioScenario: agoraservice.AUDIO_SCENARIO_CHORUS,
 		LogPath:       "./agora_rtc_log/agorasdk.log",
 		LogSize:       512 * 1024,
@@ -69,7 +76,7 @@ func main() {
 	defer con.Release()
 	sender := con.NewPcmSender()
 	defer sender.Release()
-	con.Connect("", "lhztest1", "0")
+	con.Connect(token, "lhztest1", "0")
 	<-conSignal
 	sender.Start()
 
