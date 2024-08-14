@@ -77,9 +77,21 @@ data,
 - The VAD instance should be released after the ASR system is no longer needed.
 - One VAD instance corresponds to one audio stream
 
+# FAQ
+## compile error
+### undefined symbol reference to GLIBC_xxx
+- libagora_rtc_sdk depends on GLIBC 2.16 and above
+- libagora_uap_aed depends on GLIBC 2.27 and above
+- solutions are:
+  - you can upgrade your glibc if possible, or you will need to upgrade your running system to **required os version**
+  - if you don't use VAD, and your glibc version is between 2.16 and 2.27, you can disable VAD by rename **audio_vad.go** file in go_wrapper/agoraserver/ to **audio_vad.go.bak**
+
 # Change log
+## 2024.08.14 release 1.1
+- Add RenewToken interface for RtcConnection
+- Update VAD algorithm
 ## 2024.06.28
-- support build and test on mac
+- Support build and test on mac
 ## 2024.06.25
 - Make VAD available, for details see UT case TestVadCase in agoraservice/rtc_connection_test.go
 - Reduce audio delay, by setting AudioScenario to AUDIO_SCENARIO_CHORUS, for details see UT case TestBaseCase in agoraservice/rtc_connection_test.go

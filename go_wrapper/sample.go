@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"agora.io/agoraservice"
+
+	rtctokenbuilder "github.com/AgoraIO/Tools/DynamicKey/AgoraDynamicKey/go/src/rtctokenbuilder2"
 )
 
 func main() {
@@ -24,10 +26,24 @@ func main() {
 
 	// get environment variable
 	appid := os.Getenv("AGORA_APP_ID")
-	token := os.Getenv("AGORA_TOKEN")
+	cert := os.Getenv("AGORA_APP_CERTIFICATE")
+	channelName := "gosdktest"
+	userId := "0"
 	if appid == "" {
-		fmt.Println("Please set AGORA_APP_ID environment variable, and AGORA_TOKEN if needed")
+		fmt.Println("Please set AGORA_APP_ID environment variable, and AGORA_APP_CERTIFICATE if needed")
 		return
+	}
+	token := ""
+	if cert != "" {
+		tokenExpirationInSeconds := uint32(3600)
+		privilegeExpirationInSeconds := uint32(3600)
+		var err error
+		token, err = rtctokenbuilder.BuildTokenWithUserAccount(appid, cert, channelName, userId,
+			rtctokenbuilder.RolePublisher, tokenExpirationInSeconds, privilegeExpirationInSeconds)
+		if err != nil {
+			fmt.Println("Failed to build token: ", err)
+			return
+		}
 	}
 	svcCfg := agoraservice.AgoraServiceConfig{
 		AppId:         appid,
@@ -76,7 +92,7 @@ func main() {
 	defer con.Release()
 	sender := con.NewPcmSender()
 	defer sender.Release()
-	con.Connect(token, "lhztest1", "0")
+	con.Connect(token, channelName, userId)
 	<-conSignal
 	sender.Start()
 
