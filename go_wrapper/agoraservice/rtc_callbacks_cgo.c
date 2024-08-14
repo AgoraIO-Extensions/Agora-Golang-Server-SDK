@@ -67,3 +67,13 @@ extern void goOnUserInfoUpdated(void* agora_local_user, user_id_t user_id, int m
 void cgo_on_user_info_updated(AGORA_HANDLE agora_local_user, user_id_t user_id, int msg, int val) {
   goOnUserInfoUpdated(agora_local_user, user_id, msg, val);
 }
+
+extern void goOnUserAudioTrackStateChanged(void* agora_local_user, user_id_t user_id, void* agora_remote_audio_track, int state, int reason, int elapsed);
+extern void cgo_on_user_audio_track_state_changed(AGORA_HANDLE agora_local_user, user_id_t user_id, AGORA_HANDLE agora_remote_audio_track, int state, int reason, int elapsed) {
+  goOnUserAudioTrackStateChanged(agora_local_user, user_id, agora_remote_audio_track, state, reason, elapsed);
+}
+
+extern void goOnUserVideoTrackStateChanged(void* agora_local_user, user_id_t user_id, void* agora_remote_video_track, int state, int reason, int elapsed);
+extern void cgo_on_user_video_track_state_changed(AGORA_HANDLE agora_local_user, user_id_t user_id, AGORA_HANDLE agora_remote_video_track, int state, int reason, int elapsed) {
+  goOnUserVideoTrackStateChanged(agora_local_user, user_id, agora_remote_video_track, state, reason, elapsed);
+}

@@ -16,19 +16,55 @@ const (
 	/**
 	* 0: The user has muted the audio.
 	 */
-	USER_MEDIA_INFO_MUTE_AUDIO = 0
+	UserMediaInfoMuteAudio = 0
 	/**
 	* 1: The user has muted the video.
 	 */
-	USER_MEDIA_INFO_MUTE_VIDEO = 1
+	UserMediaInfoMuteVideo = 1
 	/**
 	* 4: The user has enabled the video, which includes video capturing and encoding.
 	 */
-	USER_MEDIA_INFO_ENABLE_VIDEO = 4
+	UserMediaInfoEnableVideo = 4
 	/**
 	* 8: The user has enabled the local video capturing.
 	 */
-	USER_MEDIA_INFO_ENABLE_LOCAL_VIDEO = 8
+	UserMediaInfoEnableLocalVideo = 8
+)
+
+const (
+	/**
+	 * 0: The default audio profile.
+	 * - In the Communication profile, it represents a sample rate of 16 kHz, music encoding, mono, and a bitrate
+	 * of up to 16 Kbps.
+	 * - In the Live-broadcast profile, it represents a sample rate of 48 kHz, music encoding, mono, and a bitrate
+	 * of up to 64 Kbps.
+	 */
+	AudioProfileDefault = 0
+	/**
+	 * 1: A sample rate of 16 kHz, audio encoding, mono, and a bitrate up to 18 Kbps.
+	 */
+	AudioProfileSpeechStandard = 1
+	/**
+	 * 2: A sample rate of 48 kHz, music encoding, mono, and a bitrate of up to 64 Kbps.
+	 */
+	AudioProfileMusicStandard = 2
+	/**
+	 * 3: A sample rate of 48 kHz, music encoding, stereo, and a bitrate of up to 80
+	 * Kbps.
+	 */
+	AudioProfileMusicStandardStereo = 3
+	/**
+	 * 4: A sample rate of 48 kHz, music encoding, mono, and a bitrate of up to 96 Kbps.
+	 */
+	AudioProfileMusicHighQuality = 4
+	/**
+	 * 5: A sample rate of 48 kHz, music encoding, stereo, and a bitrate of up to 128 Kbps.
+	 */
+	AudioProfileMusicHighQualityStereo = 5
+	/**
+	 * 6: A sample rate of 16 kHz, audio encoding, mono, and a bitrate of up to 64 Kbps.
+	 */
+	AudioProfileIot = 6
 )
 
 type RtcConnectionInfo struct {
@@ -90,7 +126,9 @@ type RtcConnectionEventHandler struct {
 	OnStreamMessage            func(con *RtcConnection, uid string, streamId int, data []byte)
 	// userMediaInfo: USER_MEDIA_INFO_XXX
 	// val: 0 for false, 1 for true
-	OnUserInfoUpdated func(con *RtcConnection, uid string, userMediaInfo int, val int)
+	OnUserInfoUpdated            func(con *RtcConnection, uid string, userMediaInfo int, val int)
+	OnUserAudioTrackStateChanged func(con *RtcConnection, uid string, remoteAudioTrack *RemoteAudioTrack, state int, reason int, elapsed int)
+	OnUserVideoTrackStateChanged func(con *RtcConnection, uid string, remoteAudioTrack *RemoteVideoTrack, state int, reason int, elapsed int)
 }
 
 type RtcConnectionAudioFrameObserver struct {
@@ -99,6 +137,10 @@ type RtcConnectionAudioFrameObserver struct {
 
 type RtcConnectionVideoFrameObserver struct {
 	OnFrame func(con *RtcConnection, channelId string, userId string, frame *VideoFrame)
+}
+
+type AudioEncoderConfiguration struct {
+	AudioProfile int
 }
 
 type SubscribeAudioConfig struct {
@@ -219,6 +261,14 @@ func (conn *RtcConnection) Release() {
 	}
 }
 
+func (conn *RtcConnection) SetUserRole(role int) int {
+	if conn.cConnection == nil {
+		return -1
+	}
+	C.agora_local_user_set_user_role(conn.cLocalUser, C.int(role))
+	return 0
+}
+
 func (conn *RtcConnection) Connect(token string, channel string, uid string) int {
 	if conn.cConnection == nil {
 		return -1
@@ -310,4 +360,51 @@ func (conn *RtcConnection) SetParameters(parameters string) int {
 	cParameters := C.CString(parameters)
 	defer C.free(unsafe.Pointer(cParameters))
 	return int(C.agora_parameter_set_parameters(cParamHdl, cParameters))
+}
+
+func (conn *RtcConnection) SetAudioEncoderConfiguration(config *AudioEncoderConfiguration) int {
+	if conn.cConnection == nil {
+		return -1
+	}
+	cConfig := C.struct__audio_encoder_config{}
+	cConfig.audio_profile := C.int(AudioProfileDefault)
+	if config != nil {
+		cConfig.audio_profile = C.int(config.AudioProfile)
+	}
+	return int(C.agora_local_user_set_audio_encoder_config(conn.cLocalUser, &cConfig))
+}
+
+func (conn *RtcConnection) PublishAudio(track *LocalAudioTrack) int {
+	if conn.cConnection == nil {
+		return -1
+	}
+	return int(C.agora_local_user_publish_audio(conn.cLocalUser, track.cTrack))
+}
+
+func (conn *RtcConnection) UnpublishAudio(track *LocalAudioTrack) int {
+	if conn.cConnection == nil {
+		return -1
+	}
+	return int(C.agora_local_user_unpublish_audio(conn.cLocalUser, track.cTrack))
+}
+
+func (conn *RtcConnection) PublishVideo(track *LocalVideoTrack) int {
+	if conn.cConnection == nil {
+		return -1
+	}
+	return int(C.agora_local_user_publish_video(conn.cLocalUser, track.cTrack))
+}
+
+func (conn *RtcConnection) UnpublishVideo(track *LocalVideoTrack) int {
+	if conn.cConnection == nil {
+		return -1
+	}
+	return int(C.agora_local_user_unpublish_video(conn.cLocalUser, track.cTrack))
+}
+
+func (conn *RtcConnection) SetPlaybackAudioFrameBeforeMixingParameters(channels int, sampleRate int) int {
+	if conn.cConnection == nil {
+		return -1
+	}
+	return int(C.agora_local_user_set_playback_audio_frame_before_mixing_parameters(conn.cLocalUser, C.uint(channels), C.uint(sampleRate)))
 }

@@ -36,7 +36,7 @@ func TestBaseCase(t *testing.T) {
 	}
 	svcCfg := AgoraServiceConfig{
 		AppId:         appid,
-		AudioScenario: AUDIO_SCENARIO_CHORUS,
+		AudioScenario: AudioScenarioChorus,
 		LogPath:       "./agora_rtc_log/agorasdk.log",
 		LogSize:       512 * 1024,
 	}
@@ -812,7 +812,7 @@ func TestUserInfoUpdated(t *testing.T) {
 	}
 	svcCfg := AgoraServiceConfig{
 		AppId:         appid,
-		AudioScenario: AUDIO_SCENARIO_CHORUS,
+		AudioScenario: AudioScenarioChorus,
 		LogPath:       "./agora_rtc_log/agorasdk.log",
 		LogSize:       512 * 1024,
 	}
@@ -881,7 +881,7 @@ func TestUserInfoUpdated(t *testing.T) {
 			},
 			OnUserInfoUpdated: func(con *RtcConnection, uid string, mediaInfo int, val int) {
 				t.Logf("user info updated, user %s, info %d, value %d\n", uid, mediaInfo, val)
-				if uid == "111" && mediaInfo == USER_MEDIA_INFO_MUTE_AUDIO {
+				if uid == "111" && mediaInfo == UserMediaInfoMuteAudio {
 					audioMuteState <- val
 				}
 			},

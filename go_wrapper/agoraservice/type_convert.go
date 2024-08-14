@@ -83,6 +83,8 @@ func CRtcConnectionEventHandler(handler *RtcConnectionEventHandler) (*C.struct__
 	C.memset(unsafe.Pointer(ret1), 0, C.sizeof_struct__local_user_observer)
 	ret1.on_stream_message = (*[0]byte)(C.cgo_on_stream_message)
 	ret1.on_user_info_updated = (*[0]byte)(C.cgo_on_user_info_updated)
+	ret1.on_user_audio_track_state_changed = (*[0]byte)(C.cgo_on_user_audio_track_state_changed)
+	ret1.on_user_video_track_state_changed = (*[0]byte)(C.cgo_on_user_video_track_state_changed)
 	return ret, ret1
 }
 

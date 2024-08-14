@@ -97,6 +97,6 @@ data,
 - Support build and test on mac
 ## 2024.06.25
 - Make VAD available, for details see UT case TestVadCase in agoraservice/rtc_connection_test.go
-- Reduce audio delay, by setting AudioScenario to AUDIO_SCENARIO_CHORUS, for details see UT case TestBaseCase in agoraservice/rtc_connection_test.go
+- Reduce audio delay, by setting AudioScenario to AudioScenarioChorus, for details see UT case TestBaseCase in agoraservice/rtc_connection_test.go
 - Add interface for adjusting publish audio volume with examples in sample.go
 - Solve the problem of noise in the received audio on the receiver side, by setting the audio send buffer and ensuring that the audio data is sent earlier than the actual time it should be sent. For details, see sample.go
