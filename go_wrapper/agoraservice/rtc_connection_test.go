@@ -6,7 +6,25 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	rtctokenbuilder "github.com/AgoraIO/Tools/DynamicKey/AgoraDynamicKey/go/src/rtctokenbuilder2"
 )
+
+func genTokenIfNeeded(channelName string, userId string, expireTime int) string {
+	appid := os.Getenv("AGORA_APP_ID")
+	cert := os.Getenv("AGORA_APP_CERTIFICATE")
+	if cert == "" {
+		return ""
+	}
+
+	token, err := rtctokenbuilder.BuildTokenWithUserAccount(appid, cert, channelName, userId,
+		rtctokenbuilder.RolePublisher, uint32(expireTime), uint32(expireTime))
+	if err != nil {
+		fmt.Println("Failed to build token: ", err)
+		return ""
+	}
+	return token
+}
 
 func TestBaseCase(t *testing.T) {
 	// Test code here
@@ -41,7 +59,8 @@ func TestBaseCase(t *testing.T) {
 	defer senderCon.Release()
 	sender := senderCon.NewPcmSender()
 	defer sender.Release()
-	senderCon.Connect("", "lhzuttest", "111")
+	senderCon.Connect(genTokenIfNeeded("lhzuttest", "111", 3600),
+		"lhzuttest", "111")
 	sender.Start()
 	var stopSend *bool = new(bool)
 	*stopSend = false
@@ -203,7 +222,8 @@ func TestBaseCase(t *testing.T) {
 	defer recvCon.Release()
 	recvCon.SetParameters("{\"rtc.video.playout_delay_max\": 250}")
 	recvCon.SetParameters("{\"rtc.video.broadcaster_playout_delay_max\": 250}")
-	recvCon.Connect("", "lhzuttest", "222")
+	recvCon.Connect(genTokenIfNeeded("lhzuttest", "222", 3600),
+		"lhzuttest", "222")
 	timer := time.NewTimer(10 * time.Second)
 	for *recvAudio == false || *recvData == false || *recvVideo == false {
 		select {
@@ -257,7 +277,9 @@ func TestDatastreamCase(t *testing.T) {
 	for i := 0; i < conNum; i++ {
 		senderCon := NewConnection(&senderCfg)
 		senderCons[i] = senderCon
-		senderCon.Connect("", fmt.Sprintf("lhzuttest%d", i), fmt.Sprintf("111%d", i))
+		cn := fmt.Sprintf("lhzuttest%d", i)
+		un := fmt.Sprintf("111%d", i)
+		senderCon.Connect(genTokenIfNeeded(cn, un, 3600), cn, un)
 		for j := 0; j < 10; j++ {
 			streamId, ret := senderCon.CreateDataStream(true, true)
 			if ret != 0 {
@@ -317,7 +339,9 @@ func TestDatastreamCase(t *testing.T) {
 	for i := 0; i < conNum; i++ {
 		recvCon := NewConnection(&recvCfg)
 		recvCons[i] = recvCon
-		recvCon.Connect("", fmt.Sprintf("lhzuttest%d", i), fmt.Sprintf("222%d", i))
+		cn := fmt.Sprintf("lhzuttest%d", i)
+		un := fmt.Sprintf("222%d", i)
+		recvCon.Connect(genTokenIfNeeded(cn, un, 3600), cn, un)
 	}
 
 	time.Sleep(10 * time.Second)
@@ -365,7 +389,8 @@ func TestVadCase(t *testing.T) {
 	defer senderCon.Release()
 	sender := senderCon.NewPcmSender()
 	defer sender.Release()
-	senderCon.Connect("", "lhzuttest", "111")
+	senderCon.Connect(genTokenIfNeeded("lhzuttest", "111", 3600),
+		"lhzuttest", "111")
 	sender.Start()
 	var stopSend *bool = new(bool)
 	*stopSend = false
@@ -456,7 +481,7 @@ func TestVadCase(t *testing.T) {
 	}
 	recvCon := NewConnection(&recvCfg)
 	defer recvCon.Release()
-	recvCon.Connect("", "lhzuttest", "222")
+	recvCon.Connect(genTokenIfNeeded("lhzuttest", "222", 3600), "lhzuttest", "222")
 
 	waitSenderStop.Wait()
 	time.Sleep(5 * time.Second)
@@ -495,10 +520,12 @@ func TestSubAudio(t *testing.T) {
 	waitSenderStop := &sync.WaitGroup{}
 	const conNum = 5
 	senderCons := make([]*RtcConnection, conNum)
+	channelName := "lhzuttestsubaudio"
 	for i := 0; i < conNum; i++ {
 		senderCon := NewConnection(&senderCfg)
 		senderCons[i] = senderCon
-		senderCon.Connect("", "lhzuttestsubaudio", fmt.Sprintf("111%d", i))
+		uid := fmt.Sprintf("111%d", i)
+		senderCon.Connect(genTokenIfNeeded(channelName, uid, 3600), channelName, uid)
 		waitSenderStop.Add(1)
 		go func(con *RtcConnection) {
 			defer waitSenderStop.Done()
@@ -582,7 +609,7 @@ func TestSubAudio(t *testing.T) {
 	}
 	recvCon := NewConnection(&recvCfg)
 	defer recvCon.Release()
-	recvCon.Connect("", "lhzuttestsubaudio", "222")
+	recvCon.Connect(genTokenIfNeeded(channelName, "222", 3600), channelName, "222")
 
 	time.Sleep(5 * time.Second)
 	if len(recvedUsers) != conNum {
@@ -674,7 +701,8 @@ func TestReconnect(t *testing.T) {
 	}
 	con := NewConnection(&senderCfg)
 	defer con.Release()
-	con.Connect("", "lhzuttestreconnect", "111")
+	channelName := "lhzuttestreconnect"
+	con.Connect(genTokenIfNeeded(channelName, "111", 3600), channelName, "111")
 
 	select {
 	case <-connectedSignal:
@@ -685,7 +713,7 @@ func TestReconnect(t *testing.T) {
 
 	con.Disconnect()
 
-	con.Connect("", "lhzuttestreconnect", "111")
+	con.Connect(genTokenIfNeeded(channelName, "111", 3600), channelName, "111")
 
 	select {
 	case <-connectedSignal:
@@ -733,7 +761,7 @@ func TestConnLost(t *testing.T) {
 	// Test code here
 	t.Log("Test case executed")
 	svcCfg := AgoraServiceConfig{
-		AppId: "aab8b8f5a8cd4469a63042fcfafe6666",
+		AppId: "aab8b8f5a8cd4469a63042ffffff6666",
 	}
 	Init(&svcCfg)
 	defer Destroy()
@@ -807,7 +835,7 @@ func TestUserInfoUpdated(t *testing.T) {
 	defer senderCon.Release()
 	sender := senderCon.NewPcmSender()
 	defer sender.Release()
-	senderCon.Connect("", "lhzuttest", "111")
+	senderCon.Connect(genTokenIfNeeded("lhzuttest", "111", 3600), "lhzuttest", "111")
 	sender.Start()
 	var stopSend *bool = new(bool)
 	*stopSend = false
@@ -863,7 +891,7 @@ func TestUserInfoUpdated(t *testing.T) {
 	defer recvCon.Release()
 	recvCon.SetParameters("{\"rtc.video.playout_delay_max\": 250}")
 	recvCon.SetParameters("{\"rtc.video.broadcaster_playout_delay_max\": 250}")
-	recvCon.Connect("", "lhzuttest", "222")
+	recvCon.Connect(genTokenIfNeeded("lhzuttest", "222", 3600), "lhzuttest", "222")
 	select {
 	case val, _ := <-audioMuteState:
 		if val != 0 {
@@ -888,4 +916,75 @@ func TestUserInfoUpdated(t *testing.T) {
 
 	senderCon.Disconnect()
 	recvCon.Disconnect()
+}
+
+func TestRenewToken(t *testing.T) {
+	// Test code here
+	t.Log("Test case executed")
+	appid := os.Getenv("AGORA_APP_ID")
+	if appid == "" {
+		fmt.Println("Please set AGORA_APP_ID environment variable")
+		t.FailNow()
+	}
+	svcCfg := AgoraServiceConfig{
+		AppId: appid,
+	}
+	Init(&svcCfg)
+	connectedSignal := make(chan struct{}, 1)
+	disconnectedSignal := make(chan struct{}, 3)
+	tokenExpiredSignal := make(chan struct{}, 4)
+	senderCfg := RtcConnectionConfig{
+		SubAudio:       true,
+		SubVideo:       true,
+		ClientRole:     1,
+		ChannelProfile: 1,
+		ConnectionHandler: &RtcConnectionEventHandler{
+			OnConnected: func(con *RtcConnection, info *RtcConnectionInfo, reason int) {
+				t.Log("sender Connected")
+				connectedSignal <- struct{}{}
+			},
+			OnDisconnected: func(con *RtcConnection, info *RtcConnectionInfo, reason int) {
+				t.Log("sender Disconnected")
+				disconnectedSignal <- struct{}{}
+			},
+			OnConnectionLost: func(con *RtcConnection, info *RtcConnectionInfo) {
+				t.Log("sender ConnectionLost")
+				disconnectedSignal <- struct{}{}
+			},
+			OnConnectionFailure: func(con *RtcConnection, info *RtcConnectionInfo, reason int) {
+				t.Log("sender ConnectionFailure ", reason)
+				disconnectedSignal <- struct{}{}
+			},
+			OnTokenPrivilegeWillExpire: func(con *RtcConnection, token string) {
+				t.Log("token privilege will expire")
+				tokenExpiredSignal <- struct{}{}
+			},
+			OnTokenPrivilegeDidExpire: func(con *RtcConnection) {
+				t.Log("token privilege did expire")
+				tokenExpiredSignal <- struct{}{}
+			},
+		},
+	}
+	con := NewConnection(&senderCfg)
+	defer con.Release()
+	channelName := "gouttestrenewtoken"
+	// token expired in 20 seconds
+	con.Connect(genTokenIfNeeded(channelName, "111", 40), channelName, "111")
+
+	select {
+	case <-connectedSignal:
+	case <-time.After(10 * time.Second):
+		t.Error("connect timeout")
+		t.Fail()
+	}
+
+	select {
+	case <-tokenExpiredSignal:
+	}
+	t.Log("renew token")
+	con.RenewToken(genTokenIfNeeded(channelName, "111", 20))
+
+	select {
+	case <-disconnectedSignal:
+	}
 }
