@@ -8,7 +8,7 @@
   - not tested on go 1.19 and below
 
 ## Prepare C version of agora rtc sdk
-- download and unzip [agora_sdk.zip](https://share.weiyun.com/1tuBWw6O)
+- download and unzip [agora_sdk.zip](https://download.agora.io/sdk/release/agora_rtc_sdk_linux_20240814_320567.zip)
 ```
 unzip agora_sdk.zip
 ```
@@ -18,6 +18,7 @@ unzip agora_sdk.zip
 ## Build sample
 ```
 cd go_wrapper
+go mod tidy
 go build main
 ```
 
@@ -34,11 +35,12 @@ cd go_wrapper
 ```
 export LD_LIBRARY_PATH=/path/to/agora_sdk
 cd go_wrapper/agoraservice
+go mod tidy
 go test -v -count=1 -timeout 20s -run ^TestBaseCase$ agoraservice
 ```
 
 # Build and run on mac
-- download and unzip [agora_sdk_mac.zip](https://share.weiyun.com/jgvFzRI0)
+- download and unzip [agora_sdk_mac.zip](https://download.agora.io/sdk/release/agora_rtc_sdk_mac_20240814_320567.zip)
 ```
 unzip agora_sdk_mac.zip
 ```
@@ -55,6 +57,7 @@ cd go_wrapper
 ```
 export CGO_LDFLAGS_ALLOW="-Wl,-rpath,.*"
 cd go_wrapper/agoraservice
+go mod tidy
 go test -v -count=1 -timeout 20s -run ^TestBaseCase$ agoraservice
 ```
 
