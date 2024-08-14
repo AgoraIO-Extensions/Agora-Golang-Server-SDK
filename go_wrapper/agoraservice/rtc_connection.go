@@ -239,6 +239,15 @@ func (conn *RtcConnection) Disconnect() int {
 	return int(C.agora_rtc_conn_disconnect(conn.cConnection))
 }
 
+func (conn *RtcConnection) RenewToken(token string) int {
+	if conn.cConnection == nil {
+		return -1
+	}
+	cToken := C.CString(token)
+	defer C.free(unsafe.Pointer(cToken))
+	return int(C.agora_rtc_conn_renew_token(conn.cConnection, cToken))
+}
+
 func (conn *RtcConnection) CreateDataStream(reliable bool, ordered bool) (int, int) {
 	if conn.cConnection == nil {
 		return -1, -1
