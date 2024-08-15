@@ -78,6 +78,10 @@ extern void cgo_on_stream_message(AGORA_HANDLE agora_local_user, user_id_t user_
   // };
 extern void cgo_on_user_info_updated(AGORA_HANDLE agora_local_user, user_id_t user_id, int msg, int val);
 
+extern void cgo_on_user_audio_track_subscribed(AGORA_HANDLE agora_local_user, user_id_t user_id, AGORA_HANDLE agora_remote_audio_track);
+
+extern void cgo_on_user_video_track_subscribed(AGORA_HANDLE agora_local_user, user_id_t user_id, const video_track_info* info, AGORA_HANDLE agora_remote_video_track);
+
 extern void cgo_on_user_audio_track_state_changed(AGORA_HANDLE agora_local_user, user_id_t user_id, AGORA_HANDLE agora_remote_audio_track, int state, int reason, int elapsed);
 
 extern void cgo_on_user_video_track_state_changed(AGORA_HANDLE agora_local_user, user_id_t user_id, AGORA_HANDLE agora_remote_video_track, int state, int reason, int elapsed);

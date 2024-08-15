@@ -68,12 +68,22 @@ void cgo_on_user_info_updated(AGORA_HANDLE agora_local_user, user_id_t user_id, 
   goOnUserInfoUpdated(agora_local_user, user_id, msg, val);
 }
 
+extern void goOnUserAudioTrackSubscribed(void* agora_local_user, user_id_t user_id, void* agora_remote_audio_track);
+void cgo_on_user_audio_track_subscribed(AGORA_HANDLE agora_local_user, user_id_t user_id, AGORA_HANDLE agora_remote_audio_track) {
+  goOnUserAudioTrackSubscribed(agora_local_user, user_id, agora_remote_audio_track);
+}
+
+extern void goOnUserVideoTrackSubscribed(void* agora_local_user, user_id_t user_id, struct _video_track_info* info, void* agora_remote_video_track);
+void cgo_on_user_video_track_subscribed(AGORA_HANDLE agora_local_user, user_id_t user_id, const video_track_info* info, AGORA_HANDLE agora_remote_video_track) {
+  goOnUserVideoTrackSubscribed(agora_local_user, user_id, info, agora_remote_video_track);
+}
+
 extern void goOnUserAudioTrackStateChanged(void* agora_local_user, user_id_t user_id, void* agora_remote_audio_track, int state, int reason, int elapsed);
-extern void cgo_on_user_audio_track_state_changed(AGORA_HANDLE agora_local_user, user_id_t user_id, AGORA_HANDLE agora_remote_audio_track, int state, int reason, int elapsed) {
+void cgo_on_user_audio_track_state_changed(AGORA_HANDLE agora_local_user, user_id_t user_id, AGORA_HANDLE agora_remote_audio_track, int state, int reason, int elapsed) {
   goOnUserAudioTrackStateChanged(agora_local_user, user_id, agora_remote_audio_track, state, reason, elapsed);
 }
 
 extern void goOnUserVideoTrackStateChanged(void* agora_local_user, user_id_t user_id, void* agora_remote_video_track, int state, int reason, int elapsed);
-extern void cgo_on_user_video_track_state_changed(AGORA_HANDLE agora_local_user, user_id_t user_id, AGORA_HANDLE agora_remote_video_track, int state, int reason, int elapsed) {
+void cgo_on_user_video_track_state_changed(AGORA_HANDLE agora_local_user, user_id_t user_id, AGORA_HANDLE agora_remote_video_track, int state, int reason, int elapsed) {
   goOnUserVideoTrackStateChanged(agora_local_user, user_id, agora_remote_video_track, state, reason, elapsed);
 }

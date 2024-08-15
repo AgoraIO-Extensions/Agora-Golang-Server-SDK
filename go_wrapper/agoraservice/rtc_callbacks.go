@@ -172,6 +172,30 @@ func goOnUserInfoUpdated(cLocalUser unsafe.Pointer, uid *C.char, msg C.int, val 
 	con.handler.OnUserInfoUpdated(con, C.GoString(uid), int(msg), int(val))
 }
 
+//export goOnUserAudioTrackSubscribed
+func goOnUserAudioTrackSubscribed(cLocalUser unsafe.Pointer, uid *C.char, cRemoteAudioTrack unsafe.Pointer) {
+	agoraService.connectionRWMutex.RLock()
+	con := agoraService.consByCLocalUser[cLocalUser]
+	agoraService.connectionRWMutex.RUnlock()
+	if con == nil || con.handler == nil || con.handler.OnUserAudioTrackSubscribed == nil {
+		return
+	}
+	// note： best practise is never reelase handler until app is exiting
+	con.handler.OnUserAudioTrackSubscribed(con, C.GoString(uid), NewRemoteAudioTrack(cRemoteAudioTrack))
+}
+
+//export goOnUserVideoTrackSubscribed
+func goOnUserVideoTrackSubscribed(cLocalUser unsafe.Pointer, uid *C.char, info *C.struct__video_track_info, cRemoteVideoTrack unsafe.Pointer) {
+	agoraService.connectionRWMutex.RLock()
+	con := agoraService.consByCLocalUser[cLocalUser]
+	agoraService.connectionRWMutex.RUnlock()
+	if con == nil || con.handler == nil || con.handler.OnUserVideoTrackSubscribed == nil {
+		return
+	}
+	// note： best practise is never reelase handler until app is exiting
+	con.handler.OnUserVideoTrackSubscribed(con, C.GoString(uid), GoVideoTrackInfo(info), NewRemoteVideoTrack(cRemoteVideoTrack))
+}
+
 //export goOnUserAudioTrackStateChanged
 func goOnUserAudioTrackStateChanged(cLocalUser unsafe.Pointer, uid *C.char, cRemoteAudioTrack unsafe.Pointer, state C.int, reason C.int, elapsed C.int) {
 	agoraService.connectionRWMutex.RLock()

@@ -5,6 +5,7 @@ package agoraservice
 
 #include <stdlib.h>
 #include <string.h>
+#include "agora_base.h"
 #include "agora_local_user.h"
 #include "agora_rtc_conn.h"
 #include "agora_service.h"
@@ -44,8 +45,15 @@ func CRtcConnectionConfig(cfg *RtcConnectionConfig) *C.struct__rtc_conn_config {
 	C.memset(unsafe.Pointer(ret), 0, C.sizeof_struct__rtc_conn_config)
 	ret.auto_subscribe_audio = CIntFromBool(cfg.SubAudio)
 	ret.auto_subscribe_video = CIntFromBool(cfg.SubVideo)
+	ret.enable_audio_recording_or_playout = CIntFromBool(cfg.EnableAudioRecordingOrPlayout)
+	ret.max_send_bitrate = C.int(cfg.MaxSendBitrate)
+	ret.min_port = C.int(cfg.MinPort)
+	ret.max_port = C.int(cfg.MaxPort)
+	// ret.audio_subs_options
 	ret.client_role_type = C.int(cfg.ClientRole)
 	ret.channel_profile = C.int(cfg.ChannelProfile)
+	ret.audio_recv_media_packet = CIntFromBool(cfg.AudioRecvMediaPacket)
+	ret.video_recv_media_packet = CIntFromBool(cfg.VideoRecvMediaPacket)
 	return ret
 }
 
@@ -64,7 +72,7 @@ func GoRtcConnectionInfo(cInfo *C.struct__rtc_conn_info) *RtcConnectionInfo {
 	return ret
 }
 
-func CRtcConnectionEventHandler(handler *RtcConnectionEventHandler) (*C.struct__rtc_conn_observer, *C.struct__local_user_observer) {
+func CRtcConnectionEventHandler() (*C.struct__rtc_conn_observer, *C.struct__local_user_observer) {
 	ret := (*C.struct__rtc_conn_observer)(C.malloc(C.sizeof_struct__rtc_conn_observer))
 	C.memset(unsafe.Pointer(ret), 0, C.sizeof_struct__rtc_conn_observer)
 	ret.on_connected = (*[0]byte)(C.cgo_on_connected)
@@ -83,6 +91,8 @@ func CRtcConnectionEventHandler(handler *RtcConnectionEventHandler) (*C.struct__
 	C.memset(unsafe.Pointer(ret1), 0, C.sizeof_struct__local_user_observer)
 	ret1.on_stream_message = (*[0]byte)(C.cgo_on_stream_message)
 	ret1.on_user_info_updated = (*[0]byte)(C.cgo_on_user_info_updated)
+	ret1.on_user_audio_track_subscribed = (*[0]byte)(C.cgo_on_user_audio_track_subscribed)
+	ret1.on_user_video_track_subscribed = (*[0]byte)(C.cgo_on_user_video_track_subscribed)
 	ret1.on_user_audio_track_state_changed = (*[0]byte)(C.cgo_on_user_audio_track_state_changed)
 	ret1.on_user_video_track_state_changed = (*[0]byte)(C.cgo_on_user_video_track_state_changed)
 	return ret, ret1
@@ -96,7 +106,7 @@ func FreeCLocalUserObserver(handler *C.struct__local_user_observer) {
 	C.free(unsafe.Pointer(handler))
 }
 
-func CAudioFrameObserver(observer *RtcConnectionAudioFrameObserver) *C.struct__audio_frame_observer {
+func CAudioFrameObserver() *C.struct__audio_frame_observer {
 	ret := (*C.struct__audio_frame_observer)(C.malloc(C.sizeof_struct__audio_frame_observer))
 	C.memset(unsafe.Pointer(ret), 0, C.sizeof_struct__audio_frame_observer)
 	ret.on_playback_audio_frame_before_mixing = (*[0]byte)(C.cgo_on_playback_audio_frame_before_mixing)
@@ -120,7 +130,7 @@ func GoPcmAudioFrame(frame *C.struct__audio_frame) *PcmAudioFrame {
 	return ret
 }
 
-func CVideoFrameObserver(observer *RtcConnectionVideoFrameObserver) unsafe.Pointer {
+func CVideoFrameObserver() unsafe.Pointer {
 	// ret := (*C.struct__video_frame_observer2)(C.malloc(C.sizeof_struct__video_frame_observer2))
 	ret := C.struct__video_frame_observer2{}
 	C.memset(unsafe.Pointer(&ret), 0, C.sizeof_struct__video_frame_observer2)
@@ -159,6 +169,21 @@ func GoVideoFrame(frame *C.struct__video_frame) *VideoFrame {
 		UStride:   int(frame.u_stride),
 		VStride:   int(frame.v_stride),
 		Timestamp: int64(frame.render_time_ms),
+	}
+	return ret
+}
+
+func GoVideoTrackInfo(cInfo *C.struct__video_track_info) *VideoTrackInfo {
+	ret := &VideoTrackInfo{
+		IsLocal:             (int(cInfo.is_local) != 0),
+		OwnerUid:            uint(cInfo.owner_uid),
+		TrackId:             uint(cInfo.track_id),
+		ChannelId:           C.GoString(cInfo.channel_id),
+		StreamType:          int(cInfo.stream_type),
+		CodecType:           int(cInfo.codec_type),
+		EncodedFrameOnly:    (int(cInfo.encoded_frame_only) != 0),
+		SourceType:          int(cInfo.source_type),
+		ObservationPosition: uint(cInfo.observation_position),
 	}
 	return ret
 }
