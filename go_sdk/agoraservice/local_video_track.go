@@ -1,7 +1,9 @@
 package agoraservice
 
 // #cgo CFLAGS: -I${SRCDIR}/../../agora_sdk/include_c/api2 -I${SRCDIR}/../../agora_sdk/include_c/base
+// #include <string.h>
 // #include "agora_service.h"
+// #include "agora_media_node_factory.h"
 // #include "agora_video_track.h"
 import "C"
 import "unsafe"
@@ -53,7 +55,7 @@ type LocalVideoTrack struct {
 }
 
 func NewCustomVideoTrack(videoSender *VideoFrameSender) *LocalVideoTrack {
-	cTrack := C.agora_service_create_custom_video_track_frame(agoraService.service, videoSender.sender)
+	cTrack := C.agora_service_create_custom_video_track_frame(agoraService.service, videoSender.cSender)
 	if cTrack == nil {
 		return nil
 	}

@@ -20,11 +20,15 @@ import "unsafe"
 func CAgoraServiceConfig(cfg *AgoraServiceConfig) *C.struct__agora_service_config {
 	ret := (*C.struct__agora_service_config)(C.malloc(C.sizeof_struct__agora_service_config))
 	C.memset(unsafe.Pointer(ret), 0, C.sizeof_struct__agora_service_config)
+	ret.enable_audio_processor = CIntFromBool(cfg.EnableAudioProcessor)
+	ret.enable_audio_device = CIntFromBool(cfg.EnableAudioDevice)
+	ret.enable_video = CIntFromBool(cfg.EnableVideo)
+
 	ret.app_id = C.CString(cfg.AppId)
-	ret.enable_audio_device = C.int(0)
-	ret.enable_audio_processor = C.int(1)
-	ret.enable_video = C.int(1)
+	ret.area_code = C.uint(cfg.AreaCode)
+	ret.channel_profile = C.int(cfg.ChannelProfile)
 	ret.audio_scenario = C.int(cfg.AudioScenario)
+	ret.use_string_uid = CIntFromBool(cfg.UseStringUid)
 	return ret
 }
 
@@ -43,8 +47,8 @@ func CIntFromBool(b bool) C.int {
 func CRtcConnectionConfig(cfg *RtcConnectionConfig) *C.struct__rtc_conn_config {
 	ret := (*C.struct__rtc_conn_config)(C.malloc(C.sizeof_struct__rtc_conn_config))
 	C.memset(unsafe.Pointer(ret), 0, C.sizeof_struct__rtc_conn_config)
-	ret.auto_subscribe_audio = CIntFromBool(cfg.SubAudio)
-	ret.auto_subscribe_video = CIntFromBool(cfg.SubVideo)
+	ret.auto_subscribe_audio = CIntFromBool(cfg.AutoSubscribeAudio)
+	ret.auto_subscribe_video = CIntFromBool(cfg.AutoSubscribeVideo)
 	ret.enable_audio_recording_or_playout = CIntFromBool(cfg.EnableAudioRecordingOrPlayout)
 	ret.max_send_bitrate = C.int(cfg.MaxSendBitrate)
 	ret.min_port = C.int(cfg.MinPort)

@@ -46,25 +46,28 @@ func main() {
 		}
 	}
 	svcCfg := agoraservice.AgoraServiceConfig{
-		AppId:         appid,
-		AudioScenario: agoraservice.AudioScenarioChorus,
-		LogPath:       "./agora_rtc_log/agorasdk.log",
-		LogSize:       512 * 1024,
-	}
-	agoraservice.Init(&svcCfg)
-	conCfg := agoraservice.RtcConnectionConfig{
-		SubAudio:       true,
-		SubVideo:       false,
-		ClientRole:     1,
-		ChannelProfile: 1,
+		EnableAudioProcessor: true,
+		EnableAudioDevice:    false,
+		EnableVideo:          false,
 
-		SubAudioConfig: &agoraservice.SubscribeAudioConfig{
-			SampleRate: 16000,
-			Channels:   1,
-		},
+		AppId:          appid,
+		ChannelProfile: agoraservice.ChannelProfileLiveBroadcasting,
+		AudioScenario:  agoraservice.AudioScenarioChorus,
+		UseStringUid:   false,
+		LogPath:        "./agora_rtc_log/agorasdk.log",
+		LogSize:        512 * 1024,
+	}
+	agoraservice.Initialize(&svcCfg)
+	defer agoraservice.Release()
+
+	conCfg := agoraservice.RtcConnectionConfig{
+		AutoSubscribeAudio: true,
+		AutoSubscribeVideo: false,
+		ClientRole:         agoraservice.ClientRoleBroadcaster,
+		ChannelProfile:     agoraservice.ChannelProfileLiveBroadcasting,
 	}
 	conSignal := make(chan struct{})
-	conHandler := agoraservice.RtcConnectionEventHandler{
+	conHandler := &agoraservice.RtcConnectionEventHandler{
 		OnConnected: func(con *agoraservice.RtcConnection, info *agoraservice.RtcConnectionInfo, reason int) {
 			// do something
 			fmt.Println("Connected")
@@ -81,8 +84,7 @@ func main() {
 			fmt.Println("user left, " + uid)
 		},
 	}
-	conCfg.ConnectionHandler = &conHandler
-	conCfg.AudioFrameObserver = &agoraservice.RtcConnectionAudioFrameObserver{
+	audioObserver := &agoraservice.RtcConnectionAudioFrameObserver{
 		OnPlaybackAudioFrameBeforeMixing: func(con *agoraservice.RtcConnection, channelId string, userId string, frame *agoraservice.PcmAudioFrame) {
 			// do something
 			fmt.Printf("Playback audio frame before mixing, from userId %s\n", userId)
@@ -90,11 +92,23 @@ func main() {
 	}
 	con := agoraservice.NewConnection(&conCfg)
 	defer con.Release()
-	sender := con.NewPcmSender()
+
+	con.SetPlaybackAudioFrameBeforeMixingParameters(1, 16000)
+	con.RegisterObserver(conHandler)
+	con.RegisterAudioFrameObserver(audioObserver)
+
+	// sender := con.NewPcmSender()
+	// defer sender.Release()
+	sender := agoraservice.NewAudioPcmDataSender()
 	defer sender.Release()
+	track := agoraservice.NewCustomPcmAudioTrack(sender)
+	defer track.Release()
+
 	con.Connect(token, channelName, userId)
 	<-conSignal
-	sender.Start()
+
+	track.SetEnabled(true)
+	con.PublishAudio(track)
 
 	frame := agoraservice.PcmAudioFrame{
 		Data:              make([]byte, 320),
@@ -105,15 +119,14 @@ func main() {
 		SampleRate:        16000,
 	}
 
-	file, err := os.Open("../test_data/demo.pcm")
+	file, err := os.Open("../../../test_data/demo.pcm")
 	if err != nil {
 		fmt.Println("Error opening file:", err)
 		return
 	}
 	defer file.Close()
 
-	sender.AdjustVolume(100)
-	// sender.SetSendBufferSize(30)
+	track.AdjustVolume(100)
 
 	sendCount := 0
 	// send 180ms audio data
@@ -147,8 +160,7 @@ func main() {
 		fmt.Printf("Sent %d frames this time\n", shouldSendCount)
 		time.Sleep(50 * time.Millisecond)
 	}
-	sender.Stop()
+	con.UnpublishAudio(track)
+	track.SetEnabled(false)
 	con.Disconnect()
-
-	agoraservice.Destroy()
 }

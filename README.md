@@ -12,29 +12,29 @@
 ```
 unzip agora_sdk.zip
 ```
-- make **agora_sdk** directory in the same directory with **go_wrapper**
+- make **agora_sdk** directory in the same directory with **go_sdk**
 - there should be **libagora_rtc_sdk.so** and **include_c** in **agora_sdk** directory
 
-## Build sample
+## Build example
 ```
-cd go_wrapper
+cd go_sdk/examples/send_recv_pcm
 go mod tidy
 go build main
 ```
 
 ## Test
 - download and unzip [test_data.zip](https://share.weiyun.com/d3BuJNkZ)
-- make **test_data** directory in the same directory with **go_wrapper**
+- make **test_data** directory in the same directory with **go_sdk**
 - run main
 ```
 export LD_LIBRARY_PATH=/path/to/agora_sdk
-cd go_wrapper
+cd go_sdk/examples/send_recv_pcm
 ./main
 ```
 - run ut on linux
 ```
 export LD_LIBRARY_PATH=/path/to/agora_sdk
-cd go_wrapper/agoraservice
+cd go_sdk/agoraservice
 go mod tidy
 go test -v -count=1 -timeout 20s -run ^TestBaseCase$ agoraservice
 ```
@@ -44,19 +44,20 @@ go test -v -count=1 -timeout 20s -run ^TestBaseCase$ agoraservice
 ```
 unzip agora_sdk_mac.zip
 ```
-- make **agora_sdk_mac** directory in the same directory with **go_wrapper**
+- make **agora_sdk_mac** directory in the same directory with **go_sdk**
 - download and unzip [test_data.zip](https://share.weiyun.com/d3BuJNkZ)
-- make **test_data** directory in the same directory with **go_wrapper**
+- make **test_data** directory in the same directory with **go_sdk**
 - build and run main
 ```
-cd go_wrapper
-./build_for_mac.sh
+cd go_sdk/examples/send_recv_pcm
+go mod tidy
+go build main
+export DYLD_LIBRARY_PATH=/path/to/agora_sdk_mac
 ./main
 ```
 - build and test ut
 ```
-export CGO_LDFLAGS_ALLOW="-Wl,-rpath,.*"
-cd go_wrapper/agoraservice
+cd go_sdk/agoraservice
 go mod tidy
 go test -v -count=1 -timeout 20s -run ^TestBaseCase$ agoraservice
 ```
@@ -87,7 +88,7 @@ data,
 - libagora_uap_aed depends on GLIBC 2.27 and above
 - solutions are:
   - you can upgrade your glibc if possible, or you will need to upgrade your running system to **required os version**
-  - if you don't use VAD, and your glibc version is between 2.16 and 2.27, you can disable VAD by rename **audio_vad.go** file in go_wrapper/agoraserver/ to **audio_vad.go.bak**
+  - if you don't use VAD, and your glibc version is between 2.16 and 2.27, you can disable VAD by rename **audio_vad.go** file in go_sdk/agoraserver/ to **audio_vad.go.bak**
 
 # Change log
 ## 2024.08.14 release 1.1

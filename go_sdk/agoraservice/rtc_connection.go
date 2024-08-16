@@ -99,9 +99,6 @@ type PcmAudioFrame struct {
 
 // support YUV I420 only
 type VideoFrame struct {
-	// YBuffer is Buffer [0:YStart+Height*YStride]
-	// UBuffer is Buffer [UStart:UStart+Height/2*UStride]
-	// VBuffer is Buffer [VStart:VStart+Height/2*VStride]
 	Buffer    []byte
 	Width     int
 	Height    int
@@ -185,7 +182,7 @@ type RtcConnectionConfig struct {
 	 */
 	MaxPort int
 	/**
-	 * The role of the user: #CLIENT_ROLE_TYPE. The default user role is CLIENT_ROLE_AUDIENCE.
+	 * The role of the user. The default user role is ClientRoleAudience.
 	 */
 	ClientRole     int
 	ChannelProfile int
@@ -422,7 +419,7 @@ func (conn *RtcConnection) SetAudioEncoderConfiguration(config *AudioEncoderConf
 		return -1
 	}
 	cConfig := C.struct__audio_encoder_config{}
-	cConfig.audio_profile := C.int(AudioProfileDefault)
+	cConfig.audio_profile = C.int(AudioProfileDefault)
 	if config != nil {
 		cConfig.audio_profile = C.int(config.AudioProfile)
 	}
