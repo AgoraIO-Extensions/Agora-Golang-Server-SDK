@@ -54,7 +54,7 @@ func (track *LocalAudioTrack) SetEnabled(enable bool) {
 	C.agora_local_audio_track_set_enabled(track.cTrack, C.int(cEnable))
 }
 
-func (track *LocalAudioTrack) AdjustVolume(volume int) int {
+func (track *LocalAudioTrack) AdjustPublishVolume(volume int) int {
 	if track.cTrack == nil {
 		return -1
 	}

@@ -48,7 +48,7 @@ func main() {
 	svcCfg := agoraservice.AgoraServiceConfig{
 		EnableAudioProcessor: true,
 		EnableAudioDevice:    false,
-		EnableVideo:          false,
+		EnableVideo:          true,
 
 		AppId:          appid,
 		ChannelProfile: agoraservice.ChannelProfileLiveBroadcasting,
@@ -62,7 +62,7 @@ func main() {
 
 	conCfg := agoraservice.RtcConnectionConfig{
 		AutoSubscribeAudio: true,
-		AutoSubscribeVideo: false,
+		AutoSubscribeVideo: true,
 		ClientRole:         agoraservice.ClientRoleBroadcaster,
 		ChannelProfile:     agoraservice.ChannelProfileLiveBroadcasting,
 	}
@@ -84,83 +84,70 @@ func main() {
 			fmt.Println("user left, " + uid)
 		},
 	}
-	audioObserver := &agoraservice.AudioFrameObserver{
-		OnPlaybackAudioFrameBeforeMixing: func(con *agoraservice.RtcConnection, channelId string, userId string, frame *agoraservice.PcmAudioFrame) {
+	videoObserver := &agoraservice.VideoFrameObserver{
+		OnFrame: func(con *agoraservice.RtcConnection, channelId string, userId string, frame *agoraservice.VideoFrame) {
 			// do something
-			fmt.Printf("Playback audio frame before mixing, from userId %s\n", userId)
+			fmt.Printf("recv video frame, from channel %s, user %s\n", channelId, userId)
 		},
 	}
 	con := agoraservice.NewConnection(&conCfg)
 	defer con.Release()
 
-	con.SetPlaybackAudioFrameBeforeMixingParameters(1, 16000)
 	con.RegisterObserver(conHandler)
-	con.RegisterAudioFrameObserver(audioObserver)
+	con.RegisterVideoFrameObserver(videoObserver)
 
-	// sender := con.NewPcmSender()
-	// defer sender.Release()
-	sender := agoraservice.NewAudioPcmDataSender()
+	sender := agoraservice.NewVideoFrameSender()
 	defer sender.Release()
-	track := agoraservice.NewCustomPcmAudioTrack(sender)
+	track := agoraservice.NewCustomVideoTrack(sender)
 	defer track.Release()
 
 	con.Connect(token, channelName, userId)
 	<-conSignal
 
+	track.SetVideoEncoderConfiguration(&agoraservice.VideoEncoderConfiguration{
+		CodecType:         2,
+		Width:             320,
+		Height:            240,
+		Framerate:         30,
+		Bitrate:           500,
+		MinBitrate:        100,
+		OrientationMode:   0,
+		DegradePreference: 0,
+	})
 	track.SetEnabled(true)
-	con.PublishAudio(track)
+	con.PublishVideo(track)
 
-	frame := agoraservice.PcmAudioFrame{
-		Data:              make([]byte, 320),
-		Timestamp:         0,
-		SamplesPerChannel: 160,
-		BytesPerSample:    2,
-		NumberOfChannels:  1,
-		SampleRate:        16000,
-	}
-
-	file, err := os.Open("../../../test_data/demo.pcm")
+	w := 416
+	h := 240
+	dataSize := w * h * 3 / 2
+	data := make([]byte, dataSize)
+	// read yuv from file 103_RaceHorses_416x240p30_300.yuv
+	file, err := os.Open("../../../test_data/103_RaceHorses_416x240p30_300.yuv")
 	if err != nil {
 		fmt.Println("Error opening file:", err)
 		return
 	}
 	defer file.Close()
 
-	track.AdjustPublishVolume(100)
-
-	sendCount := 0
-	// send 180ms audio data
-	for i := 0; i < 18; i++ {
-		dataLen, err := file.Read(frame.Data)
-		if err != nil || dataLen < 320 {
-			fmt.Println("Finished reading file:", err)
-			break
+	for !*bStop {
+		dataLen, err := file.Read(data)
+		if err != nil || dataLen < dataSize {
+			file.Seek(0, 0)
+			continue
 		}
-		sendCount++
-		ret := sender.SendPcmData(&frame)
-		fmt.Printf("SendPcmData %d ret: %d\n", sendCount, ret)
+		// senderCon.SendStreamMessage(streamId, data)
+		sender.SendVideoFrame(&agoraservice.VideoFrame{
+			Buffer:    data,
+			Width:     w,
+			Height:    h,
+			YStride:   w,
+			UStride:   w / 2,
+			VStride:   w / 2,
+			Timestamp: 0,
+		})
+		time.Sleep(33 * time.Millisecond)
 	}
-
-	firstSendTime := time.Now()
-	for !(*bStop) {
-		shouldSendCount := int(time.Since(firstSendTime).Milliseconds()/10) - (sendCount - 18)
-		for i := 0; i < shouldSendCount; i++ {
-			dataLen, err := file.Read(frame.Data)
-			if err != nil || dataLen < 320 {
-				fmt.Println("Finished reading file:", err)
-				file.Seek(0, 0)
-				i--
-				continue
-			}
-
-			sendCount++
-			ret := sender.SendPcmData(&frame)
-			fmt.Printf("SendPcmData %d ret: %d\n", sendCount, ret)
-		}
-		fmt.Printf("Sent %d frames this time\n", shouldSendCount)
-		time.Sleep(50 * time.Millisecond)
-	}
-	con.UnpublishAudio(track)
+	con.UnpublishVideo(track)
 	track.SetEnabled(false)
 	con.Disconnect()
 }

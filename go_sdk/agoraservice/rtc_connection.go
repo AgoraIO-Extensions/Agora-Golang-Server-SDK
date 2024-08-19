@@ -121,7 +121,7 @@ type RtcConnectionEventHandler struct {
 	OnUserLeft                 func(con *RtcConnection, uid string, reason int)
 	OnStreamMessageError       func(con *RtcConnection, uid string, streamId int, errCode int, missed int, cached int)
 	OnStreamMessage            func(con *RtcConnection, uid string, streamId int, data []byte)
-	// userMediaInfo: USER_MEDIA_INFO_XXX
+	// userMediaInfo: UserMediaInfoXxx
 	// val: 0 for false, 1 for true
 	OnUserInfoUpdated            func(con *RtcConnection, uid string, userMediaInfo int, val int)
 	OnUserAudioTrackSubscribed   func(con *RtcConnection, uid string, remoteAudioTrack *RemoteAudioTrack)
@@ -130,11 +130,11 @@ type RtcConnectionEventHandler struct {
 	OnUserVideoTrackStateChanged func(con *RtcConnection, uid string, remoteAudioTrack *RemoteVideoTrack, state int, reason int, elapsed int)
 }
 
-type RtcConnectionAudioFrameObserver struct {
+type AudioFrameObserver struct {
 	OnPlaybackAudioFrameBeforeMixing func(con *RtcConnection, channelId string, uid string, frame *PcmAudioFrame)
 }
 
-type RtcConnectionVideoFrameObserver struct {
+type VideoFrameObserver struct {
 	OnFrame func(con *RtcConnection, channelId string, userId string, frame *VideoFrame)
 }
 
@@ -204,8 +204,8 @@ type RtcConnectionConfig struct {
 
 // 	SubAudioConfig     *SubscribeAudioConfig
 // 	ConnectionHandler  *RtcConnectionEventHandler
-// 	AudioFrameObserver *RtcConnectionAudioFrameObserver
-// 	VideoFrameObserver *RtcConnectionVideoFrameObserver
+// 	AudioFrameObserver *AudioFrameObserver
+// 	VideoFrameObserver *VideoFrameObserver
 // }
 
 type RtcConnection struct {
@@ -215,9 +215,9 @@ type RtcConnection struct {
 	handler            *RtcConnectionEventHandler
 	cHandler           *C.struct__rtc_conn_observer
 	cLocalUserObserver *C.struct__local_user_observer
-	audioObserver      *RtcConnectionAudioFrameObserver
+	audioObserver      *AudioFrameObserver
 	cAudioObserver     *C.struct__audio_frame_observer
-	videoObserver      *RtcConnectionVideoFrameObserver
+	videoObserver      *VideoFrameObserver
 	cVideoObserver     unsafe.Pointer
 
 	// videoSender *VideoSender
@@ -479,7 +479,7 @@ func (conn *RtcConnection) UnregisterObserver() int {
 	return 0
 }
 
-func (conn *RtcConnection) RegisterAudioFrameObserver(observer *RtcConnectionAudioFrameObserver) int {
+func (conn *RtcConnection) RegisterAudioFrameObserver(observer *AudioFrameObserver) int {
 	if conn.cConnection == nil || observer == nil {
 		return -1
 	}
@@ -496,7 +496,7 @@ func (conn *RtcConnection) UnregisterAudioFrameObserver() int {
 	return 0
 }
 
-func (conn *RtcConnection) RegisterVideoFrameObserver(observer *RtcConnectionVideoFrameObserver) int {
+func (conn *RtcConnection) RegisterVideoFrameObserver(observer *VideoFrameObserver) int {
 	if conn.cConnection == nil || observer == nil {
 		return -1
 	}
