@@ -210,7 +210,8 @@ type RtcConnectionConfig struct {
 
 type RtcConnection struct {
 	cConnection unsafe.Pointer
-	cLocalUser  unsafe.Pointer
+	localUser   *LocalUser
+	// cLocalUser  unsafe.Pointer
 	// subAudioConfig     *SubscribeAudioConfig
 	handler            *RtcConnectionEventHandler
 	cHandler           *C.struct__rtc_conn_observer
@@ -234,7 +235,10 @@ func NewConnection(cfg *RtcConnectionConfig) *RtcConnection {
 		audioObserver: nil,
 		videoObserver: nil,
 	}
-	ret.cLocalUser = C.agora_rtc_conn_get_local_user(ret.cConnection)
+	ret.localUser = &LocalUser{
+		connection: ret,
+		cLocalUser: C.agora_rtc_conn_get_local_user(ret.cConnection),
+	}
 	// if ret.handler != nil {
 	// ret.cHandler, ret.cLocalUserObserver = CRtcConnectionEventHandler()
 	// C.agora_rtc_conn_register_observer(ret.cConnection, ret.cHandler)
@@ -273,19 +277,20 @@ func (conn *RtcConnection) Release() {
 	}
 	agoraService.connectionRWMutex.Lock()
 	delete(agoraService.consByCCon, conn.cConnection)
-	delete(agoraService.consByCLocalUser, conn.cLocalUser)
+	delete(agoraService.consByCLocalUser, conn.localUser.cLocalUser)
 	if conn.cVideoObserver != nil {
 		delete(agoraService.consByCVideoObserver, conn.cVideoObserver)
 	}
 	agoraService.connectionRWMutex.Unlock()
+	localUser := conn.localUser
 	if conn.cAudioObserver != nil {
-		C.agora_local_user_unregister_audio_frame_observer(conn.cLocalUser)
+		C.agora_local_user_unregister_audio_frame_observer(localUser.cLocalUser)
 	}
 	if conn.cVideoObserver != nil {
-		C.agora_local_user_unregister_video_frame_observer(conn.cLocalUser, conn.cVideoObserver)
+		C.agora_local_user_unregister_video_frame_observer(localUser.cLocalUser, conn.cVideoObserver)
 	}
 	if conn.cLocalUserObserver != nil {
-		C.agora_local_user_unregister_observer(conn.cLocalUser)
+		C.agora_local_user_unregister_observer(localUser.cLocalUser)
 	}
 	if conn.cHandler != nil {
 		C.agora_rtc_conn_unregister_observer(conn.cConnection)
@@ -308,17 +313,17 @@ func (conn *RtcConnection) Release() {
 		FreeCRtcConnectionEventHandler(conn.cHandler)
 		conn.cHandler = nil
 	}
+	conn.localUser = nil
+	localUser.connection = nil
+	localUser.cLocalUser = nil
+	localUser = nil
 	conn.handler = nil
 	conn.audioObserver = nil
 	conn.videoObserver = nil
 }
 
-func (conn *RtcConnection) SetUserRole(role int) int {
-	if conn.cConnection == nil {
-		return -1
-	}
-	C.agora_local_user_set_user_role(conn.cLocalUser, C.int(role))
-	return 0
+func (conn *RtcConnection) GetLocalUser() *LocalUser {
+	return conn.localUser
 }
 
 func (conn *RtcConnection) Connect(token string, channel string, uid string) int {
@@ -369,38 +374,6 @@ func (conn *RtcConnection) SendStreamMessage(streamId int, msg []byte) int {
 	return int(C.agora_rtc_conn_send_stream_message(conn.cConnection, C.int(streamId), (*C.char)(cMsg), C.uint32_t(len(msg))))
 }
 
-func (conn *RtcConnection) SubscribeAudio(uid string) int {
-	if conn.cLocalUser == nil {
-		return -1
-	}
-	cUid := C.CString(uid)
-	defer C.free(unsafe.Pointer(cUid))
-	return int(C.agora_local_user_subscribe_audio(conn.cLocalUser, cUid))
-}
-
-func (conn *RtcConnection) UnsubscribeAudio(uid string) int {
-	if conn.cLocalUser == nil {
-		return -1
-	}
-	cUid := C.CString(uid)
-	defer C.free(unsafe.Pointer(cUid))
-	return int(C.agora_local_user_unsubscribe_audio(conn.cLocalUser, cUid))
-}
-
-func (conn *RtcConnection) SubscribeAllAudio() int {
-	if conn.cLocalUser == nil {
-		return -1
-	}
-	return int(C.agora_local_user_subscribe_all_audio(conn.cLocalUser))
-}
-
-func (conn *RtcConnection) UnsubscribeAllAudio() int {
-	if conn.cLocalUser == nil {
-		return -1
-	}
-	return int(C.agora_local_user_unsubscribe_all_audio(conn.cLocalUser))
-}
-
 func (conn *RtcConnection) SetParameters(parameters string) int {
 	if conn.cConnection == nil {
 		return -1
@@ -412,53 +385,6 @@ func (conn *RtcConnection) SetParameters(parameters string) int {
 	cParameters := C.CString(parameters)
 	defer C.free(unsafe.Pointer(cParameters))
 	return int(C.agora_parameter_set_parameters(cParamHdl, cParameters))
-}
-
-func (conn *RtcConnection) SetAudioEncoderConfiguration(config *AudioEncoderConfiguration) int {
-	if conn.cConnection == nil {
-		return -1
-	}
-	cConfig := C.struct__audio_encoder_config{}
-	cConfig.audio_profile = C.int(AudioProfileDefault)
-	if config != nil {
-		cConfig.audio_profile = C.int(config.AudioProfile)
-	}
-	return int(C.agora_local_user_set_audio_encoder_config(conn.cLocalUser, &cConfig))
-}
-
-func (conn *RtcConnection) PublishAudio(track *LocalAudioTrack) int {
-	if conn.cConnection == nil {
-		return -1
-	}
-	return int(C.agora_local_user_publish_audio(conn.cLocalUser, track.cTrack))
-}
-
-func (conn *RtcConnection) UnpublishAudio(track *LocalAudioTrack) int {
-	if conn.cConnection == nil {
-		return -1
-	}
-	return int(C.agora_local_user_unpublish_audio(conn.cLocalUser, track.cTrack))
-}
-
-func (conn *RtcConnection) PublishVideo(track *LocalVideoTrack) int {
-	if conn.cConnection == nil {
-		return -1
-	}
-	return int(C.agora_local_user_publish_video(conn.cLocalUser, track.cTrack))
-}
-
-func (conn *RtcConnection) UnpublishVideo(track *LocalVideoTrack) int {
-	if conn.cConnection == nil {
-		return -1
-	}
-	return int(C.agora_local_user_unpublish_video(conn.cLocalUser, track.cTrack))
-}
-
-func (conn *RtcConnection) SetPlaybackAudioFrameBeforeMixingParameters(channels int, sampleRate int) int {
-	if conn.cConnection == nil {
-		return -1
-	}
-	return int(C.agora_local_user_set_playback_audio_frame_before_mixing_parameters(conn.cLocalUser, C.uint(channels), C.uint(sampleRate)))
 }
 
 func (conn *RtcConnection) RegisterObserver(handler *RtcConnectionEventHandler) int {
@@ -479,7 +405,7 @@ func (conn *RtcConnection) UnregisterObserver() int {
 	return 0
 }
 
-func (conn *RtcConnection) RegisterAudioFrameObserver(observer *AudioFrameObserver) int {
+func (conn *RtcConnection) registerAudioFrameObserver(observer *AudioFrameObserver) int {
 	if conn.cConnection == nil || observer == nil {
 		return -1
 	}
@@ -491,12 +417,12 @@ func (conn *RtcConnection) RegisterAudioFrameObserver(observer *AudioFrameObserv
 	return 0
 }
 
-func (conn *RtcConnection) UnregisterAudioFrameObserver() int {
+func (conn *RtcConnection) unregisterAudioFrameObserver() int {
 	conn.audioObserver = nil
 	return 0
 }
 
-func (conn *RtcConnection) RegisterVideoFrameObserver(observer *VideoFrameObserver) int {
+func (conn *RtcConnection) registerVideoFrameObserver(observer *VideoFrameObserver) int {
 	if conn.cConnection == nil || observer == nil {
 		return -1
 	}
@@ -511,7 +437,7 @@ func (conn *RtcConnection) RegisterVideoFrameObserver(observer *VideoFrameObserv
 	return 0
 }
 
-func (conn *RtcConnection) UnregisterVideoFrameObserver() int {
+func (conn *RtcConnection) unregisterVideoFrameObserver() int {
 	conn.videoObserver = nil
 	return 0
 }
