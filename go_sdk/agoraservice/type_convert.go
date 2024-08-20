@@ -76,7 +76,7 @@ func GoRtcConnectionInfo(cInfo *C.struct__rtc_conn_info) *RtcConnectionInfo {
 	return ret
 }
 
-func CRtcConnectionEventHandler() (*C.struct__rtc_conn_observer, *C.struct__local_user_observer) {
+func CRtcConnectionObserver() *C.struct__rtc_conn_observer {
 	ret := (*C.struct__rtc_conn_observer)(C.malloc(C.sizeof_struct__rtc_conn_observer))
 	C.memset(unsafe.Pointer(ret), 0, C.sizeof_struct__rtc_conn_observer)
 	ret.on_connected = (*[0]byte)(C.cgo_on_connected)
@@ -90,20 +90,23 @@ func CRtcConnectionEventHandler() (*C.struct__rtc_conn_observer, *C.struct__loca
 	ret.on_user_joined = (*[0]byte)(C.cgo_on_user_joined)
 	ret.on_user_left = (*[0]byte)(C.cgo_on_user_left)
 	ret.on_stream_message_error = (*[0]byte)(C.cgo_on_stream_message_error)
-
-	ret1 := (*C.struct__local_user_observer)(C.malloc(C.sizeof_struct__local_user_observer))
-	C.memset(unsafe.Pointer(ret1), 0, C.sizeof_struct__local_user_observer)
-	ret1.on_stream_message = (*[0]byte)(C.cgo_on_stream_message)
-	ret1.on_user_info_updated = (*[0]byte)(C.cgo_on_user_info_updated)
-	ret1.on_user_audio_track_subscribed = (*[0]byte)(C.cgo_on_user_audio_track_subscribed)
-	ret1.on_user_video_track_subscribed = (*[0]byte)(C.cgo_on_user_video_track_subscribed)
-	ret1.on_user_audio_track_state_changed = (*[0]byte)(C.cgo_on_user_audio_track_state_changed)
-	ret1.on_user_video_track_state_changed = (*[0]byte)(C.cgo_on_user_video_track_state_changed)
-	return ret, ret1
+	return ret
 }
 
-func FreeCRtcConnectionEventHandler(handler *C.struct__rtc_conn_observer) {
+func FreeCRtcConnectionObserver(handler *C.struct__rtc_conn_observer) {
 	C.free(unsafe.Pointer(handler))
+}
+
+func CLocalUserObserver() *C.struct__local_user_observer {
+	ret := (*C.struct__local_user_observer)(C.malloc(C.sizeof_struct__local_user_observer))
+	C.memset(unsafe.Pointer(ret), 0, C.sizeof_struct__local_user_observer)
+	ret.on_stream_message = (*[0]byte)(C.cgo_on_stream_message)
+	ret.on_user_info_updated = (*[0]byte)(C.cgo_on_user_info_updated)
+	ret.on_user_audio_track_subscribed = (*[0]byte)(C.cgo_on_user_audio_track_subscribed)
+	ret.on_user_video_track_subscribed = (*[0]byte)(C.cgo_on_user_video_track_subscribed)
+	ret.on_user_audio_track_state_changed = (*[0]byte)(C.cgo_on_user_audio_track_state_changed)
+	ret.on_user_video_track_state_changed = (*[0]byte)(C.cgo_on_user_video_track_state_changed)
+	return ret
 }
 
 func FreeCLocalUserObserver(handler *C.struct__local_user_observer) {

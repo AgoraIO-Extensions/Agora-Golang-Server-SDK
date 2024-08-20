@@ -24,5 +24,5 @@ func goOnPlaybackAudioFrameBeforeMixing(cLocalUser unsafe.Pointer, channelId *C.
 	goChannelId := C.GoString(channelId)
 	goUid := C.GoString(uid)
 	goFrame := GoPcmAudioFrame(frame)
-	con.audioObserver.OnPlaybackAudioFrameBeforeMixing(con, goChannelId, goUid, goFrame)
+	con.audioObserver.OnPlaybackAudioFrameBeforeMixing(con.GetLocalUser(), goChannelId, goUid, goFrame)
 }

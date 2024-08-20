@@ -24,5 +24,5 @@ func goOnVideoFrame(cObserver unsafe.Pointer, channelId *C.char, uid *C.char, fr
 	goChannelId := C.GoString(channelId)
 	goUid := C.GoString(uid)
 	goFrame := GoVideoFrame(frame)
-	con.videoObserver.OnFrame(con, goChannelId, goUid, goFrame)
+	con.videoObserver.OnFrame(con.GetLocalUser(), goChannelId, goUid, goFrame)
 }

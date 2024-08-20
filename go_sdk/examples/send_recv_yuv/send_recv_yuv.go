@@ -67,7 +67,7 @@ func main() {
 		ChannelProfile:     agoraservice.ChannelProfileLiveBroadcasting,
 	}
 	conSignal := make(chan struct{})
-	conHandler := &agoraservice.RtcConnectionEventHandler{
+	conHandler := &agoraservice.RtcConnectionObserver{
 		OnConnected: func(con *agoraservice.RtcConnection, info *agoraservice.RtcConnectionInfo, reason int) {
 			// do something
 			fmt.Println("Connected")
@@ -85,7 +85,7 @@ func main() {
 		},
 	}
 	videoObserver := &agoraservice.VideoFrameObserver{
-		OnFrame: func(con *agoraservice.RtcConnection, channelId string, userId string, frame *agoraservice.VideoFrame) {
+		OnFrame: func(localUser *agoraservice.LocalUser, channelId string, userId string, frame *agoraservice.VideoFrame) {
 			// do something
 			fmt.Printf("recv video frame, from channel %s, user %s\n", channelId, userId)
 		},
@@ -93,8 +93,9 @@ func main() {
 	con := agoraservice.NewConnection(&conCfg)
 	defer con.Release()
 
+	localUser := con.GetLocalUser()
 	con.RegisterObserver(conHandler)
-	con.RegisterVideoFrameObserver(videoObserver)
+	localUser.RegisterVideoFrameObserver(videoObserver)
 
 	sender := agoraservice.NewVideoFrameSender()
 	defer sender.Release()
@@ -115,7 +116,7 @@ func main() {
 		DegradePreference: 0,
 	})
 	track.SetEnabled(true)
-	con.PublishVideo(track)
+	localUser.PublishVideo(track)
 
 	w := 416
 	h := 240
@@ -147,7 +148,7 @@ func main() {
 		})
 		time.Sleep(33 * time.Millisecond)
 	}
-	con.UnpublishVideo(track)
+	localUser.UnpublishVideo(track)
 	track.SetEnabled(false)
 	con.Disconnect()
 }

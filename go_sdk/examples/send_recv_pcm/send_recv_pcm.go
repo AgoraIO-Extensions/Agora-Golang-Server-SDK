@@ -67,7 +67,7 @@ func main() {
 		ChannelProfile:     agoraservice.ChannelProfileLiveBroadcasting,
 	}
 	conSignal := make(chan struct{})
-	conHandler := &agoraservice.RtcConnectionEventHandler{
+	conHandler := &agoraservice.RtcConnectionObserver{
 		OnConnected: func(con *agoraservice.RtcConnection, info *agoraservice.RtcConnectionInfo, reason int) {
 			// do something
 			fmt.Println("Connected")
@@ -85,7 +85,7 @@ func main() {
 		},
 	}
 	audioObserver := &agoraservice.AudioFrameObserver{
-		OnPlaybackAudioFrameBeforeMixing: func(con *agoraservice.RtcConnection, channelId string, userId string, frame *agoraservice.PcmAudioFrame) {
+		OnPlaybackAudioFrameBeforeMixing: func(localUser *agoraservice.LocalUser, channelId string, userId string, frame *agoraservice.PcmAudioFrame) {
 			// do something
 			fmt.Printf("Playback audio frame before mixing, from userId %s\n", userId)
 		},
@@ -93,9 +93,10 @@ func main() {
 	con := agoraservice.NewConnection(&conCfg)
 	defer con.Release()
 
-	con.SetPlaybackAudioFrameBeforeMixingParameters(1, 16000)
+	localUser := con.GetLocalUser()
+	localUser.SetPlaybackAudioFrameBeforeMixingParameters(1, 16000)
 	con.RegisterObserver(conHandler)
-	con.RegisterAudioFrameObserver(audioObserver)
+	localUser.RegisterAudioFrameObserver(audioObserver)
 
 	// sender := con.NewPcmSender()
 	// defer sender.Release()
@@ -108,7 +109,7 @@ func main() {
 	<-conSignal
 
 	track.SetEnabled(true)
-	con.PublishAudio(track)
+	localUser.PublishAudio(track)
 
 	frame := agoraservice.PcmAudioFrame{
 		Data:              make([]byte, 320),
@@ -160,7 +161,7 @@ func main() {
 		fmt.Printf("Sent %d frames this time\n", shouldSendCount)
 		time.Sleep(50 * time.Millisecond)
 	}
-	con.UnpublishAudio(track)
+	localUser.UnpublishAudio(track)
 	track.SetEnabled(false)
 	con.Disconnect()
 }

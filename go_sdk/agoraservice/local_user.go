@@ -17,19 +17,31 @@ type LocalUser struct {
 	cLocalUser unsafe.Pointer
 }
 
-func (localUser *RtcConnection) RegisterAudioFrameObserver(observer *AudioFrameObserver) int {
+func (localUser *LocalUser) GetRtcConnection() *RtcConnection {
+	return localUser.connection
+}
+
+func (localUser *LocalUser) RegisterLocalUserObserver(observer *LocalUserObserver) int {
+	return localUser.connection.registerLocalUserObserver(observer)
+}
+
+func (localUser *LocalUser) UnregisterLocalUserObserver() int {
+	return localUser.connection.unregisterLocalUserObserver()
+}
+
+func (localUser *LocalUser) RegisterAudioFrameObserver(observer *AudioFrameObserver) int {
 	return localUser.connection.registerAudioFrameObserver(observer)
 }
 
-func (localUser *RtcConnection) UnregisterAudioFrameObserver() int {
+func (localUser *LocalUser) UnregisterAudioFrameObserver() int {
 	return localUser.connection.unregisterAudioFrameObserver()
 }
 
-func (localUser *RtcConnection) RegisterVideoFrameObserver(observer *VideoFrameObserver) int {
+func (localUser *LocalUser) RegisterVideoFrameObserver(observer *VideoFrameObserver) int {
 	return localUser.connection.registerVideoFrameObserver(observer)
 }
 
-func (localUser *RtcConnection) UnregisterVideoFrameObserver() int {
+func (localUser *LocalUser) UnregisterVideoFrameObserver() int {
 	return localUser.connection.unregisterVideoFrameObserver()
 }
 
