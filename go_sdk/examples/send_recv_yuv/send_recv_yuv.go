@@ -59,6 +59,8 @@ func main() {
 	}
 	agoraservice.Initialize(&svcCfg)
 	defer agoraservice.Release()
+	mediaNodeFactory := agoraservice.NewMediaNodeFactory()
+	defer mediaNodeFactory.Release()
 
 	conCfg := agoraservice.RtcConnectionConfig{
 		AutoSubscribeAudio: true,
@@ -97,7 +99,7 @@ func main() {
 	con.RegisterObserver(conHandler)
 	localUser.RegisterVideoFrameObserver(videoObserver)
 
-	sender := agoraservice.NewVideoFrameSender()
+	sender := mediaNodeFactory.NewVideoFrameSender()
 	defer sender.Release()
 	track := agoraservice.NewCustomVideoTrack(sender)
 	defer track.Release()

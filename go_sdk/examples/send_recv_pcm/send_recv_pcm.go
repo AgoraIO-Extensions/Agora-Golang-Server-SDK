@@ -59,6 +59,8 @@ func main() {
 	}
 	agoraservice.Initialize(&svcCfg)
 	defer agoraservice.Release()
+	mediaNodeFactory := agoraservice.NewMediaNodeFactory()
+	defer mediaNodeFactory.Release()
 
 	conCfg := agoraservice.RtcConnectionConfig{
 		AutoSubscribeAudio: true,
@@ -100,7 +102,7 @@ func main() {
 
 	// sender := con.NewPcmSender()
 	// defer sender.Release()
-	sender := agoraservice.NewAudioPcmDataSender()
+	sender := mediaNodeFactory.NewAudioPcmDataSender()
 	defer sender.Release()
 	track := agoraservice.NewCustomPcmAudioTrack(sender)
 	defer track.Release()

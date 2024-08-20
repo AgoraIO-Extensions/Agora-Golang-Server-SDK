@@ -9,8 +9,8 @@ type VideoEncodedImageSender struct {
 	cSender unsafe.Pointer
 }
 
-func NewVideoEncodedImageSender() *VideoEncodedImageSender {
-	sender := C.agora_media_node_factory_create_video_encoded_image_sender(agoraService.mediaFactory)
+func (mediaNodeFactory *MediaNodeFactory) NewVideoEncodedImageSender() *VideoEncodedImageSender {
+	sender := C.agora_media_node_factory_create_video_encoded_image_sender(mediaNodeFactory.cFactory)
 	if sender == nil {
 		return nil
 	}

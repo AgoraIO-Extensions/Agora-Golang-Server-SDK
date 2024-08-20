@@ -9,8 +9,8 @@ type AudioPcmDataSender struct {
 	cSender unsafe.Pointer
 }
 
-func NewAudioPcmDataSender() *AudioPcmDataSender {
-	sender := C.agora_media_node_factory_create_audio_pcm_data_sender(agoraService.mediaFactory)
+func (mediaNodeFactory *MediaNodeFactory) NewAudioPcmDataSender() *AudioPcmDataSender {
+	sender := C.agora_media_node_factory_create_audio_pcm_data_sender(mediaNodeFactory.cFactory)
 	if sender == nil {
 		return nil
 	}

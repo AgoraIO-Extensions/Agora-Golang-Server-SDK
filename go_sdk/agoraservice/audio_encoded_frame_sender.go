@@ -9,8 +9,8 @@ type AudioEncodedFrameSender struct {
 	cSender unsafe.Pointer
 }
 
-func NewAudioEncodedFrameSender() *AudioEncodedFrameSender {
-	sender := C.agora_media_node_factory_create_audio_encoded_frame_sender(agoraService.mediaFactory)
+func (mediaNodeFactory *MediaNodeFactory) NewAudioEncodedFrameSender() *AudioEncodedFrameSender {
+	sender := C.agora_media_node_factory_create_audio_encoded_frame_sender(mediaNodeFactory.cFactory)
 	if sender == nil {
 		return nil
 	}

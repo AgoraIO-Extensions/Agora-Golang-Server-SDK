@@ -109,9 +109,9 @@ type AgoraServiceConfig struct {
 }
 
 type AgoraService struct {
-	inited               bool
-	service              unsafe.Pointer
-	mediaFactory         unsafe.Pointer
+	inited  bool
+	service unsafe.Pointer
+	// mediaFactory         unsafe.Pointer
 	consByCCon           map[unsafe.Pointer]*RtcConnection
 	consByCLocalUser     map[unsafe.Pointer]*RtcConnection
 	consByCVideoObserver map[unsafe.Pointer]*RtcConnection
@@ -120,9 +120,9 @@ type AgoraService struct {
 
 func newAgoraService() *AgoraService {
 	return &AgoraService{
-		inited:               false,
-		service:              nil,
-		mediaFactory:         nil,
+		inited:  false,
+		service: nil,
+		// mediaFactory:         nil,
 		consByCCon:           make(map[unsafe.Pointer]*RtcConnection),
 		consByCLocalUser:     make(map[unsafe.Pointer]*RtcConnection),
 		consByCVideoObserver: make(map[unsafe.Pointer]*RtcConnection),
@@ -155,7 +155,7 @@ func Initialize(cfg *AgoraServiceConfig) int {
 		return ret
 	}
 
-	agoraService.mediaFactory = C.agora_service_create_media_node_factory(agoraService.service)
+	// agoraService.mediaFactory = C.agora_service_create_media_node_factory(agoraService.service)
 
 	if cfg.LogPath != "" {
 		logPath := C.CString(cfg.LogPath)
