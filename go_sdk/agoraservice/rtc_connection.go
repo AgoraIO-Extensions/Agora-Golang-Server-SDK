@@ -214,6 +214,7 @@ type RtcConnectionConfig struct {
 type RtcConnection struct {
 	cConnection unsafe.Pointer
 	localUser   *LocalUser
+	parameter   *AgoraParameter
 	// cLocalUser  unsafe.Pointer
 	// subAudioConfig     *SubscribeAudioConfig
 	handler            *RtcConnectionObserver
@@ -241,6 +242,9 @@ func NewConnection(cfg *RtcConnectionConfig) *RtcConnection {
 	ret.localUser = &LocalUser{
 		connection: ret,
 		cLocalUser: C.agora_rtc_conn_get_local_user(ret.cConnection),
+	}
+	ret.parameter = &AgoraParameter{
+		cParameter: C.agora_rtc_conn_get_agora_parameter(ret.cConnection),
 	}
 	agoraService.connectionRWMutex.Lock()
 	agoraService.consByCCon[ret.cConnection] = ret
@@ -292,6 +296,7 @@ func (conn *RtcConnection) Release() {
 		FreeCRtcConnectionObserver(conn.cHandler)
 		conn.cHandler = nil
 	}
+	conn.parameter = nil
 	conn.localUser = nil
 	localUser.connection = nil
 	localUser.cLocalUser = nil
@@ -304,6 +309,10 @@ func (conn *RtcConnection) Release() {
 
 func (conn *RtcConnection) GetLocalUser() *LocalUser {
 	return conn.localUser
+}
+
+func (conn *RtcConnection) GetParameter() *AgoraParameter {
+	return conn.parameter
 }
 
 func (conn *RtcConnection) Connect(token string, channel string, uid string) int {
@@ -352,19 +361,6 @@ func (conn *RtcConnection) SendStreamMessage(streamId int, msg []byte) int {
 	cMsg := C.CBytes(msg)
 	defer C.free(cMsg)
 	return int(C.agora_rtc_conn_send_stream_message(conn.cConnection, C.int(streamId), (*C.char)(cMsg), C.uint32_t(len(msg))))
-}
-
-func (conn *RtcConnection) SetParameters(parameters string) int {
-	if conn.cConnection == nil {
-		return -1
-	}
-	cParamHdl := C.agora_rtc_conn_get_agora_parameter(conn.cConnection)
-	if cParamHdl == nil {
-		return -1
-	}
-	cParameters := C.CString(parameters)
-	defer C.free(unsafe.Pointer(cParameters))
-	return int(C.agora_parameter_set_parameters(cParamHdl, cParameters))
 }
 
 func (conn *RtcConnection) RegisterObserver(handler *RtcConnectionObserver) int {

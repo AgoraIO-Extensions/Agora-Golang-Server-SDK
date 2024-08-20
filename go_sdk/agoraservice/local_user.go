@@ -12,9 +12,36 @@ package agoraservice
 import "C"
 import "unsafe"
 
+const (
+	/**
+	 * 0: The high-quality video stream, which has a higher resolution and bitrate.
+	 */
+	VideoStreamHigh = 0
+	/**
+	 * 1: The low-quality video stream, which has a lower resolution and bitrate.
+	 */
+	VideoStreamLow = 1
+)
+
 type LocalUser struct {
 	connection *RtcConnection
 	cLocalUser unsafe.Pointer
+}
+
+type VideoSubscriptionOptions struct {
+	/**
+	 * The type of the video stream to subscribe to: #VideoStreamXxx.
+	 *
+	 * The default value is VIDEO_STREAM_HIGH, which means the high-resolution and high-bitrate
+	 * video stream.
+	 */
+	StreamType int
+	/**
+	 * Determines whether to subscribe to encoded video data only:
+	 * - true: Subscribe to encoded video data only.
+	 * - false: (Default) Do not subscribe to encoded video data only.
+	 */
+	EncodedFrameOnly bool
 }
 
 func (localUser *LocalUser) GetRtcConnection() *RtcConnection {
@@ -83,6 +110,60 @@ func (localUser *LocalUser) UnsubscribeAllAudio() int {
 		return -1
 	}
 	return int(C.agora_local_user_unsubscribe_all_audio(localUser.cLocalUser))
+}
+
+func (localUser *LocalUser) SubscribeVideo(uid string, options *VideoSubscriptionOptions) int {
+	if localUser.cLocalUser == nil {
+		return -1
+	}
+	cUid := C.CString(uid)
+	defer C.free(unsafe.Pointer(cUid))
+	cOptions := C.video_subscription_options{}
+	po := &cOptions
+	if options != nil {
+		cOptions._type = C.int(options.StreamType)
+		cOptions.encoded_frame_only = C.int(0)
+		if options.EncodedFrameOnly {
+			cOptions.encoded_frame_only = C.int(1)
+		}
+	} else {
+		po = nil
+	}
+	return int(C.agora_local_user_subscribe_video(localUser.cLocalUser, cUid, po))
+}
+
+func (localUser *LocalUser) UnsubscribeVideo(uid string) int {
+	if localUser.cLocalUser == nil {
+		return -1
+	}
+	cUid := C.CString(uid)
+	defer C.free(unsafe.Pointer(cUid))
+	return int(C.agora_local_user_unsubscribe_video(localUser.cLocalUser, cUid))
+}
+
+func (localUser *LocalUser) SubscribeAllVideo(options *VideoSubscriptionOptions) int {
+	if localUser.cLocalUser == nil {
+		return -1
+	}
+	cOptions := C.video_subscription_options{}
+	po := &cOptions
+	if options != nil {
+		cOptions._type = C.int(options.StreamType)
+		cOptions.encoded_frame_only = C.int(0)
+		if options.EncodedFrameOnly {
+			cOptions.encoded_frame_only = C.int(1)
+		}
+	} else {
+		po = nil
+	}
+	return int(C.agora_local_user_subscribe_all_video(localUser.cLocalUser, po))
+}
+
+func (localUser *LocalUser) UnsubscribeAllVideo() int {
+	if localUser.cLocalUser == nil {
+		return -1
+	}
+	return int(C.agora_local_user_unsubscribe_all_video(localUser.cLocalUser))
 }
 
 func (localUser *LocalUser) SetAudioEncoderConfiguration(config *AudioEncoderConfiguration) int {
