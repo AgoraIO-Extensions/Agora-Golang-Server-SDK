@@ -23,7 +23,7 @@ go build main
 ```
 
 ## Test
-- download and unzip [test_data.zip](https://share.weiyun.com/d3BuJNkZ)
+- download and unzip [test_data.zip](https://download.agora.io/demo/test/test_data_202408221437.zip)
 - make **test_data** directory in the same directory with **go_wrapper**
 - run main
 ```
@@ -45,7 +45,7 @@ go test -v -count=1 -timeout 20s -run ^TestBaseCase$ agoraservice
 unzip agora_sdk_mac.zip
 ```
 - make **agora_sdk_mac** directory in the same directory with **go_wrapper**
-- download and unzip [test_data.zip](https://share.weiyun.com/d3BuJNkZ)
+- download and unzip [test_data.zip](https://download.agora.io/demo/test/test_data_202408221437.zip)
 - make **test_data** directory in the same directory with **go_wrapper**
 - build and run main
 ```
