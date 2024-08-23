@@ -8,23 +8,6 @@ package agoraservice
 import "C"
 import "unsafe"
 
-const (
-	VideoCodecTypeNone        = 0
-	VideoCodecTypeVp8         = 1
-	VideoCodecTypeH264        = 2
-	VideoCodecTypeH265        = 3
-	VideoCodecTypeGeneric     = 6
-	VideoCodecTypeGenericH264 = 7
-	VideoCodecTypeAv1         = 12
-	VideoCodecTypeVp9         = 13
-	VideoCodecTypeGenericJpeg = 20
-)
-
-const (
-	VideoSendCcEnabled  = 0
-	VideoSendCcDisabled = 1
-)
-
 type VideoEncoderConfiguration struct {
 	// 1: VP8, 2: H264
 	CodecType int

@@ -52,7 +52,7 @@ func (sender *AudioEncodedFrameSender) Release() {
 	sender.cSender = nil
 }
 
-func (sender *AudioEncodedFrameSender) SendEncodedFrame(payload []byte, frameInfo *EncodedAudioFrameInfo) int {
+func (sender *AudioEncodedFrameSender) SendEncodedAudioFrame(payload []byte, frameInfo *EncodedAudioFrameInfo) int {
 	cData := C.CBytes(payload)
 	defer C.free(cData)
 	cFrameInfo := &C.struct__encoded_audio_frame_info{

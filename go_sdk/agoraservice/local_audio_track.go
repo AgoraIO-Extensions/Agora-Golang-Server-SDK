@@ -6,11 +6,6 @@ package agoraservice
 import "C"
 import "unsafe"
 
-const (
-	AudioTrackMixEnabled  = 0
-	AudioTrackMixDisabled = 1
-)
-
 type LocalAudioTrack struct {
 	cTrack unsafe.Pointer
 }
