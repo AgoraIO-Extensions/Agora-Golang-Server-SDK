@@ -12,61 +12,6 @@ package agoraservice
 import "C"
 import "unsafe"
 
-const (
-	/**
-	* 0: The user has muted the audio.
-	 */
-	UserMediaInfoMuteAudio = 0
-	/**
-	* 1: The user has muted the video.
-	 */
-	UserMediaInfoMuteVideo = 1
-	/**
-	* 4: The user has enabled the video, which includes video capturing and encoding.
-	 */
-	UserMediaInfoEnableVideo = 4
-	/**
-	* 8: The user has enabled the local video capturing.
-	 */
-	UserMediaInfoEnableLocalVideo = 8
-)
-
-const (
-	/**
-	 * 0: The default audio profile.
-	 * - In the Communication profile, it represents a sample rate of 16 kHz, music encoding, mono, and a bitrate
-	 * of up to 16 Kbps.
-	 * - In the Live-broadcast profile, it represents a sample rate of 48 kHz, music encoding, mono, and a bitrate
-	 * of up to 64 Kbps.
-	 */
-	AudioProfileDefault = 0
-	/**
-	 * 1: A sample rate of 16 kHz, audio encoding, mono, and a bitrate up to 18 Kbps.
-	 */
-	AudioProfileSpeechStandard = 1
-	/**
-	 * 2: A sample rate of 48 kHz, music encoding, mono, and a bitrate of up to 64 Kbps.
-	 */
-	AudioProfileMusicStandard = 2
-	/**
-	 * 3: A sample rate of 48 kHz, music encoding, stereo, and a bitrate of up to 80
-	 * Kbps.
-	 */
-	AudioProfileMusicStandardStereo = 3
-	/**
-	 * 4: A sample rate of 48 kHz, music encoding, mono, and a bitrate of up to 96 Kbps.
-	 */
-	AudioProfileMusicHighQuality = 4
-	/**
-	 * 5: A sample rate of 48 kHz, music encoding, stereo, and a bitrate of up to 128 Kbps.
-	 */
-	AudioProfileMusicHighQualityStereo = 5
-	/**
-	 * 6: A sample rate of 16 kHz, audio encoding, mono, and a bitrate of up to 64 Kbps.
-	 */
-	AudioProfileIot = 6
-)
-
 type RtcConnectionInfo struct {
 	ConnectionId uint
 	/**
@@ -108,6 +53,57 @@ type VideoFrame struct {
 	Timestamp int64
 }
 
+type EncodedVideoFrameInfo struct {
+	/**
+	 * The video codec: #VideoCodecTypeXxxx.
+	 */
+	int codecType
+	/**
+	 * The width (px) of the video.
+	 */
+	int width
+	/**
+	 * The height (px) of the video.
+	 */
+	int height
+	/**
+	 * The number of video frames per second.
+	 * This value will be used for calculating timestamps of the encoded image.
+	 * If framesPerSecond equals zero, then real timestamp will be used.
+	 * Otherwise, timestamp will be adjusted to the value of framesPerSecond set.
+	 */
+	int framesPerSecond
+	/**
+	 * The frame type of the encoded video frame: #VIDEO_FRAME_TYPE.
+	 */
+	VideoFrameType frameType
+	/**
+	 * The rotation information of the encoded video frame: #VIDEO_ORIENTATION.
+	 */
+	VideoOrientation rotation
+	/**
+	 * The track ID of the video frame.
+	 */
+	int trackId // This can be reserved for multiple video tracks, we need to create different ssrc
+	// and additional payload for later implementation.
+	/**
+	 * This is a input parameter which means the timestamp for capturing the video.
+	 */
+	int64_t captureTimeMs
+	/**
+	 * The timestamp for decoding the video.
+	 */
+	int64_t decodeTimeMs
+	/**
+	 * ID of the user.
+	 */
+	uint32_t uid
+	/**
+	 * The stream type of video frame.
+	 */
+	int streamType
+}
+
 type RtcConnectionObserver struct {
 	OnConnected                func(con *RtcConnection, conInfo *RtcConnectionInfo, reason int)
 	OnDisconnected             func(con *RtcConnection, conInfo *RtcConnectionInfo, reason int)
@@ -139,6 +135,10 @@ type AudioFrameObserver struct {
 
 type VideoFrameObserver struct {
 	OnFrame func(localUser *LocalUser, channelId string, userId string, frame *VideoFrame)
+}
+
+type VideoEncodedImageReceiver struct {
+	OnEncodedVideoImageReceived func(encodedImageBuffer []byte, info *EncodedVideoFrameInfo)
 }
 
 type AudioEncoderConfiguration struct {
@@ -311,7 +311,7 @@ func (conn *RtcConnection) GetLocalUser() *LocalUser {
 	return conn.localUser
 }
 
-func (conn *RtcConnection) GetParameter() *AgoraParameter {
+func (conn *RtcConnection) GetAgoraParameter() *AgoraParameter {
 	return conn.parameter
 }
 

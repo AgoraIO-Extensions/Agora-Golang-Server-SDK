@@ -12,17 +12,6 @@ package agoraservice
 import "C"
 import "unsafe"
 
-const (
-	/**
-	 * 0: The high-quality video stream, which has a higher resolution and bitrate.
-	 */
-	VideoStreamHigh = 0
-	/**
-	 * 1: The low-quality video stream, which has a lower resolution and bitrate.
-	 */
-	VideoStreamLow = 1
-)
-
 type LocalUser struct {
 	connection *RtcConnection
 	cLocalUser unsafe.Pointer
@@ -35,7 +24,7 @@ type VideoSubscriptionOptions struct {
 	 * The default value is VIDEO_STREAM_HIGH, which means the high-resolution and high-bitrate
 	 * video stream.
 	 */
-	StreamType int
+	StreamType VideoStreamType
 	/**
 	 * Determines whether to subscribe to encoded video data only:
 	 * - true: Subscribe to encoded video data only.

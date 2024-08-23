@@ -10,13 +10,6 @@ package agoraservice
 import "C"
 import "unsafe"
 
-const (
-	VAD_WAIT_SPEEKING  = 0
-	VAD_START_SPEEKING = 1
-	VAD_IS_SPEEKING    = 2
-	VAD_STOP_SPEEKING  = 3
-)
-
 type AudioVadConfig struct {
 	StartRecognizeCount    int     // start recognize count, buffer size for 10ms 16KHz 16bit 1channel PCM, default value is 10
 	StopRecognizeCount     int     // max recognize count, buffer size for 10ms 16KHz 16bit 1channel PCM, default value is 6

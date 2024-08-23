@@ -13,56 +13,6 @@ import (
 	"unsafe"
 )
 
-const (
-	// AudioScenarioDefault is the default audio scenario.
-	AudioScenarioDefault = 0
-	// AudioScenarioGameStreaming is the live gaming scenario, which needs to enable gaming
-	// audio effects in the speaker. Choose this scenario to achieve high-fidelity
-	// music playback.
-	AudioScenarioGameStreaming = 3
-	// AudioScenarioChatRoom is the chatroom scenario, which needs to keep recording when setClientRole to audience.
-	// Normally, app developer can also use mute api to achieve the same result,
-	// and we implement this 'non-orthogonal' behavior only to make API backward compatible.
-	AudioScenarioChatRoom = 5
-	// AudioScenarioChorus is the chorus scenario.
-	AudioScenarioChorus = 7
-	// AudioScenarioMeeting is the meeting scenario.
-	AudioScenarioMeeting = 8
-)
-
-const (
-	// AreaCodeCN is Mainland China.
-	AreaCodeCN = 0x00000001
-	// AreaCodeNA is North America.
-	AreaCodeNA = 0x00000002
-	// AreaCodeEU is Europe.
-	AreaCodeEU = 0x00000004
-	// AreaCodeAS is Asia, excluding Mainland China.
-	AreaCodeAS = 0x00000008
-	// AreaCodeJP is Japan.
-	AreaCodeJP = 0x00000010
-	// AreaCodeIN is India.
-	AreaCodeIN = 0x00000020
-	// AreaCodeGlob is (Default) Global.
-	AreaCodeGlob = (0xFFFFFFFF)
-)
-
-const (
-	// Broadcaster. A broadcaster can both send and receive streams.
-	ClientRoleBroadcaster = 1
-	// Audience. An audience can only receive streams.
-	ClientRoleAudience = 2
-)
-
-const (
-	// Communication.
-	// This profile prioritizes smoothness and applies to the one-to-one scenario.
-	ChannelProfileCommunication = 0
-	// (Default) Live Broadcast.
-	// This profile prioritizes supporting a large audience in a live broadcast channel.
-	ChannelProfileLiveBroadcasting = 1
-)
-
 // AgoraServiceConfig is used to initialize agora service.
 type AgoraServiceConfig struct {
 	// EnableAudioProcessor determines whether to enable the audio processor.

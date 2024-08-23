@@ -26,3 +26,8 @@ func goOnVideoFrame(cObserver unsafe.Pointer, channelId *C.char, uid *C.char, fr
 	goFrame := GoVideoFrame(frame)
 	con.videoObserver.OnFrame(con.GetLocalUser(), goChannelId, goUid, goFrame)
 }
+
+//export goOnEncodedVideoFrame
+func goOnEncodedVideoFrame(observer unsafe.Pointer, uid C.uint32_t, imageBuffer *C.uint8_t, length C.size_t,
+	video_encoded_frame_info *C.struct__encoded_video_frame_info) int {
+}
