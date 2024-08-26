@@ -26,3 +26,22 @@ func (sender *VideoEncodedImageSender) Release() {
 	C.agora_video_encoded_image_sender_destroy(sender.cSender)
 	sender.cSender = nil
 }
+
+func (sender *VideoEncodedImageSender) SendEncodedVideoImage(payload []byte, frameInfo *EncodedVideoFrameInfo) int {
+	cData := C.CBytes(payload)
+	defer C.free(cData)
+	cFrameInfo := &C.struct__encoded_video_frame_info{
+		codec_type:        C.int(frameInfo.CodecType),
+		width:             C.int(frameInfo.Width),
+		height:            C.int(frameInfo.Height),
+		frames_per_second: C.int(frameInfo.FramesPerSecond),
+		frame_type:        C.int(frameInfo.FrameType),
+		rotation:          C.int(frameInfo.Rotation),
+		track_id:          C.int(frameInfo.TrackId),
+		capture_time_ms:   C.int64_t(frameInfo.CaptureTimeMs),
+		decode_time_ms:    C.int64_t(frameInfo.DecodeTimeMs),
+		uid:               C.uint(frameInfo.Uid),
+		stream_type:       C.int(frameInfo.StreamType),
+	}
+	return int(C.agora_video_encoded_image_sender_send(sender.cSender, (*C.uint8_t)(cData), C.uint32_t(len(payload)), cFrameInfo))
+}

@@ -41,11 +41,11 @@ type AgoraServiceConfig struct {
 	// AppId is the App ID of your project.
 	AppId string
 	// AreaCode is the supported area code, default is AreaCodeGlob.
-	AreaCode uint
+	AreaCode AreaCode
 	// ChannelProfile is the channel profile.
-	ChannelProfile int
+	ChannelProfile ChannelProfile
 	// AudioScenario is the audio scenario.
-	AudioScenario int
+	AudioScenario AudioScenario
 	// UseStringUid determines whether to enable string uid.
 	UseStringUid bool
 

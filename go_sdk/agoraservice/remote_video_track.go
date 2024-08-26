@@ -24,9 +24,9 @@ func NewRemoteVideoTrack(cRemoteVideoTrack unsafe.Pointer) *RemoteVideoTrack {
 	}
 }
 
-func (track *RemoteVideoTrack) RegisterVideoEncodedImageReceiver() int {
-	if track.cRemoteVideoTrack == nil {
-		return -1
-	}
-	return int(C.agora_remote_video_track_register_video_encoded_image_receiver(track.cRemoteVideoTrack))
-}
+// func (track *RemoteVideoTrack) RegisterVideoEncodedImageReceiver() int {
+// 	if track.cRemoteVideoTrack == nil {
+// 		return -1
+// 	}
+// 	return int(C.agora_remote_video_track_register_video_encoded_image_receiver(track.cRemoteVideoTrack))
+// }

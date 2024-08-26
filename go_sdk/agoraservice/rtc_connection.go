@@ -57,51 +57,51 @@ type EncodedVideoFrameInfo struct {
 	/**
 	 * The video codec: #VideoCodecTypeXxxx.
 	 */
-	int codecType
+	CodecType int
 	/**
 	 * The width (px) of the video.
 	 */
-	int width
+	Width int
 	/**
 	 * The height (px) of the video.
 	 */
-	int height
+	Height int
 	/**
 	 * The number of video frames per second.
 	 * This value will be used for calculating timestamps of the encoded image.
 	 * If framesPerSecond equals zero, then real timestamp will be used.
 	 * Otherwise, timestamp will be adjusted to the value of framesPerSecond set.
 	 */
-	int framesPerSecond
+	FramesPerSecond int
 	/**
 	 * The frame type of the encoded video frame: #VIDEO_FRAME_TYPE.
 	 */
-	VideoFrameType frameType
+	FrameType VideoFrameType
 	/**
 	 * The rotation information of the encoded video frame: #VIDEO_ORIENTATION.
 	 */
-	VideoOrientation rotation
+	Rotation VideoOrientation
 	/**
 	 * The track ID of the video frame.
 	 */
-	int trackId // This can be reserved for multiple video tracks, we need to create different ssrc
+	TrackId int // This can be reserved for multiple video tracks, we need to create different ssrc
 	// and additional payload for later implementation.
 	/**
 	 * This is a input parameter which means the timestamp for capturing the video.
 	 */
-	int64_t captureTimeMs
+	CaptureTimeMs int64
 	/**
 	 * The timestamp for decoding the video.
 	 */
-	int64_t decodeTimeMs
+	DecodeTimeMs int64
 	/**
 	 * ID of the user.
 	 */
-	uint32_t uid
+	Uid uint32
 	/**
 	 * The stream type of video frame.
 	 */
-	int streamType
+	StreamType int
 }
 
 type RtcConnectionObserver struct {
@@ -187,8 +187,8 @@ type RtcConnectionConfig struct {
 	/**
 	 * The role of the user. The default user role is ClientRoleAudience.
 	 */
-	ClientRole     int
-	ChannelProfile int
+	ClientRole     ClientRole
+	ChannelProfile ChannelProfile
 	/**
 	 * Determines whether to receive audio media packet or not.
 	 */

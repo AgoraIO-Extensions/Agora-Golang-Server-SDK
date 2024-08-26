@@ -20,7 +20,7 @@ func NewCustomPcmAudioTrack(pcmSender *AudioPcmDataSender) *LocalAudioTrack {
 	}
 }
 
-func NewCustomEncodedAudioTrack(encodedAudioSender *AudioEncodedFrameSender, mixMode int) *LocalAudioTrack {
+func NewCustomEncodedAudioTrack(encodedAudioSender *AudioEncodedFrameSender, mixMode AudioTrackMixingState) *LocalAudioTrack {
 	cTrack := C.agora_service_create_custom_audio_track_encoded(agoraService.service, encodedAudioSender.cSender, C.int(mixMode))
 	if cTrack == nil {
 		return nil
