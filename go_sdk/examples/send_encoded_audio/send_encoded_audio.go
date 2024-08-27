@@ -125,7 +125,7 @@ func main() {
 			fmt.Printf("Playback audio frame before mixing, from userId %s\n", userId)
 		},
 	}
-	con := agoraservice.NewConnection(&conCfg)
+	con := agoraservice.NewRtcConnection(&conCfg)
 	defer con.Release()
 
 	localUser := con.GetLocalUser()
@@ -133,11 +133,9 @@ func main() {
 	con.RegisterObserver(conHandler)
 	localUser.RegisterAudioFrameObserver(audioObserver)
 
-	// sender := con.NewPcmSender()
-	// defer sender.Release()
 	sender := mediaNodeFactory.NewAudioEncodedFrameSender() // .NewAudioPcmDataSender()
 	defer sender.Release()
-	track := agoraservice.NewCustomEncodedAudioTrack(sender, agoraservice.AudioTrackMixDisabled) // .NewCustomPcmAudioTrack(sender)
+	track := agoraservice.NewCustomAudioTrackEncoded(sender, agoraservice.AudioTrackMixDisabled) // .NewCustomAudioTrackPcm(sender)
 	defer track.Release()
 
 	con.Connect(token, channelName, userId)
@@ -146,23 +144,6 @@ func main() {
 	track.SetEnabled(true)
 	localUser.PublishAudio(track)
 
-	// frame := agoraservice.PcmAudioFrame{
-	// 	Data:              make([]byte, 320),
-	// 	Timestamp:         0,
-	// 	SamplesPerChannel: 160,
-	// 	BytesPerSample:    2,
-	// 	NumberOfChannels:  1,
-	// 	SampleRate:        16000,
-	// }
-
-	// file, err := os.Open("../../../test_data/test.aac")
-	// if err != nil {
-	// 	fmt.Println("Error opening file:", err)
-	// 	return
-	// }
-	// defer file.Close()
-
-	// Open video file
 	pFormatContext := openMediaFile("../../../test_data/test.aac")
 	packet := C.av_packet_alloc()
 	streamInfo := getStreamInfo(pFormatContext)
@@ -172,40 +153,44 @@ func main() {
 	track.AdjustPublishVolume(100)
 
 	sendAudioDuration := 0
-	firstSendTime := time.Now()
+	// firstSendTime := time.Now()
 	for !(*bStop) {
-		shouldSendMs := int(time.Since(firstSendTime).Milliseconds()) - sendAudioDuration
-		for i := 0; i < shouldSendMs; {
-			ret := int(C.av_read_frame(pFormatContext, packet))
-			if ret < 0 {
-				fmt.Println("Finished reading file:", ret)
-				// file.Seek(0, 0)
-				closeMediaFile(pFormatContext)
-				pFormatContext = openMediaFile("../../../test_data/test.aac")
-				streamInfo = getStreamInfo(pFormatContext)
-				codecParam = (*C.struct_AVCodecParameters)(unsafe.Pointer(streamInfo.codecpar))
-				continue
-			}
-			fmt.Printf("Read frame duration %d, tb %d/%d, samples %d, channels %d\n",
-				packet.duration, tb.num, tb.den,
-				codecParam.frame_size, codecParam.ch_layout.nb_channels)
-			duration := int(packet.duration) * int(tb.num) * 1000 / int(tb.den)
-			sendAudioDuration += duration
-			i += duration
-			data := C.GoBytes(unsafe.Pointer(packet.data), packet.size)
-			ret = sender.SendEncodedAudioFrame(data, &agoraservice.EncodedAudioFrameInfo{
-				Speech:            true,
-				Codec:             agoraservice.AudioCodecAacLc,
-				SampleRateHz:      int(codecParam.sample_rate),
-				SamplesPerChannel: int(codecParam.frame_size / codecParam.ch_layout.nb_channels),
-				SendEvenIfEmpty:   true,
-				NumberOfChannels:  int(codecParam.ch_layout.nb_channels),
-			})
-			fmt.Printf("SendEncodedAudioFrame %d ret: %d\n", sendAudioDuration, ret)
-			C.av_packet_unref(packet)
+		// shouldSendMs := int(time.Since(firstSendTime).Milliseconds()) - sendAudioDuration
+		// for i := 0; i < shouldSendMs; {
+		ret := int(C.av_read_frame(pFormatContext, packet))
+		if ret < 0 {
+			fmt.Println("Finished reading file:", ret)
+			// file.Seek(0, 0)
+			closeMediaFile(pFormatContext)
+			pFormatContext = openMediaFile("../../../test_data/test.aac")
+			streamInfo = getStreamInfo(pFormatContext)
+			codecParam = (*C.struct_AVCodecParameters)(unsafe.Pointer(streamInfo.codecpar))
+			continue
 		}
-		fmt.Printf("Sent %d frames this time\n", shouldSendMs)
-		time.Sleep(50 * time.Millisecond)
+		fmt.Printf("Read frame duration %d, tb %d/%d, samples %d, channels %d\n",
+			packet.duration, tb.num, tb.den,
+			codecParam.frame_size, codecParam.ch_layout.nb_channels)
+		duration := int(packet.duration) * int(tb.num) * 1000 / int(tb.den)
+		sendAudioDuration += duration
+		// i += duration
+		data := C.GoBytes(unsafe.Pointer(packet.data), packet.size)
+		if data[0] != 0xFF || (data[1] != 0xF1 && data[1] != 0xF9) {
+			fmt.Printf("Invalid aac frame\n")
+		}
+		ret = sender.SendEncodedAudioFrame(data, &agoraservice.EncodedAudioFrameInfo{
+			Speech:            false,
+			Codec:             agoraservice.AudioCodecAacLc,
+			SampleRateHz:      int(codecParam.sample_rate),
+			SamplesPerChannel: int(codecParam.frame_size / codecParam.ch_layout.nb_channels),
+			SendEvenIfEmpty:   true,
+			NumberOfChannels:  int(codecParam.ch_layout.nb_channels),
+		})
+		fmt.Printf("SendEncodedAudioFrame %d ret: %d\n", sendAudioDuration, ret)
+		C.av_packet_unref(packet)
+		// }
+		// fmt.Printf("Sent %d frames this time\n", shouldSendMs)
+		//TODO: sleep time should be calculated based on the audio frame duration
+		time.Sleep(21 * time.Millisecond)
 	}
 	closeMediaFile(pFormatContext)
 	localUser.UnpublishAudio(track)

@@ -37,7 +37,7 @@ type LocalVideoTrack struct {
 	cTrack unsafe.Pointer
 }
 
-func NewCustomVideoTrack(videoSender *VideoFrameSender) *LocalVideoTrack {
+func NewCustomVideoTrackFrame(videoSender *VideoFrameSender) *LocalVideoTrack {
 	cTrack := C.agora_service_create_custom_video_track_frame(agoraService.service, videoSender.cSender)
 	if cTrack == nil {
 		return nil
@@ -47,7 +47,7 @@ func NewCustomVideoTrack(videoSender *VideoFrameSender) *LocalVideoTrack {
 	}
 }
 
-func NewCustomEncodedVideoTrack(videoSender *VideoEncodedImageSender, senderOptions *VideoEncodedImageSenderOptions) *LocalVideoTrack {
+func NewCustomVideoTrackEncoded(videoSender *VideoEncodedImageSender, senderOptions *VideoEncodedImageSenderOptions) *LocalVideoTrack {
 	cSenderOptions := C.sender_options{}
 	cptrSenderOptions := &cSenderOptions
 	if senderOptions != nil {

@@ -92,7 +92,7 @@ func main() {
 			fmt.Printf("recv video frame, from channel %s, user %s\n", channelId, userId)
 		},
 	}
-	con := agoraservice.NewConnection(&conCfg)
+	con := agoraservice.NewRtcConnection(&conCfg)
 	defer con.Release()
 
 	localUser := con.GetLocalUser()
@@ -101,7 +101,7 @@ func main() {
 
 	sender := mediaNodeFactory.NewVideoFrameSender()
 	defer sender.Release()
-	track := agoraservice.NewCustomVideoTrack(sender)
+	track := agoraservice.NewCustomVideoTrackFrame(sender)
 	defer track.Release()
 
 	con.Connect(token, channelName, userId)

@@ -92,7 +92,7 @@ func main() {
 			fmt.Printf("Playback audio frame before mixing, from userId %s\n", userId)
 		},
 	}
-	con := agoraservice.NewConnection(&conCfg)
+	con := agoraservice.NewRtcConnection(&conCfg)
 	defer con.Release()
 
 	localUser := con.GetLocalUser()
@@ -104,7 +104,7 @@ func main() {
 	// defer sender.Release()
 	sender := mediaNodeFactory.NewAudioPcmDataSender()
 	defer sender.Release()
-	track := agoraservice.NewCustomPcmAudioTrack(sender)
+	track := agoraservice.NewCustomAudioTrackPcm(sender)
 	defer track.Release()
 
 	con.Connect(token, channelName, userId)
@@ -140,8 +140,8 @@ func main() {
 			break
 		}
 		sendCount++
-		ret := sender.SendPcmData(&frame)
-		fmt.Printf("SendPcmData %d ret: %d\n", sendCount, ret)
+		ret := sender.SendAudioPcmData(&frame)
+		fmt.Printf("SendAudioPcmData %d ret: %d\n", sendCount, ret)
 	}
 
 	firstSendTime := time.Now()
@@ -157,8 +157,8 @@ func main() {
 			}
 
 			sendCount++
-			ret := sender.SendPcmData(&frame)
-			fmt.Printf("SendPcmData %d ret: %d\n", sendCount, ret)
+			ret := sender.SendAudioPcmData(&frame)
+			fmt.Printf("SendAudioPcmData %d ret: %d\n", sendCount, ret)
 		}
 		fmt.Printf("Sent %d frames this time\n", shouldSendCount)
 		time.Sleep(50 * time.Millisecond)

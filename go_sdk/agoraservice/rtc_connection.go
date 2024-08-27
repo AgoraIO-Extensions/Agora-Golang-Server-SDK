@@ -227,7 +227,7 @@ type RtcConnection struct {
 	cVideoObserver     unsafe.Pointer
 }
 
-func NewConnection(cfg *RtcConnectionConfig) *RtcConnection {
+func NewRtcConnection(cfg *RtcConnectionConfig) *RtcConnection {
 	cCfg := CRtcConnectionConfig(cfg)
 	defer FreeCRtcConnectionConfig(cCfg)
 

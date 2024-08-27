@@ -27,7 +27,7 @@ func (sender *AudioPcmDataSender) Release() {
 	sender.cSender = nil
 }
 
-func (sender *AudioPcmDataSender) SendPcmData(frame *PcmAudioFrame) int {
+func (sender *AudioPcmDataSender) SendAudioPcmData(frame *PcmAudioFrame) int {
 	cData := C.CBytes(frame.Data)
 	defer C.free(cData)
 	return int(C.agora_audio_pcm_data_sender_send(sender.cSender, cData,

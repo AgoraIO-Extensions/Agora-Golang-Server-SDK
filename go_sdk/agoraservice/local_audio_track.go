@@ -10,7 +10,7 @@ type LocalAudioTrack struct {
 	cTrack unsafe.Pointer
 }
 
-func NewCustomPcmAudioTrack(pcmSender *AudioPcmDataSender) *LocalAudioTrack {
+func NewCustomAudioTrackPcm(pcmSender *AudioPcmDataSender) *LocalAudioTrack {
 	cTrack := C.agora_service_create_custom_audio_track_pcm(agoraService.service, pcmSender.cSender)
 	if cTrack == nil {
 		return nil
@@ -20,7 +20,7 @@ func NewCustomPcmAudioTrack(pcmSender *AudioPcmDataSender) *LocalAudioTrack {
 	}
 }
 
-func NewCustomEncodedAudioTrack(encodedAudioSender *AudioEncodedFrameSender, mixMode AudioTrackMixingState) *LocalAudioTrack {
+func NewCustomAudioTrackEncoded(encodedAudioSender *AudioEncodedFrameSender, mixMode AudioTrackMixingState) *LocalAudioTrack {
 	cTrack := C.agora_service_create_custom_audio_track_encoded(agoraService.service, encodedAudioSender.cSender, C.int(mixMode))
 	if cTrack == nil {
 		return nil
@@ -59,14 +59,14 @@ func (track *LocalAudioTrack) AdjustPublishVolume(volume int) int {
 // NOTICE: these interface below is temporary, may be removed in the future
 // size is the number of 10ms audio frames
 // the default value of this param is 30, ie. 300ms
-func (track *LocalAudioTrack) SetSendBufferSize(bufSize int) {
+func (track *LocalAudioTrack) SetMaxBufferAudioFrameNumber(bufSize int) {
 	if track.cTrack == nil {
 		return
 	}
 	C.agora_local_audio_track_set_max_buffer_audio_frame_number(track.cTrack, C.int(bufSize))
 }
 
-func (track *LocalAudioTrack) ClearSendBuffer() int {
+func (track *LocalAudioTrack) ClearBuffer() int {
 	if track.cTrack == nil {
 		return -1
 	}
