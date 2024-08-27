@@ -10,7 +10,10 @@ package agoraservice
 #include "agora_parameter.h"
 */
 import "C"
-import "unsafe"
+import (
+	"sync"
+	"unsafe"
+)
 
 type RtcConnectionInfo struct {
 	ConnectionId uint
@@ -57,7 +60,7 @@ type EncodedVideoFrameInfo struct {
 	/**
 	 * The video codec: #VideoCodecTypeXxxx.
 	 */
-	CodecType int
+	CodecType VideoCodecType
 	/**
 	 * The width (px) of the video.
 	 */
@@ -135,10 +138,6 @@ type AudioFrameObserver struct {
 
 type VideoFrameObserver struct {
 	OnFrame func(localUser *LocalUser, channelId string, userId string, frame *VideoFrame)
-}
-
-type VideoEncodedImageReceiver struct {
-	OnEncodedVideoImageReceived func(encodedImageBuffer []byte, info *EncodedVideoFrameInfo)
 }
 
 type AudioEncoderConfiguration struct {
@@ -225,6 +224,9 @@ type RtcConnection struct {
 	cAudioObserver     *C.struct__audio_frame_observer
 	videoObserver      *VideoFrameObserver
 	cVideoObserver     unsafe.Pointer
+
+	remoteVideoRWMutex          *sync.RWMutex
+	remoteEncodedVideoReceivers map[unsafe.Pointer]*videoEncodedImageReceiverInner
 }
 
 func NewRtcConnection(cfg *RtcConnectionConfig) *RtcConnection {
@@ -234,10 +236,12 @@ func NewRtcConnection(cfg *RtcConnectionConfig) *RtcConnection {
 	ret := &RtcConnection{
 		cConnection: C.agora_rtc_conn_create(agoraService.service, cCfg),
 		// subAudioConfig: cfg.SubAudioConfig,
-		handler:           nil,
-		localUserObserver: nil,
-		audioObserver:     nil,
-		videoObserver:     nil,
+		handler:                     nil,
+		localUserObserver:           nil,
+		audioObserver:               nil,
+		videoObserver:               nil,
+		remoteVideoRWMutex:          &sync.RWMutex{},
+		remoteEncodedVideoReceivers: make(map[unsafe.Pointer]*videoEncodedImageReceiverInner),
 	}
 	ret.localUser = &LocalUser{
 		connection: ret,
@@ -265,6 +269,19 @@ func (conn *RtcConnection) Release() {
 		delete(agoraService.consByCVideoObserver, conn.cVideoObserver)
 	}
 	agoraService.connectionRWMutex.Unlock()
+
+	cRemoteEncodedVideoReceivers := make([]unsafe.Pointer, 0, 10)
+	conn.remoteVideoRWMutex.RLock()
+	for cReceiver, _ := range conn.remoteEncodedVideoReceivers {
+		cRemoteEncodedVideoReceivers = append(cRemoteEncodedVideoReceivers, cReceiver)
+	}
+	conn.remoteVideoRWMutex.RUnlock()
+	agoraService.remoteVideoRWMutex.Lock()
+	for _, cReceiver := range cRemoteEncodedVideoReceivers {
+		delete(agoraService.remoteEncodedVideoReceivers, cReceiver)
+	}
+	agoraService.remoteVideoRWMutex.Unlock()
+
 	localUser := conn.localUser
 	if conn.cAudioObserver != nil {
 		C.agora_local_user_unregister_audio_frame_observer(localUser.cLocalUser)
@@ -279,6 +296,14 @@ func (conn *RtcConnection) Release() {
 		C.agora_rtc_conn_unregister_observer(conn.cConnection)
 	}
 	C.agora_rtc_conn_destroy(conn.cConnection)
+
+	conn.remoteVideoRWMutex.Lock()
+	for _, receiver := range conn.remoteEncodedVideoReceivers {
+		receiver.release()
+	}
+	conn.remoteEncodedVideoReceivers = make(map[unsafe.Pointer]*videoEncodedImageReceiverInner)
+	conn.remoteVideoRWMutex.Unlock()
+
 	conn.cConnection = nil
 	if conn.cAudioObserver != nil {
 		FreeCAudioFrameObserver(conn.cAudioObserver)

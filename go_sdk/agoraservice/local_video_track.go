@@ -25,8 +25,8 @@ type VideoEncoderConfiguration struct {
 }
 
 type VideoEncodedImageSenderOptions struct {
-	CcMode    int
-	CodecType int
+	CcMode    VideoSendCcState
+	CodecType VideoCodecType
 	/**
 	 * Target bitrate (Kbps) for video encoding.
 	 */

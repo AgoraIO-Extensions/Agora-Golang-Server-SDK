@@ -66,6 +66,9 @@ type AgoraService struct {
 	consByCLocalUser     map[unsafe.Pointer]*RtcConnection
 	consByCVideoObserver map[unsafe.Pointer]*RtcConnection
 	connectionRWMutex    *sync.RWMutex
+
+	remoteVideoRWMutex          *sync.RWMutex
+	remoteEncodedVideoReceivers map[unsafe.Pointer]*videoEncodedImageReceiverInner
 }
 
 func newAgoraService() *AgoraService {
@@ -73,10 +76,12 @@ func newAgoraService() *AgoraService {
 		inited:  false,
 		service: nil,
 		// mediaFactory:         nil,
-		consByCCon:           make(map[unsafe.Pointer]*RtcConnection),
-		consByCLocalUser:     make(map[unsafe.Pointer]*RtcConnection),
-		consByCVideoObserver: make(map[unsafe.Pointer]*RtcConnection),
-		connectionRWMutex:    &sync.RWMutex{},
+		consByCCon:                  make(map[unsafe.Pointer]*RtcConnection),
+		consByCLocalUser:            make(map[unsafe.Pointer]*RtcConnection),
+		consByCVideoObserver:        make(map[unsafe.Pointer]*RtcConnection),
+		connectionRWMutex:           &sync.RWMutex{},
+		remoteVideoRWMutex:          &sync.RWMutex{},
+		remoteEncodedVideoReceivers: make(map[unsafe.Pointer]*videoEncodedImageReceiverInner),
 	}
 }
 

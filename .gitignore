@@ -7,3 +7,7 @@ agora_sdk_mac/*
 test_data/*
 *.pcm
 *.yuv
+**/go.sum
+**/main
+*.bak
+*.zip
