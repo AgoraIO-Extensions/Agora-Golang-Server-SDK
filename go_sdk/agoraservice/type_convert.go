@@ -65,15 +65,12 @@ func FreeCRtcConnectionConfig(cfg *C.struct__rtc_conn_config) {
 	C.free(unsafe.Pointer(cfg))
 }
 
-func GoRtcConnectionInfo(cInfo *C.struct__rtc_conn_info) *RtcConnectionInfo {
-	ret := &RtcConnectionInfo{
-		ConnectionId: uint(cInfo.id),
-		ChannelId:    C.GoString(cInfo.channel_id),
-		State:        int(cInfo.state),
-		LocalUserId:  C.GoString(cInfo.local_user_id),
-		InternalUid:  uint(cInfo.internal_uid),
-	}
-	return ret
+func GoRtcConnectionInfo(cInfo *C.struct__rtc_conn_info, info *RtcConnectionInfo) {
+	info.ConnectionId = uint(cInfo.id)
+	info.ChannelId = C.GoString(cInfo.channel_id)
+	info.State = int(cInfo.state)
+	info.LocalUserId = C.GoString(cInfo.local_user_id)
+	info.InternalUid = uint(cInfo.internal_uid)
 }
 
 func CRtcConnectionObserver() *C.struct__rtc_conn_observer {
@@ -81,6 +78,7 @@ func CRtcConnectionObserver() *C.struct__rtc_conn_observer {
 	C.memset(unsafe.Pointer(ret), 0, C.sizeof_struct__rtc_conn_observer)
 	ret.on_connected = (*[0]byte)(C.cgo_on_connected)
 	ret.on_disconnected = (*[0]byte)(C.cgo_on_disconnected)
+	ret.on_connecting = (*[0]byte)(C.cgo_on_connecting)
 	ret.on_reconnecting = (*[0]byte)(C.cgo_on_reconnecting)
 	ret.on_reconnected = (*[0]byte)(C.cgo_on_reconnected)
 	ret.on_connection_lost = (*[0]byte)(C.cgo_on_connection_lost)

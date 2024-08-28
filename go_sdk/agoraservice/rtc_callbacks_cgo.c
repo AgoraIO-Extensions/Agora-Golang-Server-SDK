@@ -10,6 +10,11 @@ void cgo_on_disconnected(AGORA_HANDLE agora_rtc_conn, const rtc_conn_info* conn_
   goOnDisconnected(agora_rtc_conn, (struct _rtc_conn_info*)conn_info, reason);
 }
 
+extern void goOnConnecting(void* agora_rtc_conn, struct _rtc_conn_info* conn_info, int reason);
+void cgo_on_connecting(AGORA_HANDLE agora_rtc_conn, const rtc_conn_info* conn_info, int reason) {
+  goOnConnecting(agora_rtc_conn, (struct _rtc_conn_info*)conn_info, reason);
+}
+
 extern void goOnReconnecting(void* agora_rtc_conn, struct _rtc_conn_info* conn_info, int reason);
 void cgo_on_reconnecting(AGORA_HANDLE agora_rtc_conn, const rtc_conn_info* conn_info, int reason) {
   goOnReconnecting(agora_rtc_conn, (struct _rtc_conn_info*)conn_info, reason);

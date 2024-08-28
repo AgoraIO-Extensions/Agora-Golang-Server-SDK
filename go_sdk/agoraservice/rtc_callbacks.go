@@ -19,7 +19,8 @@ func goOnConnected(cCon unsafe.Pointer, cConInfo *C.struct__rtc_conn_info, reaso
 	if con == nil || con.handler == nil || con.handler.OnConnected == nil {
 		return
 	}
-	con.handler.OnConnected(con, GoRtcConnectionInfo(cConInfo), int(reason))
+	GoRtcConnectionInfo(cConInfo, &con.connInfo)
+	con.handler.OnConnected(con, &con.connInfo, int(reason))
 }
 
 //export goOnDisconnected
@@ -30,9 +31,23 @@ func goOnDisconnected(cCon unsafe.Pointer, cConInfo *C.struct__rtc_conn_info, re
 	if con == nil || con.handler == nil || con.handler.OnDisconnected == nil {
 		return
 	}
+	GoRtcConnectionInfo(cConInfo, &con.connInfo)
 	// note： best practise is never reelase handler until app is exiting
-	con.handler.OnDisconnected(con, GoRtcConnectionInfo(cConInfo), int(reason))
+	con.handler.OnDisconnected(con, &con.connInfo, int(reason))
 
+}
+
+//export goOnConnecting
+func goOnConnecting(cCon unsafe.Pointer, cConInfo *C.struct__rtc_conn_info, reason C.int) {
+	agoraService.connectionRWMutex.RLock()
+	con := agoraService.consByCCon[cCon]
+	agoraService.connectionRWMutex.RUnlock()
+	if con == nil || con.handler == nil || con.handler.OnConnecting == nil {
+		return
+	}
+	GoRtcConnectionInfo(cConInfo, &con.connInfo)
+	// note： best practise is never reelase handler until app is exiting
+	con.handler.OnConnecting(con, &con.connInfo, int(reason))
 }
 
 //export goOnReconnecting
@@ -43,8 +58,9 @@ func goOnReconnecting(cCon unsafe.Pointer, cConInfo *C.struct__rtc_conn_info, re
 	if con == nil || con.handler == nil || con.handler.OnReconnecting == nil {
 		return
 	}
+	GoRtcConnectionInfo(cConInfo, &con.connInfo)
 	// note： best practise is never reelase handler until app is exiting
-	con.handler.OnReconnecting(con, GoRtcConnectionInfo(cConInfo), int(reason))
+	con.handler.OnReconnecting(con, &con.connInfo, int(reason))
 }
 
 //export goOnReconnected
@@ -56,8 +72,9 @@ func goOnReconnected(cCon unsafe.Pointer, cConInfo *C.struct__rtc_conn_info, rea
 	if con == nil || con.handler == nil || con.handler.OnReconnected == nil {
 		return
 	}
+	GoRtcConnectionInfo(cConInfo, &con.connInfo)
 	// note： best practise is never reelase handler until app is exiting
-	con.handler.OnReconnected(con, GoRtcConnectionInfo(cConInfo), int(reason))
+	con.handler.OnReconnected(con, &con.connInfo, int(reason))
 }
 
 //export goOnConnectionLost
@@ -68,8 +85,9 @@ func goOnConnectionLost(cCon unsafe.Pointer, cConInfo *C.struct__rtc_conn_info) 
 	if con == nil || con.handler == nil || con.handler.OnConnectionLost == nil {
 		return
 	}
+	GoRtcConnectionInfo(cConInfo, &con.connInfo)
 	// note： best practise is never reelase handler until app is exiting
-	con.handler.OnConnectionLost(con, GoRtcConnectionInfo(cConInfo))
+	con.handler.OnConnectionLost(con, &con.connInfo)
 }
 
 //export goOnConnectionFailure
@@ -81,8 +99,9 @@ func goOnConnectionFailure(cCon unsafe.Pointer, cConInfo *C.struct__rtc_conn_inf
 	if con == nil || con.handler == nil || con.handler.OnConnectionFailure == nil {
 		return
 	}
+	GoRtcConnectionInfo(cConInfo, &con.connInfo)
 	// note： best practise is never reelase handler until app is exiting
-	con.handler.OnConnectionFailure(con, GoRtcConnectionInfo(cConInfo), int(reason))
+	con.handler.OnConnectionFailure(con, &con.connInfo, int(reason))
 }
 
 //export goOnTokenPrivilegeWillExpire
@@ -193,7 +212,7 @@ func goOnUserVideoTrackSubscribed(cLocalUser unsafe.Pointer, uid *C.char, info *
 		return
 	}
 	// note： best practise is never reelase handler until app is exiting
-	con.localUserObserver.OnUserVideoTrackSubscribed(con.GetLocalUser(), C.GoString(uid), GoVideoTrackInfo(info), NewRemoteVideoTrack(cRemoteVideoTrack))
+	con.localUserObserver.OnUserVideoTrackSubscribed(con.GetLocalUser(), C.GoString(uid), GoVideoTrackInfo(info), con.NewRemoteVideoTrack(cRemoteVideoTrack))
 }
 
 //export goOnUserAudioTrackStateChanged
@@ -217,5 +236,5 @@ func goOnUserVideoTrackStateChanged(cLocalUser unsafe.Pointer, uid *C.char, cRem
 		return
 	}
 	// note： best practise is never reelase handler until app is exiting
-	con.localUserObserver.OnUserVideoTrackStateChanged(con.GetLocalUser(), C.GoString(uid), NewRemoteVideoTrack(cRemoteVideoTrack), int(state), int(reason), int(elapsed))
+	con.localUserObserver.OnUserVideoTrackStateChanged(con.GetLocalUser(), C.GoString(uid), con.NewRemoteVideoTrack(cRemoteVideoTrack), int(state), int(reason), int(elapsed))
 }

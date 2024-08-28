@@ -11,6 +11,7 @@ package agoraservice
 */
 import "C"
 import (
+	"strconv"
 	"sync"
 	"unsafe"
 )
@@ -110,6 +111,7 @@ type EncodedVideoFrameInfo struct {
 type RtcConnectionObserver struct {
 	OnConnected                func(con *RtcConnection, conInfo *RtcConnectionInfo, reason int)
 	OnDisconnected             func(con *RtcConnection, conInfo *RtcConnectionInfo, reason int)
+	OnConnecting               func(con *RtcConnection, conInfo *RtcConnectionInfo, reason int)
 	OnReconnecting             func(con *RtcConnection, conInfo *RtcConnectionInfo, reason int)
 	OnReconnected              func(con *RtcConnection, conInfo *RtcConnectionInfo, reason int)
 	OnConnectionLost           func(con *RtcConnection, conInfo *RtcConnectionInfo)
@@ -212,6 +214,7 @@ type RtcConnectionConfig struct {
 
 type RtcConnection struct {
 	cConnection unsafe.Pointer
+	connInfo    RtcConnectionInfo
 	localUser   *LocalUser
 	parameter   *AgoraParameter
 	// cLocalUser  unsafe.Pointer
@@ -340,10 +343,18 @@ func (conn *RtcConnection) GetAgoraParameter() *AgoraParameter {
 	return conn.parameter
 }
 
+func (conn *RtcConnection) GetConnectionInfo() *RtcConnectionInfo {
+	return &conn.connInfo
+}
+
 func (conn *RtcConnection) Connect(token string, channel string, uid string) int {
 	if conn.cConnection == nil {
 		return -1
 	}
+	conn.connInfo.ChannelId = channel
+	conn.connInfo.LocalUserId = uid
+	uidInt, _ := strconv.Atoi(uid)
+	conn.connInfo.InternalUid = uint(uidInt)
 	cChannel := C.CString(channel)
 	cToken := C.CString(token)
 	cUid := C.CString(uid)

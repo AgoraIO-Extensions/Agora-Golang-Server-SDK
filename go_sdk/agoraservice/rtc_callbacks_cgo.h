@@ -38,6 +38,7 @@
 //connection
 extern void cgo_on_connected(AGORA_HANDLE agora_rtc_conn, const rtc_conn_info* conn_info, int reason);
 extern void cgo_on_disconnected(AGORA_HANDLE agora_rtc_conn, const rtc_conn_info* conn_info, int reason);
+extern void cgo_on_connecting(AGORA_HANDLE agora_rtc_conn, const rtc_conn_info* conn_info, int reason);
 extern void cgo_on_reconnecting(AGORA_HANDLE agora_rtc_conn, const rtc_conn_info* conn_info, int reason);
 extern void cgo_on_reconnected(AGORA_HANDLE agora_rtc_conn, const rtc_conn_info* conn_info, int reason);
 extern void cgo_on_connection_lost(AGORA_HANDLE agora_rtc_conn, const rtc_conn_info* conn_info);
