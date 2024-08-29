@@ -114,7 +114,16 @@ func FreeCLocalUserObserver(handler *C.struct__local_user_observer) {
 func CAudioFrameObserver() *C.struct__audio_frame_observer {
 	ret := (*C.struct__audio_frame_observer)(C.malloc(C.sizeof_struct__audio_frame_observer))
 	C.memset(unsafe.Pointer(ret), 0, C.sizeof_struct__audio_frame_observer)
+	ret.on_record_audio_frame = (*[0]byte)(C.cgo_on_record_audio_frame)
+	ret.on_playback_audio_frame = (*[0]byte)(C.cgo_on_playback_audio_frame)
+	ret.on_mixed_audio_frame = (*[0]byte)(C.cgo_on_mixed_audio_frame)
+	ret.on_ear_monitoring_audio_frame = (*[0]byte)(C.cgo_on_ear_monitoring_audio_frame)
 	ret.on_playback_audio_frame_before_mixing = (*[0]byte)(C.cgo_on_playback_audio_frame_before_mixing)
+	ret.on_get_audio_frame_position = (*[0]byte)(C.cgo_on_get_audio_frame_position)
+	ret.on_get_playback_audio_frame_param = (*[0]byte)(C.cgo_on_get_playback_audio_frame_param)
+	ret.on_get_record_audio_frame_param = (*[0]byte)(C.cgo_on_get_record_audio_frame_param)
+	ret.on_get_mixed_audio_frame_param = (*[0]byte)(C.cgo_on_get_mixed_audio_frame_param)
+	ret.on_get_ear_monitoring_audio_frame_param = (*[0]byte)(C.cgo_on_get_ear_monitoring_audio_frame_param)
 	return ret
 }
 

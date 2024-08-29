@@ -108,6 +108,13 @@ type EncodedVideoFrameInfo struct {
 	StreamType int
 }
 
+type AudioFrameObserverAudioParams struct {
+	SampleRate     int
+	Channels       int
+	Mode           RawAudioFrameOpModeType
+	SamplesPerCall int
+}
+
 type RtcConnectionObserver struct {
 	OnConnected                func(con *RtcConnection, conInfo *RtcConnectionInfo, reason int)
 	OnDisconnected             func(con *RtcConnection, conInfo *RtcConnectionInfo, reason int)
@@ -135,11 +142,20 @@ type LocalUserObserver struct {
 }
 
 type AudioFrameObserver struct {
-	OnPlaybackAudioFrameBeforeMixing func(localUser *LocalUser, channelId string, uid string, frame *PcmAudioFrame)
+	OnRecordAudioFrame                func(localUser *LocalUser, channelId string, frame *PcmAudioFrame) bool
+	OnPlaybackAudioFrame              func(localUser *LocalUser, channelId string, frame *PcmAudioFrame) bool
+	OnMixedAudioFrame                 func(localUser *LocalUser, channelId string, frame *PcmAudioFrame) bool
+	OnEarMonitoringAudioFrame         func(localUser *LocalUser, frame *PcmAudioFrame) bool
+	OnPlaybackAudioFrameBeforeMixing  func(localUser *LocalUser, channelId string, uid string, frame *PcmAudioFrame) bool
+	OnGetAudioFramePosition           func(localUser *LocalUser) int
+	OnGetPlaybackAudioFrameParam      func(localUser *LocalUser) AudioFrameObserverAudioParams
+	OnGetRecordAudioFrameParam        func(localUser *LocalUser) AudioFrameObserverAudioParams
+	OnGetMixedAudioFrameParam         func(localUser *LocalUser) AudioFrameObserverAudioParams
+	OnGetEarMonitoringAudioFrameParam func(localUser *LocalUser) AudioFrameObserverAudioParams
 }
 
 type VideoFrameObserver struct {
-	OnFrame func(localUser *LocalUser, channelId string, userId string, frame *VideoFrame)
+	OnFrame func(localUser *LocalUser, channelId string, userId string, frame *VideoFrame) bool
 }
 
 type AudioEncoderConfiguration struct {

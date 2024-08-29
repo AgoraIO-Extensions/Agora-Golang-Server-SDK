@@ -15,17 +15,21 @@ import (
 )
 
 //export goOnVideoFrame
-func goOnVideoFrame(cObserver unsafe.Pointer, channelId *C.char, uid *C.char, frame *C.struct__video_frame) {
+func goOnVideoFrame(cObserver unsafe.Pointer, channelId *C.char, uid *C.char, frame *C.struct__video_frame) C.int {
 	agoraService.connectionRWMutex.RLock()
 	con := agoraService.consByCVideoObserver[cObserver]
 	agoraService.connectionRWMutex.RUnlock()
 	if con == nil || con.videoObserver == nil || con.videoObserver.OnFrame == nil {
-		return
+		return C.int(0)
 	}
 	goChannelId := C.GoString(channelId)
 	goUid := C.GoString(uid)
 	goFrame := GoVideoFrame(frame)
-	con.videoObserver.OnFrame(con.GetLocalUser(), goChannelId, goUid, goFrame)
+	ret := con.videoObserver.OnFrame(con.GetLocalUser(), goChannelId, goUid, goFrame)
+	if ret {
+		return C.int(1)
+	}
+	return C.int(0)
 }
 
 //export goOnEncodedVideoFrame

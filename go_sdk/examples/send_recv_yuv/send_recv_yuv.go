@@ -87,9 +87,10 @@ func main() {
 		},
 	}
 	videoObserver := &agoraservice.VideoFrameObserver{
-		OnFrame: func(localUser *agoraservice.LocalUser, channelId string, userId string, frame *agoraservice.VideoFrame) {
+		OnFrame: func(localUser *agoraservice.LocalUser, channelId string, userId string, frame *agoraservice.VideoFrame) bool {
 			// do something
 			fmt.Printf("recv video frame, from channel %s, user %s\n", channelId, userId)
+			return true
 		},
 	}
 	con := agoraservice.NewRtcConnection(&conCfg)

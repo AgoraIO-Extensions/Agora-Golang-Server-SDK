@@ -18,7 +18,7 @@ type videoEncodedImageReceiverInner struct {
 
 func newVideoEncodedImageReceiverInner(receiver *VideoEncodedImageReceiver) *videoEncodedImageReceiverInner {
 	observer := C.struct__video_encoded_frame_observer{
-		on_encoded_video_frame: (*[0]byte)(cgo_on_encoded_video_frame),
+		on_encoded_video_frame: (*[0]byte)(C.cgo_on_encoded_video_frame),
 	}
 	cReceiver := C.agora_video_encoded_image_receiver_create(&observer)
 	if cReceiver == nil {

@@ -3,6 +3,7 @@ package agoraservice
 // #cgo CFLAGS: -I${SRCDIR}/../../agora_sdk/include_c/api2 -I${SRCDIR}/../../agora_sdk/include_c/base
 // #include <string.h>
 // #include "agora_service.h"
+// #include "agora_media_node_factory.h"
 // #include "agora_video_track.h"
 import "C"
 import "unsafe"
