@@ -1,5 +1,10 @@
 package agoraservice
 
+// #cgo CFLAGS: -I${SRCDIR}/../../agora_sdk/include_c/api2 -I${SRCDIR}/../../agora_sdk/include_c/base
+// #include <string.h>
+// #include "agora_service.h"
+// #include "agora_video_track.h"
+import "C"
 import "unsafe"
 
 type VideoTrackInfo struct {
@@ -30,13 +35,21 @@ func (track *RemoteVideoTrack) RegisterVideoEncodedImageReceiver(receiver *Video
 	if track.cRemoteVideoTrack == nil {
 		return -1
 	}
-	receiverInner := track.conn.newVideoEncodedImageReceiverInner(receiver)
+	receiverInner := newVideoEncodedImageReceiverInner(receiver)
 	if receiverInner == nil {
 		return -1
 	}
+	// add receiver in connection
+	track.conn.remoteVideoRWMutex.Lock()
+	// the key is for unregister, remoteEncodedVideoReceivers is for release
+	track.conn.remoteEncodedVideoReceivers[receiver] = receiverInner
+	track.conn.remoteVideoRWMutex.Unlock()
+	// add receiver in service
 	agoraService.remoteVideoRWMutex.Lock()
+	// the key is for callback
 	agoraService.remoteEncodedVideoReceivers[receiverInner.cReceiver] = receiverInner
 	agoraService.remoteVideoRWMutex.Unlock()
+	// register receiver
 	return int(C.agora_remote_video_track_register_video_encoded_image_receiver(track.cRemoteVideoTrack, receiverInner.cReceiver))
 }
 
@@ -44,21 +57,24 @@ func (track *RemoteVideoTrack) UnregisterVideoEncodedImageReceiver(receiver *Vid
 	if track.cRemoteVideoTrack == nil {
 		return -1
 	}
-	var targetReceiver unsafe.Pointer = nil
-	agoraService.remoteVideoRWMutex.RLock()
-	for cReceiver, receiverInner := range agoraService.remoteEncodedVideoReceivers {
-		if receiverInner.receiver == receiver {
-			targetReceiver = cReceiver
-			break
-		}
+	// find receiver in connection
+	track.conn.remoteVideoRWMutex.RLock()
+	receiverInner, ok := track.conn.remoteEncodedVideoReceivers[receiver]
+	track.conn.remoteVideoRWMutex.RUnlock()
+	if !ok {
+		return -1
 	}
-	agoraService.remoteVideoRWMutex.RUnlock()
-	ret := -1
-	if targetReceiver != nil {
-		ret = int(C.agora_remote_video_track_unregister_video_encoded_image_receiver(track.cRemoteVideoTrack, targetReceiver))
-		agoraService.remoteVideoRWMutex.Lock()
-		delete(agoraService.remoteEncodedVideoReceivers, targetReceiver)
-		agoraService.remoteVideoRWMutex.Unlock()
-	}
+	// unregister receiver
+	ret := int(C.agora_remote_video_track_unregister_video_encoded_image_receiver(track.cRemoteVideoTrack, receiverInner.cReceiver))
+	// remove receiver in service
+	agoraService.remoteVideoRWMutex.Lock()
+	delete(agoraService.remoteEncodedVideoReceivers, receiverInner.cReceiver)
+	agoraService.remoteVideoRWMutex.Unlock()
+	// remove receiver in connection
+	track.conn.remoteVideoRWMutex.Lock()
+	delete(track.conn.remoteEncodedVideoReceivers, receiver)
+	track.conn.remoteVideoRWMutex.Unlock()
+	// release receiver
+	receiverInner.release()
 	return ret
 }

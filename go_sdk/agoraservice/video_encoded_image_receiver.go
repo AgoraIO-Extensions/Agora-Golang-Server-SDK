@@ -16,7 +16,7 @@ type videoEncodedImageReceiverInner struct {
 	receiver  *VideoEncodedImageReceiver
 }
 
-func (conn *RtcConnection) newVideoEncodedImageReceiverInner(receiver *VideoEncodedImageReceiver) *videoEncodedImageReceiverInner {
+func newVideoEncodedImageReceiverInner(receiver *VideoEncodedImageReceiver) *videoEncodedImageReceiverInner {
 	observer := C.struct__video_encoded_frame_observer{
 		on_encoded_video_frame: (*[0]byte)(cgo_on_encoded_video_frame),
 	}
@@ -28,9 +28,9 @@ func (conn *RtcConnection) newVideoEncodedImageReceiverInner(receiver *VideoEnco
 		cReceiver: cReceiver,
 		receiver:  receiver,
 	}
-	conn.remoteVideoRWMutex.Lock()
-	conn.remoteEncodedVideoReceivers[cReceiver] = receiveInner
-	conn.remoteVideoRWMutex.Unlock()
+	// conn.remoteVideoRWMutex.Lock()
+	// conn.remoteEncodedVideoReceivers[cReceiver] = receiveInner
+	// conn.remoteVideoRWMutex.Unlock()
 	return receiveInner
 }
 

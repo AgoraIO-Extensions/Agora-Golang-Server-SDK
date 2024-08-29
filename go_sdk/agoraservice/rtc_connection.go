@@ -229,7 +229,7 @@ type RtcConnection struct {
 	cVideoObserver     unsafe.Pointer
 
 	remoteVideoRWMutex          *sync.RWMutex
-	remoteEncodedVideoReceivers map[unsafe.Pointer]*videoEncodedImageReceiverInner
+	remoteEncodedVideoReceivers map[*VideoEncodedImageReceiver]*videoEncodedImageReceiverInner
 }
 
 func NewRtcConnection(cfg *RtcConnectionConfig) *RtcConnection {
@@ -244,7 +244,7 @@ func NewRtcConnection(cfg *RtcConnectionConfig) *RtcConnection {
 		audioObserver:               nil,
 		videoObserver:               nil,
 		remoteVideoRWMutex:          &sync.RWMutex{},
-		remoteEncodedVideoReceivers: make(map[unsafe.Pointer]*videoEncodedImageReceiverInner),
+		remoteEncodedVideoReceivers: make(map[*VideoEncodedImageReceiver]*videoEncodedImageReceiverInner),
 	}
 	ret.localUser = &LocalUser{
 		connection: ret,
@@ -273,15 +273,17 @@ func (conn *RtcConnection) Release() {
 	}
 	agoraService.connectionRWMutex.Unlock()
 
-	cRemoteEncodedVideoReceivers := make([]unsafe.Pointer, 0, 10)
+	// get all receiverInners
+	encodedVideoReceiversInners := make([]*videoEncodedImageReceiverInner, 0, 10)
 	conn.remoteVideoRWMutex.RLock()
-	for cReceiver, _ := range conn.remoteEncodedVideoReceivers {
-		cRemoteEncodedVideoReceivers = append(cRemoteEncodedVideoReceivers, cReceiver)
+	for _, receiverInner := range conn.remoteEncodedVideoReceivers {
+		encodedVideoReceiversInners = append(encodedVideoReceiversInners, receiverInner)
 	}
 	conn.remoteVideoRWMutex.RUnlock()
+	// remove all receiverInners from service
 	agoraService.remoteVideoRWMutex.Lock()
-	for _, cReceiver := range cRemoteEncodedVideoReceivers {
-		delete(agoraService.remoteEncodedVideoReceivers, cReceiver)
+	for _, receiverInner := range encodedVideoReceiversInners {
+		delete(agoraService.remoteEncodedVideoReceivers, receiverInner.cReceiver)
 	}
 	agoraService.remoteVideoRWMutex.Unlock()
 
@@ -300,12 +302,15 @@ func (conn *RtcConnection) Release() {
 	}
 	C.agora_rtc_conn_destroy(conn.cConnection)
 
+	// clear all receiverInners
 	conn.remoteVideoRWMutex.Lock()
-	for _, receiver := range conn.remoteEncodedVideoReceivers {
-		receiver.release()
-	}
-	conn.remoteEncodedVideoReceivers = make(map[unsafe.Pointer]*videoEncodedImageReceiverInner)
+	conn.remoteEncodedVideoReceivers = make(map[*VideoEncodedImageReceiver]*videoEncodedImageReceiverInner)
 	conn.remoteVideoRWMutex.Unlock()
+
+	for _, receiverInner := range encodedVideoReceiversInners {
+		receiverInner.release()
+	}
+	encodedVideoReceiversInners = nil
 
 	conn.cConnection = nil
 	if conn.cAudioObserver != nil {
