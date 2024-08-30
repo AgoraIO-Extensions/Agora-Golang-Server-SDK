@@ -109,13 +109,13 @@ func main() {
 	<-conSignal
 
 	track.SetVideoEncoderConfiguration(&agoraservice.VideoEncoderConfiguration{
-		CodecType:         2,
+		CodecType:         agoraservice.VideoCodecTypeH264,
 		Width:             320,
 		Height:            240,
 		Framerate:         30,
 		Bitrate:           500,
 		MinBitrate:        100,
-		OrientationMode:   0,
+		OrientationMode:   agoraservice.VideoOrientation0,
 		DegradePreference: 0,
 	})
 	track.SetEnabled(true)
@@ -126,7 +126,7 @@ func main() {
 	dataSize := w * h * 3 / 2
 	data := make([]byte, dataSize)
 	// read yuv from file 103_RaceHorses_416x240p30_300.yuv
-	file, err := os.Open("../../../test_data/103_RaceHorses_416x240p30_300.yuv")
+	file, err := os.Open("../../../test_data/RaceHorses_416x240p30_300.yuv")
 	if err != nil {
 		fmt.Println("Error opening file:", err)
 		return

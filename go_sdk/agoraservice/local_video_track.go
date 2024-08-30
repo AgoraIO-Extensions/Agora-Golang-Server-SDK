@@ -10,7 +10,7 @@ import "unsafe"
 
 type VideoEncoderConfiguration struct {
 	// 1: VP8, 2: H264
-	CodecType int
+	CodecType VideoCodecType
 	Width     int
 	Height    int
 	Framerate int
@@ -19,7 +19,7 @@ type VideoEncoderConfiguration struct {
 	// kbps
 	MinBitrate int
 	// 0: adaptive, 1: fixed landscape, 2: fixed portrait
-	OrientationMode int
+	OrientationMode VideoOrientation
 	// 0: maintain, 1: maintain frame rate, 2: maintain quality
 	DegradePreference int
 }

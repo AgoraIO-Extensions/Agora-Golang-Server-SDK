@@ -77,6 +77,9 @@ func (globalCtx *GlobalContext) startTask(id int) {
 		OnUserLeft: func(con *agoraservice.RtcConnection, uid string, reason int) {
 			fmt.Println("user left, " + uid)
 		},
+		OnStreamMessageError: func(con *agoraservice.RtcConnection, uid string, streamId int, errCode int, missed int, cached int) {
+			fmt.Printf("send stream message error: %d, channel %s, uid %s\n", errCode, channelName, uid)
+		},
 	}
 	// senderLocalUserObs := &agoraservice.LocalUserObserver{}
 	senderCon := agoraservice.NewRtcConnection(&agoraservice.RtcConnectionConfig{
@@ -86,11 +89,21 @@ func (globalCtx *GlobalContext) startTask(id int) {
 		ChannelProfile:     agoraservice.ChannelProfileLiveBroadcasting,
 	})
 	defer senderCon.Release()
-
+	// create audio track
 	pcmSender := globalCtx.mediaNodeFactory.NewAudioPcmDataSender()
 	defer pcmSender.Release()
 	audioTrack := agoraservice.NewCustomAudioTrackPcm(pcmSender)
 	defer audioTrack.Release()
+	// create video track
+	yuvSender := globalCtx.mediaNodeFactory.NewVideoFrameSender()
+	defer yuvSender.Release()
+	videoTrack := agoraservice.NewCustomVideoTrackFrame(yuvSender)
+	defer videoTrack.Release()
+	// create datastream
+	streamId, errCode := senderCon.CreateDataStream(false, false)
+	if errCode != 0 {
+		fmt.Printf("Failed to create data stream: %d, channel %s\n", errCode, channelName)
+	}
 
 	senderCon.RegisterObserver(senderConObs)
 	senderCon.Connect(token1, channelName, senderId)
@@ -103,6 +116,7 @@ func (globalCtx *GlobalContext) startTask(id int) {
 		return
 	}
 
+	// send audio
 	waitGroup := &sync.WaitGroup{}
 	waitGroup.Add(1)
 	go func() {
@@ -155,12 +169,92 @@ func (globalCtx *GlobalContext) startTask(id int) {
 					fmt.Printf("SendAudioPcmData %d ret: %d\n", sendCount, ret)
 				}
 				fmt.Printf("Sent %d frames this time\n", shouldSendCount)
-
 			case <-(*ctx).Done():
+				fmt.Printf("task %d audio sender finished\n", id)
 				return
 			}
 		}
 	}()
+
+	// send video
+	waitGroup.Add(1)
+	go func() {
+		defer waitGroup.Done()
+		videoTrack.SetVideoEncoderConfiguration(&agoraservice.VideoEncoderConfiguration{
+			CodecType:         agoraservice.VideoCodecTypeH264,
+			Width:             320,
+			Height:            240,
+			Framerate:         30,
+			Bitrate:           500,
+			MinBitrate:        100,
+			OrientationMode:   agoraservice.VideoOrientation0,
+			DegradePreference: 0,
+		})
+		videoTrack.SetEnabled(true)
+		senderLocalUser := senderCon.GetLocalUser()
+		senderLocalUser.PublishVideo(videoTrack)
+		defer func() {
+			senderLocalUser.UnpublishVideo(videoTrack)
+			videoTrack.SetEnabled(false)
+		}()
+
+		w := 416
+		h := 240
+		dataSize := w * h * 3 / 2
+		data := make([]byte, dataSize)
+		// read yuv from file 103_RaceHorses_416x240p30_300.yuv
+		file, err := os.Open("../../../test_data/RaceHorses_416x240p30_300.yuv")
+		if err != nil {
+			fmt.Println("Error opening file:", err)
+			return
+		}
+		defer file.Close()
+
+		ticker := time.NewTicker(33 * time.Millisecond)
+		for {
+			select {
+			case <-ticker.C:
+				dataLen, err := file.Read(data)
+				if err != nil || dataLen < dataSize {
+					file.Seek(0, 0)
+					continue
+				}
+				// senderCon.SendStreamMessage(streamId, data)
+				yuvSender.SendVideoFrame(&agoraservice.VideoFrame{
+					Buffer:    data,
+					Width:     w,
+					Height:    h,
+					YStride:   w,
+					UStride:   w / 2,
+					VStride:   w / 2,
+					Timestamp: 0,
+				})
+			case <-(*ctx).Done():
+				fmt.Printf("task %d video sender finished\n", id)
+				return
+			}
+		}
+	}()
+
+	// send datastream
+	if streamId >= 0 {
+		waitGroup.Add(1)
+		go func() {
+			defer waitGroup.Done()
+			ticker := time.NewTicker(33 * time.Millisecond)
+			msg := []byte(fmt.Sprintf("Hello, Agora! from task %d", id))
+			for {
+				select {
+				case <-ticker.C:
+					ret := senderCon.SendStreamMessage(streamId, msg)
+					fmt.Printf("SendStreamMessage ret: %d, task %d\n", ret, id)
+				case <-(*ctx).Done():
+					fmt.Printf("task %d data stream sender finished\n", id)
+					return
+				}
+			}
+		}()
+	}
 
 	receiverConObs := &agoraservice.RtcConnectionObserver{
 		OnConnected: func(con *agoraservice.RtcConnection, info *agoraservice.RtcConnectionInfo, reason int) {
@@ -179,15 +273,27 @@ func (globalCtx *GlobalContext) startTask(id int) {
 			fmt.Println("user left, " + uid)
 		},
 	}
-	// receiverLocalUserObs := &agoraservice.LocalUserObserver{}
+	receiverLocalUserObs := &agoraservice.LocalUserObserver{
+		OnStreamMessage: func(localUser *agoraservice.LocalUser, uid string, streamId int, data []byte) {
+			fmt.Printf("recv stream message: %s, channel %s, uid %s\n", string(data), channelName, uid)
+		},
+	}
 	recieverConAudioFrameObs := &agoraservice.AudioFrameObserver{
 		OnPlaybackAudioFrameBeforeMixing: func(localUser *agoraservice.LocalUser, channelId string, userId string, frame *agoraservice.PcmAudioFrame) bool {
 			// do something
-			fmt.Printf("Playback audio frame before mixing, from userId %s\n", userId)
+			fmt.Printf("Playback audio frame before mixing, from channel %s, userId %s, audio duration %dms\n",
+				channelId, userId, frame.SamplesPerChannel*1000/frame.SampleRate)
 			return true
 		},
 	}
-	// receiverConVideoFrameObs := &agoraservice.VideoFrameObserver{}
+	receiverConVideoFrameObs := &agoraservice.VideoFrameObserver{
+		OnFrame: func(localUser *agoraservice.LocalUser, channelId string, userId string, frame *agoraservice.VideoFrame) bool {
+			// do something
+			fmt.Printf("recv video frame, from channel %s, user %s, video size %dx%d\n",
+				channelId, userId, frame.Width, frame.Height)
+			return true
+		},
+	}
 	receiverCon := agoraservice.NewRtcConnection(&agoraservice.RtcConnectionConfig{
 		AutoSubscribeAudio: true,
 		AutoSubscribeVideo: true,
@@ -199,7 +305,9 @@ func (globalCtx *GlobalContext) startTask(id int) {
 	receiverCon.RegisterObserver(receiverConObs)
 	localUser := receiverCon.GetLocalUser()
 	localUser.SetPlaybackAudioFrameBeforeMixingParameters(1, 16000)
+	localUser.RegisterLocalUserObserver(receiverLocalUserObs)
 	localUser.RegisterAudioFrameObserver(recieverConAudioFrameObs)
+	localUser.RegisterVideoFrameObserver(receiverConVideoFrameObs)
 
 	receiverCon.Connect(token2, channelName, receiverId)
 	select {
