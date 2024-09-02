@@ -17,7 +17,26 @@ const (
 	VAD_STOP_SPEEKING  = 3
 )
 
+// cVadCfg.fftSz = C.int(1024)
+// cVadCfg.anaWindowSz = C.int(768)
+// cVadCfg.hopSz = C.int(160)
+// cVadCfg.frqInputAvailableFlag = C.int(0)
+// cVadCfg.useCVersionAIModule = C.int(0)
+// cVadCfg.voiceProbThr = C.float(0.7)
+// cVadCfg.rmsThr = C.float(-40.0)
+// cVadCfg.jointThr = C.float(0.0)
+// cVadCfg.aggressive = C.float(2.0)
 type AudioVadConfig struct {
+	FftSz                 int     // fft size, default value is 1024
+	AnaWindowSz           int     // analysis window size, default value is 768
+	HopSz                 int     // hop size, default value is 160
+	FrqInputAvailableFlag int     // frequency input available flag, default value is 0
+	UseCVersionAIModule   int     // use C version AI module, default value is 0
+	VoiceProbThr          float32 // voice probability threshold, default value is 0.7
+	RmsThr                float32 // root mean square threshold, default value is -40.0
+	JointThr              float32 // joint threshold, default value is 0.0
+	Aggressive            float32 // aggressive, default value is 2.0
+
 	StartRecognizeCount    int     // start recognize count, buffer size for 10ms 16KHz 16bit 1channel PCM, default value is 10
 	StopRecognizeCount     int     // max recognize count, buffer size for 10ms 16KHz 16bit 1channel PCM, default value is 6
 	PreStartRecognizeCount int     // pre start recognize count, buffer size for 10ms 16KHz 16bit 1channel PCM, default value is 10
@@ -35,6 +54,16 @@ type AudioVad struct {
 func NewAudioVad(cfg *AudioVadConfig) *AudioVad {
 	if cfg == nil {
 		cfg = &AudioVadConfig{
+			FftSz:                 1024,
+			AnaWindowSz:           768,
+			HopSz:                 160,
+			FrqInputAvailableFlag: 0,
+			UseCVersionAIModule:   0,
+			VoiceProbThr:          0.7,
+			RmsThr:                -40.0,
+			JointThr:              0.0,
+			Aggressive:            2.0,
+
 			StartRecognizeCount:    10,
 			StopRecognizeCount:     6,
 			PreStartRecognizeCount: 10,
@@ -49,15 +78,15 @@ func NewAudioVad(cfg *AudioVadConfig) *AudioVad {
 	}
 	cVadCfg := C.struct_Vad_Config_{}
 	C.memset((unsafe.Pointer)(&cVadCfg), 0, C.sizeof_struct_Vad_Config_)
-	cVadCfg.fftSz = C.int(1024)
-	cVadCfg.anaWindowSz = C.int(768)
-	cVadCfg.hopSz = C.int(160)
-	cVadCfg.frqInputAvailableFlag = C.int(0)
-	cVadCfg.useCVersionAIModule = C.int(0)
-	cVadCfg.voiceProbThr = C.float(0.7)
-	cVadCfg.rmsThr = C.float(-40.0)
-	cVadCfg.jointThr = C.float(0.0)
-	cVadCfg.aggressive = C.float(2.0)
+	cVadCfg.fftSz = C.int(cfg.FftSz)
+	cVadCfg.anaWindowSz = C.int(cfg.AnaWindowSz)
+	cVadCfg.hopSz = C.int(cfg.HopSz)
+	cVadCfg.frqInputAvailableFlag = C.int(cfg.FrqInputAvailableFlag)
+	cVadCfg.useCVersionAIModule = C.int(cfg.UseCVersionAIModule)
+	cVadCfg.voiceProbThr = C.float(cfg.VoiceProbThr)
+	cVadCfg.rmsThr = C.float(cfg.RmsThr)
+	cVadCfg.jointThr = C.float(cfg.JointThr)
+	cVadCfg.aggressive = C.float(cfg.Aggressive)
 	cVadCfg.startRecognizeCount = C.int(cfg.StartRecognizeCount)
 	cVadCfg.stopRecognizeCount = C.int(cfg.StopRecognizeCount)
 	cVadCfg.preStartRecognizeCount = C.int(cfg.PreStartRecognizeCount)

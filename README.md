@@ -8,7 +8,7 @@
   - not tested on go 1.19 and below
 
 ## Prepare C version of agora rtc sdk
-- download and unzip [agora_sdk.zip](https://download.agora.io/sdk/release/agora_rtc_sdk_linux_20240814_320567.zip)
+- download and unzip [agora_sdk.zip](https://download.agora.io/sdk/release/agora_rtc_sdk_linux_20240902_320567.zip)
 ```
 unzip agora_sdk.zip
 ```
@@ -23,7 +23,7 @@ go build main
 ```
 
 ## Test
-- download and unzip [test_data.zip](https://download.agora.io/demo/test/test_data_202408221437.zip)
+- download and unzip [test_data.zip](https://download.agora.io/demo/test/test_data_202409021506.zip)
 - make **test_data** directory in the same directory with **go_wrapper**
 - run main
 ```
@@ -40,12 +40,12 @@ go test -v -count=1 -timeout 20s -run ^TestBaseCase$ agoraservice
 ```
 
 # Build and run on mac
-- download and unzip [agora_sdk_mac.zip](https://download.agora.io/sdk/release/agora_rtc_sdk_mac_20240814_320567.zip)
+- download and unzip [agora_sdk_mac.zip](https://download.agora.io/sdk/release/agora_rtc_sdk_mac_20240902_320567.zip)
 ```
 unzip agora_sdk_mac.zip
 ```
 - make **agora_sdk_mac** directory in the same directory with **go_wrapper**
-- download and unzip [test_data.zip](https://download.agora.io/demo/test/test_data_202408221437.zip)
+- download and unzip [test_data.zip](https://download.agora.io/demo/test/test_data_202409021506.zip)
 - make **test_data** directory in the same directory with **go_wrapper**
 - build and run main
 ```
@@ -90,6 +90,10 @@ data,
   - if you don't use VAD, and your glibc version is between 2.16 and 2.27, you can disable VAD by rename **audio_vad.go** file in go_wrapper/agoraserver/ to **audio_vad.go.bak**
 
 # Change log
+## 2024.09.02 release 1.2
+- libuap_aed.so library update
+- Add parameters to AudioVadConfig
+- Add AreaCode to AgoraServiceConfig
 ## 2024.08.14 release 1.1
 - Add RenewToken interface for RtcConnection
 - Update VAD algorithm

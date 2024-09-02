@@ -1,31 +1,31 @@
 #include "rtc_callbacks_cgo.h"
 
-extern void goOnConnected(void* agora_rtc_conn, struct _rtc_conn_info* conn_info, int reason);
+extern void goOnConnected(void* agora_rtc_conn, const struct _rtc_conn_info* conn_info, int reason);
 void cgo_on_connected(AGORA_HANDLE agora_rtc_conn, const rtc_conn_info* conn_info, int reason) {
   goOnConnected(agora_rtc_conn, conn_info, reason);
 }
 
-extern void goOnDisconnected(void* agora_rtc_conn, struct _rtc_conn_info* conn_info, int reason);
+extern void goOnDisconnected(void* agora_rtc_conn, const struct _rtc_conn_info* conn_info, int reason);
 void cgo_on_disconnected(AGORA_HANDLE agora_rtc_conn, const rtc_conn_info* conn_info, int reason) {
   goOnDisconnected(agora_rtc_conn, conn_info, reason);
 }
 
-extern void goOnReconnecting(void* agora_rtc_conn, struct _rtc_conn_info* conn_info, int reason);
+extern void goOnReconnecting(void* agora_rtc_conn, const struct _rtc_conn_info* conn_info, int reason);
 void cgo_on_reconnecting(AGORA_HANDLE agora_rtc_conn, const rtc_conn_info* conn_info, int reason) {
   goOnReconnecting(agora_rtc_conn, conn_info, reason);
 }
 
-extern void goOnReconnected(void* agora_rtc_conn, struct _rtc_conn_info* conn_info, int reason);
+extern void goOnReconnected(void* agora_rtc_conn, const struct _rtc_conn_info* conn_info, int reason);
 void cgo_on_reconnected(AGORA_HANDLE agora_rtc_conn, const rtc_conn_info* conn_info, int reason)  {
   goOnReconnected(agora_rtc_conn, conn_info, reason);
 }
 
-extern void goOnConnectionLost(void* agora_rtc_conn, struct _rtc_conn_info* conn_info);
+extern void goOnConnectionLost(void* agora_rtc_conn, const struct _rtc_conn_info* conn_info);
 void cgo_on_connection_lost(AGORA_HANDLE agora_rtc_conn, const rtc_conn_info* conn_info) {
   goOnConnectionLost(agora_rtc_conn, conn_info);
 }
 
-extern void goOnConnectionFailure(AGORA_HANDLE agora_rtc_conn, struct _rtc_conn_info* conn_info, int reason);
+extern void goOnConnectionFailure(AGORA_HANDLE agora_rtc_conn, const struct _rtc_conn_info* conn_info, int reason);
 void cgo_on_connection_failure(AGORA_HANDLE agora_rtc_conn, const rtc_conn_info* conn_info, int reason) {
   goOnConnectionFailure(agora_rtc_conn, conn_info, reason);
 }
