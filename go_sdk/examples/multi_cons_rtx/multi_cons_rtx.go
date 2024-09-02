@@ -374,7 +374,7 @@ func main() {
 	}
 	defer globalCtx.release()
 
-	for i := 0; i < 1; i++ {
+	for i := 0; i < 3; i++ {
 		globalCtx.waitTasks.Add(1)
 		go globalCtx.startTask(i)
 	}

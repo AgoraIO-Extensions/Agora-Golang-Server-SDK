@@ -1,10 +1,13 @@
 package agoraservice
 
-// #cgo CFLAGS: -I../../agora_sdk/include_c/api2 -I../../agora_sdk/include_c/base
+// #cgo CFLAGS: -I../../agora_sdk/include/c/api2 -I../../agora_sdk/include/c/base
 // #include "agora_media_node_factory.h"
 // #include "video_observer_cgo.h"
 import "C"
-import "unsafe"
+import (
+	"fmt"
+	"unsafe"
+)
 
 type VideoEncodedImageReceiver struct {
 	OnEncodedVideoFrame func(receiver *VideoEncodedImageReceiver, uid string, imageBuffer []byte,
@@ -22,6 +25,7 @@ func newVideoEncodedImageReceiverInner(receiver *VideoEncodedImageReceiver) *vid
 	}
 	cReceiver := C.agora_video_encoded_image_receiver_create(&observer)
 	if cReceiver == nil {
+		fmt.Println("agora_video_encoded_image_receiver_create failed")
 		return nil
 	}
 	receiveInner := &videoEncodedImageReceiverInner{

@@ -55,7 +55,6 @@ func main() {
 		<-c
 		*bStop = true
 		fmt.Println("Application terminated")
-		os.Exit(0)
 	}()
 
 	// get environment variable

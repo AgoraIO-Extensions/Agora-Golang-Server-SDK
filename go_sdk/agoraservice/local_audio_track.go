@@ -1,6 +1,6 @@
 package agoraservice
 
-// #cgo CFLAGS: -I${SRCDIR}/../../agora_sdk/include_c/api2 -I${SRCDIR}/../../agora_sdk/include_c/base
+// #cgo CFLAGS: -I${SRCDIR}/../../agora_sdk/include/c/api2 -I${SRCDIR}/../../agora_sdk/include/c/base
 // #include "agora_service.h"
 // #include "agora_audio_track.h"
 import "C"
@@ -59,16 +59,16 @@ func (track *LocalAudioTrack) AdjustPublishVolume(volume int) int {
 // NOTICE: these interface below is temporary, may be removed in the future
 // size is the number of 10ms audio frames
 // the default value of this param is 30, ie. 300ms
-func (track *LocalAudioTrack) SetMaxBufferAudioFrameNumber(bufSize int) {
-	if track.cTrack == nil {
-		return
-	}
-	C.agora_local_audio_track_set_max_buffer_audio_frame_number(track.cTrack, C.int(bufSize))
-}
+// func (track *LocalAudioTrack) SetMaxBufferAudioFrameNumber(bufSize int) {
+// 	if track.cTrack == nil {
+// 		return
+// 	}
+// 	C.agora_local_audio_track_set_max_buffer_audio_frame_number(track.cTrack, C.int(bufSize))
+// }
 
-func (track *LocalAudioTrack) ClearBuffer() int {
-	if track.cTrack == nil {
-		return -1
-	}
-	return int(C.agora_local_audio_track_clear_buffer(track.cTrack))
-}
+// func (track *LocalAudioTrack) ClearBuffer() int {
+// 	if track.cTrack == nil {
+// 		return -1
+// 	}
+// 	return int(C.agora_local_audio_track_clear_buffer(track.cTrack))
+// }

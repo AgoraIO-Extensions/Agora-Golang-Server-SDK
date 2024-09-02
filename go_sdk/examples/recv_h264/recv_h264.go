@@ -1,26 +1,32 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/signal"
-	"time"
 
 	"agora.io/agoraservice"
 
 	rtctokenbuilder "github.com/AgoraIO/Tools/DynamicKey/AgoraDynamicKey/go/src/rtctokenbuilder2"
 )
 
+type EncodedVideoData struct {
+	uid       string
+	imageData []byte
+	frameInfo *agoraservice.EncodedVideoFrameInfo
+}
+
 func main() {
 	bStop := new(bool)
 	*bStop = false
+	ctx, cancel := context.WithCancel(context.Background())
 	// catch ternimal signal
 	go func() {
 		c := make(chan os.Signal, 1)
 		signal.Notify(c, os.Interrupt)
 		<-c
-		*bStop = true
-		fmt.Println("Application terminated")
+		cancel()
 	}()
 
 	// get environment variable
@@ -85,11 +91,22 @@ func main() {
 			fmt.Println("user left, " + uid)
 		},
 	}
-	videoObserver := &agoraservice.VideoFrameObserver{
-		OnFrame: func(localUser *agoraservice.LocalUser, channelId string, userId string, frame *agoraservice.VideoFrame) bool {
-			// do something
-			fmt.Printf("recv video frame, from channel %s, user %s\n", channelId, userId)
-			return true
+
+	videoChan := make(chan *EncodedVideoData, 100)
+	localUserObserver := &agoraservice.LocalUserObserver{
+		OnUserVideoTrackSubscribed: func(localUser *agoraservice.LocalUser, uid string, info *agoraservice.VideoTrackInfo, remoteVideoTrack *agoraservice.RemoteVideoTrack) {
+			fmt.Printf("user %s video subscribed\n", uid)
+			remoteVideoTrack.RegisterVideoEncodedImageReceiver(&agoraservice.VideoEncodedImageReceiver{
+				OnEncodedVideoFrame: func(receiver *agoraservice.VideoEncodedImageReceiver, uid string, imageBuffer []byte, frameInfo *agoraservice.EncodedVideoFrameInfo) bool {
+					// fmt.Printf("user %s encoded video received\n", uid)
+					videoChan <- &EncodedVideoData{
+						uid:       uid,
+						imageData: imageBuffer,
+						frameInfo: frameInfo,
+					}
+					return true
+				},
+			})
 		},
 	}
 	con := agoraservice.NewRtcConnection(&conCfg)
@@ -97,60 +114,31 @@ func main() {
 
 	localUser := con.GetLocalUser()
 	con.RegisterObserver(conHandler)
-	localUser.RegisterVideoFrameObserver(videoObserver)
-
-	sender := mediaNodeFactory.NewVideoFrameSender()
-	defer sender.Release()
-	track := agoraservice.NewCustomVideoTrackFrame(sender)
-	defer track.Release()
+	ret := localUser.RegisterLocalUserObserver(localUserObserver)
+	if ret != 0 {
+		fmt.Println("RegisterLocalUserObserver failed, ret ", ret)
+		return
+	}
 
 	con.Connect(token, channelName, userId)
 	<-conSignal
 
-	track.SetVideoEncoderConfiguration(&agoraservice.VideoEncoderConfiguration{
-		CodecType:         agoraservice.VideoCodecTypeH264,
-		Width:             320,
-		Height:            240,
-		Framerate:         30,
-		Bitrate:           500,
-		MinBitrate:        100,
-		OrientationMode:   agoraservice.VideoOrientation0,
-		DegradePreference: 0,
-	})
-	track.SetEnabled(true)
-	localUser.PublishVideo(track)
-
-	w := 416
-	h := 240
-	dataSize := w * h * 3 / 2
-	data := make([]byte, dataSize)
-	// read yuv from file 103_RaceHorses_416x240p30_300.yuv
-	file, err := os.Open("../../../test_data/RaceHorses_416x240p30_300.yuv")
-	if err != nil {
-		fmt.Println("Error opening file:", err)
+	file, err := os.OpenFile("./recv.264", os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	if file == nil {
+		fmt.Println("Error opening file: ", err)
 		return
 	}
 	defer file.Close()
 
-	for !*bStop {
-		dataLen, err := file.Read(data)
-		if err != nil || dataLen < dataSize {
-			file.Seek(0, 0)
-			continue
+	stop := false
+	for !stop {
+		select {
+		case videoData := <-videoChan:
+			fmt.Printf("user %s encoded video received, frame len %d\n", videoData.uid, len(videoData.imageData))
+			file.Write(videoData.imageData)
+		case <-ctx.Done():
+			stop = true
 		}
-		// senderCon.SendStreamMessage(streamId, data)
-		sender.SendVideoFrame(&agoraservice.VideoFrame{
-			Buffer:    data,
-			Width:     w,
-			Height:    h,
-			YStride:   w,
-			UStride:   w / 2,
-			VStride:   w / 2,
-			Timestamp: 0,
-		})
-		time.Sleep(33 * time.Millisecond)
 	}
-	localUser.UnpublishVideo(track)
-	track.SetEnabled(false)
 	con.Disconnect()
 }

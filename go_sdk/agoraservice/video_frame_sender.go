@@ -1,6 +1,6 @@
 package agoraservice
 
-// #cgo CFLAGS: -I${SRCDIR}/../../agora_sdk/include_c/api2 -I${SRCDIR}/../../agora_sdk/include_c/base
+// #cgo CFLAGS: -I${SRCDIR}/../../agora_sdk/include/c/api2 -I${SRCDIR}/../../agora_sdk/include/c/base
 // #include <string.h>
 // #include "agora_media_node_factory.h"
 import "C"

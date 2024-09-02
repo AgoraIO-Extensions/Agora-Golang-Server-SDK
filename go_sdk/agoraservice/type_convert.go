@@ -1,7 +1,7 @@
 package agoraservice
 
 /*
-#cgo CFLAGS: -I../../agora_sdk/include_c/api2 -I../../agora_sdk/include_c/base
+#cgo CFLAGS: -I../../agora_sdk/include/c/api2 -I../../agora_sdk/include/c/base
 
 #include <stdlib.h>
 #include <string.h>
