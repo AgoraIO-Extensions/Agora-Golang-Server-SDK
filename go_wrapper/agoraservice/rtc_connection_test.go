@@ -425,6 +425,15 @@ func TestVadCase(t *testing.T) {
 	}()
 
 	vad := NewAudioVad(&AudioVadConfig{
+		FftSz:                  1024,
+		AnaWindowSz:            768,
+		HopSz:                  160,
+		FrqInputAvailableFlag:  0,
+		UseCVersionAIModule:    0,
+		VoiceProbThr:           0.7,
+		RmsThr:                 -40.0,
+		JointThr:               0.0,
+		Aggressive:             2.0,
 		StartRecognizeCount:    10,
 		StopRecognizeCount:     6,
 		PreStartRecognizeCount: 10,
@@ -727,6 +736,15 @@ func TestReconnect(t *testing.T) {
 
 func TestVad1(t *testing.T) {
 	agoraVad := NewAudioVad(&AudioVadConfig{
+		FftSz:                  1024,
+		AnaWindowSz:            768,
+		HopSz:                  160,
+		FrqInputAvailableFlag:  0,
+		UseCVersionAIModule:    0,
+		VoiceProbThr:           0.7,
+		RmsThr:                 -40.0,
+		JointThr:               0.0,
+		Aggressive:             2.0,
 		StartRecognizeCount:    10,
 		StopRecognizeCount:     6,
 		PreStartRecognizeCount: 10,
@@ -734,7 +752,7 @@ func TestVad1(t *testing.T) {
 		InactivePercent:        0.2,
 	})
 	defer agoraVad.Release()
-	f, err := os.ReadFile("../../test_data/demo.raw")
+	f, err := os.ReadFile("../../test_data/vad_test2.pcm")
 	if err != nil {
 		t.Error(err)
 	}

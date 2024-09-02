@@ -8,7 +8,7 @@
   - 未在go 1.19及以下版本上进行测试
 
 ## 准备Agora RTC SDK的C版本
-- 下载并解压缩 [agora_sdk.zip](https://download.agora.io/sdk/release/agora_rtc_sdk_linux_20240814_320567.zip)
+- 下载并解压缩 [agora_sdk.zip](https://download.agora.io/sdk/release/agora_rtc_sdk_linux_20240902_320567.zip)
 ```
 unzip agora_sdk.zip
 ```
@@ -23,7 +23,7 @@ go build main
 ```
 
 ## 测试
-- 下载并解压缩 [test_data.zip](https://download.agora.io/demo/test/test_data_202408221437.zip)
+- 下载并解压缩 [test_data.zip](https://download.agora.io/demo/test/test_data_202409021506.zip)
 - 在与 **go_wrapper** 目录相同的目录中创建 **test_data** 目录
 - 运行 main
 ```
@@ -40,12 +40,12 @@ go test -v -count=1 -timeout 20s -run ^TestBaseCase$ agoraservice
 ```
 
 # 在Mac上编译和运行
-- 下载并解压缩 [agora_sdk_mac.zip](https://download.agora.io/sdk/release/agora_rtc_sdk_mac_20240814_320567.zip)
+- 下载并解压缩 [agora_sdk_mac.zip](https://download.agora.io/sdk/release/agora_rtc_sdk_mac_20240902_320567.zip)
 ```
 unzip agora_sdk_mac.zip
 ```
 - 在与 **go_wrapper** 目录相同的目录中创建 **agora_sdk_mac** 目录
-- 下载并解压缩 [test_data.zip](https://download.agora.io/demo/test/test_data_202408221437.zip)
+- 下载并解压缩 [test_data.zip](https://download.agora.io/demo/test/test_data_202409021506.zip)
 - 在与 **go_wrapper** 目录相同的目录中创建 **test_data** 目录
 - 编译并运行 main
 ```

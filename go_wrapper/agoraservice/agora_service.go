@@ -49,6 +49,7 @@ type AgoraServiceConfig struct {
 	AudioScenario int
 	LogPath       string
 	LogSize       int
+	AreaCode      uint
 }
 
 type AgoraService struct {
