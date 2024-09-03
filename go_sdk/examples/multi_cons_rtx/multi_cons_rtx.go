@@ -8,27 +8,27 @@ import (
 	"sync"
 	"time"
 
+	"math/rand"
+
 	"agora.io/agoraservice"
 
 	rtctokenbuilder "github.com/AgoraIO/Tools/DynamicKey/AgoraDynamicKey/go/src/rtctokenbuilder2"
 )
 
-type ConnectionRole int
-
 const (
-	ConnectionRolePublisher  ConnectionRole = 0
-	ConnectionRoleSubscriber ConnectionRole = 1
+	ConnectionCount = 3
 )
 
 type GlobalContext struct {
-	ctx               *context.Context
-	cancel            *context.CancelFunc
+	ctx               context.Context
+	cancel            context.CancelFunc
 	termSingal        chan os.Signal
 	appId             string
 	cert              string
 	channelNamePrefix string
 	mediaNodeFactory  *agoraservice.MediaNodeFactory
 	waitTasks         *sync.WaitGroup
+	connectionCancels []context.CancelFunc
 }
 
 func (globalCtx *GlobalContext) genToken(channelName string, userId string) (string, error) {
@@ -47,10 +47,9 @@ func (globalCtx *GlobalContext) genToken(channelName string, userId string) (str
 	return token, nil
 }
 
-func (globalCtx *GlobalContext) startTask(id int) {
+func (globalCtx *GlobalContext) startTask(ctx context.Context, id int) {
 	defer globalCtx.waitTasks.Done()
 
-	ctx := globalCtx.ctx
 	channelName := fmt.Sprintf("%s%d", globalCtx.channelNamePrefix, id)
 	senderId := fmt.Sprintf("%d", id*1000+1)
 	receiverId := fmt.Sprintf("%d", id*1000+2)
@@ -169,7 +168,7 @@ func (globalCtx *GlobalContext) startTask(id int) {
 					fmt.Printf("SendAudioPcmData %d ret: %d\n", sendCount, ret)
 				}
 				fmt.Printf("Sent %d frames this time\n", shouldSendCount)
-			case <-(*ctx).Done():
+			case <-ctx.Done():
 				fmt.Printf("task %d audio sender finished\n", id)
 				return
 			}
@@ -229,7 +228,7 @@ func (globalCtx *GlobalContext) startTask(id int) {
 					VStride:   w / 2,
 					Timestamp: 0,
 				})
-			case <-(*ctx).Done():
+			case <-ctx.Done():
 				fmt.Printf("task %d video sender finished\n", id)
 				return
 			}
@@ -248,7 +247,7 @@ func (globalCtx *GlobalContext) startTask(id int) {
 				case <-ticker.C:
 					ret := senderCon.SendStreamMessage(streamId, msg)
 					fmt.Printf("SendStreamMessage ret: %d, task %d\n", ret, id)
-				case <-(*ctx).Done():
+				case <-ctx.Done():
 					fmt.Printf("task %d data stream sender finished\n", id)
 					return
 				}
@@ -351,14 +350,15 @@ func globalInit() *GlobalContext {
 	agoraservice.Initialize(&svcCfg)
 	mediaNodeFactory := agoraservice.NewMediaNodeFactory()
 	return &GlobalContext{
-		ctx:               &ctx,
-		cancel:            &cancel,
+		ctx:               ctx,
+		cancel:            cancel,
 		termSingal:        c,
 		appId:             appid,
 		cert:              cert,
 		channelNamePrefix: channelName,
 		mediaNodeFactory:  mediaNodeFactory,
 		waitTasks:         &sync.WaitGroup{},
+		connectionCancels: make([]context.CancelFunc, ConnectionCount),
 	}
 }
 
@@ -374,12 +374,38 @@ func main() {
 	}
 	defer globalCtx.release()
 
-	for i := 0; i < 3; i++ {
+	for i := 0; i < ConnectionCount; i++ {
 		globalCtx.waitTasks.Add(1)
-		go globalCtx.startTask(i)
+		ctx, cancel := context.WithCancel(context.Background())
+		globalCtx.connectionCancels[i] = cancel
+		go globalCtx.startTask(ctx, i)
 	}
 
+	globalCtx.waitTasks.Add(1)
+	go func() {
+		defer globalCtx.waitTasks.Done()
+		stop := false
+		for !stop {
+			// random select a connection to stop and start new task
+			randTime := time.Duration(5+rand.Intn(10)) * time.Second
+			randIndex := rand.Intn(ConnectionCount - 1)
+			select {
+			case <-time.After(randTime):
+				globalCtx.connectionCancels[randIndex]()
+				ctx, cancel := context.WithCancel(context.Background())
+				globalCtx.connectionCancels[randIndex] = cancel
+				globalCtx.waitTasks.Add(1)
+				go globalCtx.startTask(ctx, randIndex)
+			case <-globalCtx.ctx.Done():
+				stop = true
+				for _, cancel := range globalCtx.connectionCancels {
+					cancel()
+				}
+			}
+		}
+	}()
+
 	<-globalCtx.termSingal
-	(*globalCtx.cancel)()
+	globalCtx.cancel()
 	globalCtx.waitTasks.Wait()
 }
