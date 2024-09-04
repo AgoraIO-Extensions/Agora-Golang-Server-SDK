@@ -17,7 +17,7 @@ unzip agora_sdk.zip
 
 ## Build sample
 ```
-cd go_wrapper
+cd go_wrapper/examples/send_recv_pcm
 go mod tidy
 go build main
 ```
@@ -49,7 +49,7 @@ unzip agora_sdk_mac.zip
 - make **test_data** directory in the same directory with **go_wrapper**
 - build and run main
 ```
-cd go_wrapper
+cd go_wrapper/examples/send_recv_pcm
 ./build_for_mac.sh
 ./main
 ```
@@ -90,6 +90,11 @@ data,
   - if you don't use VAD, and your glibc version is between 2.16 and 2.27, you can disable VAD by rename **audio_vad.go** file in go_wrapper/agoraserver/ to **audio_vad.go.bak**
 
 # Change log
+## 2024.09.04 release 1.2.1
+- move examples to **go_wrapper/examples** directory
+- add **send_mp4** example combined with ffmpeg
+  - make sure ffmpeg installed if you build **send_mp4** example
+  - and replace **cgo flags** of ffmpeg path in send_mp4.go
 ## 2024.09.02 release 1.2
 - libuap_aed.so library update
 - Add parameters to AudioVadConfig
