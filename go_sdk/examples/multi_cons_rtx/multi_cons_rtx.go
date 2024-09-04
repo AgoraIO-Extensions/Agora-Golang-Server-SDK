@@ -3,12 +3,14 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
+	"math/rand"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"sync"
 	"time"
-
-	"math/rand"
 
 	"agora.io/agoraservice"
 
@@ -16,7 +18,8 @@ import (
 )
 
 const (
-	ConnectionCount = 3
+	ConnectionCount         = 1
+	RandomRestartConnection = false
 )
 
 type GlobalContext struct {
@@ -59,6 +62,13 @@ func (globalCtx *GlobalContext) startTask(ctx context.Context, id int) {
 		fmt.Printf("Failed to generate token, task %d\n", id)
 		return
 	}
+	dumpFile, err := os.OpenFile(fmt.Sprintf("./recv%d.pcm", id), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
+	if err != nil {
+		fmt.Printf("Failed to open dump file, %s", err.Error())
+		return
+	}
+	defer dumpFile.Close()
+
 	conSignal := make(chan struct{})
 	senderConObs := &agoraservice.RtcConnectionObserver{
 		OnConnected: func(con *agoraservice.RtcConnection, info *agoraservice.RtcConnectionInfo, reason int) {
@@ -282,6 +292,9 @@ func (globalCtx *GlobalContext) startTask(ctx context.Context, id int) {
 			// do something
 			fmt.Printf("Playback audio frame before mixing, from channel %s, userId %s, audio duration %dms\n",
 				channelId, userId, frame.SamplesPerChannel*1000/frame.SampleRate)
+			if userId == senderId {
+				dumpFile.Write(frame.Data)
+			}
 			return true
 		},
 	}
@@ -368,6 +381,9 @@ func (ctx *GlobalContext) release() {
 }
 
 func main() {
+	go func() {
+		log.Println(http.ListenAndServe("localhost:6060", nil))
+	}()
 	globalCtx := globalInit()
 	if globalCtx == nil {
 		return
@@ -388,9 +404,15 @@ func main() {
 		for !stop {
 			// random select a connection to stop and start new task
 			randTime := time.Duration(5+rand.Intn(10)) * time.Second
-			randIndex := rand.Intn(ConnectionCount - 1)
+			randIndex := 0
+			if ConnectionCount > 1 {
+				randIndex = rand.Intn(ConnectionCount - 1)
+			}
 			select {
 			case <-time.After(randTime):
+				if !RandomRestartConnection {
+					break
+				}
 				globalCtx.connectionCancels[randIndex]()
 				ctx, cancel := context.WithCancel(context.Background())
 				globalCtx.connectionCancels[randIndex] = cancel
