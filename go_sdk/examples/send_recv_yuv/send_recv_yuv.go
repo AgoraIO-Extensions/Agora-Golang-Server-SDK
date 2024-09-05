@@ -139,13 +139,12 @@ func main() {
 			continue
 		}
 		// senderCon.SendStreamMessage(streamId, data)
-		sender.SendVideoFrame(&agoraservice.VideoFrame{
+		sender.SendVideoFrame(&agoraservice.ExternalVideoFrame{
+			Type:      agoraservice.VideoBufferRawData,
+			Format:    agoraservice.VideoPixelI420,
 			Buffer:    data,
-			Width:     w,
+			Stride:    w,
 			Height:    h,
-			YStride:   w,
-			UStride:   w / 2,
-			VStride:   w / 2,
 			Timestamp: 0,
 		})
 		time.Sleep(33 * time.Millisecond)

@@ -141,13 +141,14 @@ func (globalCtx *GlobalContext) startTask(ctx context.Context, id int) {
 
 		audioTrack.AdjustPublishVolume(100)
 
-		frame := agoraservice.PcmAudioFrame{
-			Data:              make([]byte, 320),
-			Timestamp:         0,
+		frame := agoraservice.AudioFrame{
+			Type:              agoraservice.AudioFrameTypePCM16,
 			SamplesPerChannel: 160,
 			BytesPerSample:    2,
-			NumberOfChannels:  1,
-			SampleRate:        16000,
+			Channels:          1,
+			SamplesPerSec:     16000,
+			Buffer:            make([]byte, 320),
+			RenderTimeMs:      0,
 		}
 
 		file, err := os.Open("../../../test_data/demo.pcm")
@@ -165,7 +166,7 @@ func (globalCtx *GlobalContext) startTask(ctx context.Context, id int) {
 			case <-ticker.C:
 				shouldSendCount := int(time.Since(firstSendTime).Milliseconds()/10) - (sendCount - 18)
 				for i := 0; i < shouldSendCount; i++ {
-					dataLen, err := file.Read(frame.Data)
+					dataLen, err := file.Read(frame.Buffer)
 					if err != nil || dataLen < 320 {
 						fmt.Println("Finished reading file:", err)
 						file.Seek(0, 0)
@@ -229,13 +230,12 @@ func (globalCtx *GlobalContext) startTask(ctx context.Context, id int) {
 					continue
 				}
 				// senderCon.SendStreamMessage(streamId, data)
-				yuvSender.SendVideoFrame(&agoraservice.VideoFrame{
+				yuvSender.SendVideoFrame(&agoraservice.ExternalVideoFrame{
+					Type:      agoraservice.VideoBufferRawData,
+					Format:    agoraservice.VideoPixelI420,
 					Buffer:    data,
-					Width:     w,
+					Stride:    w,
 					Height:    h,
-					YStride:   w,
-					UStride:   w / 2,
-					VStride:   w / 2,
 					Timestamp: 0,
 				})
 			case <-ctx.Done():
@@ -288,12 +288,12 @@ func (globalCtx *GlobalContext) startTask(ctx context.Context, id int) {
 		},
 	}
 	recieverConAudioFrameObs := &agoraservice.AudioFrameObserver{
-		OnPlaybackAudioFrameBeforeMixing: func(localUser *agoraservice.LocalUser, channelId string, userId string, frame *agoraservice.PcmAudioFrame) bool {
+		OnPlaybackAudioFrameBeforeMixing: func(localUser *agoraservice.LocalUser, channelId string, userId string, frame *agoraservice.AudioFrame) bool {
 			// do something
 			fmt.Printf("Playback audio frame before mixing, from channel %s, userId %s, audio duration %dms\n",
-				channelId, userId, frame.SamplesPerChannel*1000/frame.SampleRate)
+				channelId, userId, frame.SamplesPerChannel*1000/frame.SamplesPerSec)
 			if userId == senderId {
-				dumpFile.Write(frame.Data)
+				dumpFile.Write(frame.Buffer)
 			}
 			return true
 		},

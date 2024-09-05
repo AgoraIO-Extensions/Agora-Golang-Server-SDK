@@ -37,77 +37,6 @@ type RtcConnectionInfo struct {
 	InternalUid uint
 }
 
-type PcmAudioFrame struct {
-	Data              []byte
-	Timestamp         int64
-	SamplesPerChannel int
-	BytesPerSample    int
-	NumberOfChannels  int
-	SampleRate        int
-}
-
-// support YUV I420 only
-type VideoFrame struct {
-	Buffer    []byte
-	Width     int
-	Height    int
-	YStride   int
-	UStride   int
-	VStride   int
-	Timestamp int64
-}
-
-type EncodedVideoFrameInfo struct {
-	/**
-	 * The video codec: #VideoCodecTypeXxxx.
-	 */
-	CodecType VideoCodecType
-	/**
-	 * The width (px) of the video.
-	 */
-	Width int
-	/**
-	 * The height (px) of the video.
-	 */
-	Height int
-	/**
-	 * The number of video frames per second.
-	 * This value will be used for calculating timestamps of the encoded image.
-	 * If framesPerSecond equals zero, then real timestamp will be used.
-	 * Otherwise, timestamp will be adjusted to the value of framesPerSecond set.
-	 */
-	FramesPerSecond int
-	/**
-	 * The frame type of the encoded video frame: #VIDEO_FRAME_TYPE.
-	 */
-	FrameType VideoFrameType
-	/**
-	 * The rotation information of the encoded video frame: #VIDEO_ORIENTATION.
-	 */
-	Rotation VideoOrientation
-	/**
-	 * The track ID of the video frame.
-	 */
-	TrackId int // This can be reserved for multiple video tracks, we need to create different ssrc
-	// and additional payload for later implementation.
-	/**
-	 * This is a input parameter which means the timestamp for capturing the video.
-	 */
-	CaptureTimeMs int64
-	/**
-	 * The timestamp for decoding the video.
-	 */
-	DecodeTimeMs int64
-	/**
-	 * ID of the user.
-	 */
-	Uid uint32
-	/**
-	 * The stream type of video frame.
-	 */
-	StreamType int
-}
-
 type AudioFrameObserverAudioParams struct {
 	SampleRate     int
 	Channels       int
@@ -142,11 +71,11 @@ type LocalUserObserver struct {
 }
 
 type AudioFrameObserver struct {
-	OnRecordAudioFrame                func(localUser *LocalUser, channelId string, frame *PcmAudioFrame) bool
-	OnPlaybackAudioFrame              func(localUser *LocalUser, channelId string, frame *PcmAudioFrame) bool
-	OnMixedAudioFrame                 func(localUser *LocalUser, channelId string, frame *PcmAudioFrame) bool
-	OnEarMonitoringAudioFrame         func(localUser *LocalUser, frame *PcmAudioFrame) bool
-	OnPlaybackAudioFrameBeforeMixing  func(localUser *LocalUser, channelId string, uid string, frame *PcmAudioFrame) bool
+	OnRecordAudioFrame                func(localUser *LocalUser, channelId string, frame *AudioFrame) bool
+	OnPlaybackAudioFrame              func(localUser *LocalUser, channelId string, frame *AudioFrame) bool
+	OnMixedAudioFrame                 func(localUser *LocalUser, channelId string, frame *AudioFrame) bool
+	OnEarMonitoringAudioFrame         func(localUser *LocalUser, frame *AudioFrame) bool
+	OnPlaybackAudioFrameBeforeMixing  func(localUser *LocalUser, channelId string, uid string, frame *AudioFrame) bool
 	OnGetAudioFramePosition           func(localUser *LocalUser) int
 	OnGetPlaybackAudioFrameParam      func(localUser *LocalUser) AudioFrameObserverAudioParams
 	OnGetRecordAudioFrameParam        func(localUser *LocalUser) AudioFrameObserverAudioParams

@@ -70,15 +70,15 @@ func (vad *AudioVad) Release() {
 	C.Agora_UAP_VAD_Destroy(&vad.cVad)
 }
 
-func (vad *AudioVad) ProcessPcmFrame(frame *PcmAudioFrame) (*PcmAudioFrame, int) {
-	if frame.SampleRate != 16000 || frame.NumberOfChannels != 1 || frame.BytesPerSample != 2 {
+func (vad *AudioVad) ProcessPcmFrame(frame *AudioFrame) (*AudioFrame, int) {
+	if frame.SamplesPerSec != 16000 || frame.Channels != 1 || frame.BytesPerSample != 2 {
 		return nil, -1
 	}
-	cData := C.CBytes(frame.Data)
+	cData := C.CBytes(frame.Buffer)
 	defer C.free(cData)
 	in := C.Vad_AudioData{
 		audioData: (unsafe.Pointer)(cData),
-		size:      C.int(len(frame.Data)),
+		size:      C.int(len(frame.Buffer)),
 	}
 	var vadState C.enum_VAD_STATE = C.enum_VAD_STATE(0)
 	var out C.Vad_AudioData
@@ -90,13 +90,14 @@ func (vad *AudioVad) ProcessPcmFrame(frame *PcmAudioFrame) (*PcmAudioFrame, int)
 	samplesPerChannel := int(out.size) / 2 / 1
 	frameDuration := 1000 * samplesPerChannel / 16000
 	outData := C.GoBytes(out.audioData, out.size)
-	outFrame := &PcmAudioFrame{
-		Data:              outData,
-		Timestamp:         vad.lastOutTs,
+	outFrame := &AudioFrame{
+		Type:              AudioFrameTypePCM16,
+		Buffer:            outData,
+		RenderTimeMs:      vad.lastOutTs,
 		SamplesPerChannel: samplesPerChannel,
 		BytesPerSample:    2,
-		NumberOfChannels:  1,
-		SampleRate:        16000,
+		Channels:          1,
+		SamplesPerSec:     16000,
 	}
 	vad.lastOutTs += int64(frameDuration)
 

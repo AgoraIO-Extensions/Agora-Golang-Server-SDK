@@ -131,3 +131,9 @@ const (
 	// Users read the data from audio frame, modify it, and then play it.
 	RawAudioFrameOpModeReadWrite RawAudioFrameOpModeType = 2
 )
+
+type AudioFrameType int
+
+const (
+	AudioFrameTypePCM16 AudioFrameType = 0
+)

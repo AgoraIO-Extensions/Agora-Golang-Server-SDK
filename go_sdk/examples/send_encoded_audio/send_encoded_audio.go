@@ -119,7 +119,7 @@ func main() {
 		},
 	}
 	audioObserver := &agoraservice.AudioFrameObserver{
-		OnPlaybackAudioFrameBeforeMixing: func(localUser *agoraservice.LocalUser, channelId string, userId string, frame *agoraservice.PcmAudioFrame) bool {
+		OnPlaybackAudioFrameBeforeMixing: func(localUser *agoraservice.LocalUser, channelId string, userId string, frame *agoraservice.AudioFrame) bool {
 			// do something
 			fmt.Printf("Playback audio frame before mixing, from userId %s\n", userId)
 			return true

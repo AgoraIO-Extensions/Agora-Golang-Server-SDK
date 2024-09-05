@@ -131,15 +131,17 @@ func FreeCAudioFrameObserver(observer *C.struct__audio_frame_observer) {
 	C.free(unsafe.Pointer(observer))
 }
 
-func GoPcmAudioFrame(frame *C.struct__audio_frame) *PcmAudioFrame {
+func GoPcmAudioFrame(frame *C.struct__audio_frame) *AudioFrame {
 	bufferLen := frame.samples_per_channel * frame.bytes_per_sample * frame.channels
-	ret := &PcmAudioFrame{
-		Data:              C.GoBytes(unsafe.Pointer(frame.buffer), bufferLen),
-		Timestamp:         int64(frame.render_time_ms),
+	ret := &AudioFrame{
+		Type:              AudioFrameType(frame._type),
 		SamplesPerChannel: int(frame.samples_per_channel),
 		BytesPerSample:    int(frame.bytes_per_sample),
-		NumberOfChannels:  int(frame.channels),
-		SampleRate:        int(frame.samples_per_sec),
+		Channels:          int(frame.channels),
+		SamplesPerSec:     int(frame.samples_per_sec),
+		Buffer:            C.GoBytes(unsafe.Pointer(frame.buffer), bufferLen),
+		RenderTimeMs:      int64(frame.render_time_ms),
+		AvsyncType:        int(frame.avsync_type),
 	}
 	return ret
 }
@@ -162,27 +164,46 @@ func Uint8PtrToUintptr(p *C.uint8_t) uintptr {
 }
 
 func GoVideoFrame(frame *C.struct__video_frame) *VideoFrame {
-	var buf []byte = nil
-	bufLen := frame.y_stride*frame.height + frame.u_stride*frame.height/2 + frame.v_stride*frame.height/2
-	uStart := frame.y_stride * frame.height
-	vStart := uStart + frame.u_stride*frame.height/2
-	if (Uint8PtrToUintptr(frame.u_buffer)-Uint8PtrToUintptr(frame.y_buffer)) == uintptr(uStart) &&
-		(Uint8PtrToUintptr(frame.v_buffer)-Uint8PtrToUintptr(frame.y_buffer)) == uintptr(vStart) {
-		buf = C.GoBytes(unsafe.Pointer(frame.y_buffer), bufLen)
-	} else {
-		buf = make([]byte, bufLen)
-		copy(buf, unsafe.Slice((*byte)(unsafe.Pointer(frame.y_buffer)), frame.y_stride*frame.height))
-		copy(buf[uStart:], unsafe.Slice((*byte)(unsafe.Pointer(frame.u_buffer)), frame.u_stride*frame.height/2))
-		copy(buf[vStart:], unsafe.Slice((*byte)(unsafe.Pointer(frame.v_buffer)), frame.v_stride*frame.height/2))
-	}
+	// var buf []byte = nil
+	// bufLen := frame.y_stride*frame.height + frame.u_stride*frame.height/2 + frame.v_stride*frame.height/2
+	// uStart := frame.y_stride * frame.height
+	// vStart := uStart + frame.u_stride*frame.height/2
+	// if (Uint8PtrToUintptr(frame.u_buffer)-Uint8PtrToUintptr(frame.y_buffer)) == uintptr(uStart) &&
+	// 	(Uint8PtrToUintptr(frame.v_buffer)-Uint8PtrToUintptr(frame.y_buffer)) == uintptr(vStart) {
+	// 	buf = C.GoBytes(unsafe.Pointer(frame.y_buffer), bufLen)
+	// } else {
+	// 	buf = make([]byte, bufLen)
+	// 	copy(buf, unsafe.Slice((*byte)(unsafe.Pointer(frame.y_buffer)), frame.y_stride*frame.height))
+	// 	copy(buf[uStart:], unsafe.Slice((*byte)(unsafe.Pointer(frame.u_buffer)), frame.u_stride*frame.height/2))
+	// 	copy(buf[vStart:], unsafe.Slice((*byte)(unsafe.Pointer(frame.v_buffer)), frame.v_stride*frame.height/2))
+	// }
+	yLen := frame.y_stride * frame.height
+	uLen := frame.u_stride * frame.height / 2
+	vLen := frame.v_stride * frame.height / 2
 	ret := &VideoFrame{
-		Buffer:    buf,
-		Width:     int(frame.width),
-		Height:    int(frame.height),
-		YStride:   int(frame.y_stride),
-		UStride:   int(frame.u_stride),
-		VStride:   int(frame.v_stride),
-		Timestamp: int64(frame.render_time_ms),
+		Type:           VideoBufferType(frame._type),
+		Width:          int(frame.width),
+		Height:         int(frame.height),
+		YStride:        int(frame.y_stride),
+		UStride:        int(frame.u_stride),
+		VStride:        int(frame.v_stride),
+		YBuffer:        C.GoBytes(unsafe.Pointer(frame.y_buffer), yLen),
+		UBuffer:        C.GoBytes(unsafe.Pointer(frame.u_buffer), uLen),
+		VBuffer:        C.GoBytes(unsafe.Pointer(frame.v_buffer), vLen),
+		Rotation:       VideoOrientation(frame.rotation),
+		RenderTimeMs:   int64(frame.render_time_ms),
+		AVSyncType:     int(frame.avsync_type),
+		MetadataBuffer: C.GoBytes(unsafe.Pointer(frame.metadata_buffer), frame.metadata_size),
+		SharedContext:  frame.shared_context,
+		TextureID:      int(frame.texture_id),
+		Matrix:         [16]float32{},
+		AlphaBuffer:    nil,
+	}
+	for i := 0; i < 16; i++ {
+		ret.Matrix[i] = float32(frame.matrix[i])
+	}
+	if frame.alpha_buffer != nil {
+		ret.AlphaBuffer = C.GoBytes(unsafe.Pointer(frame.alpha_buffer), frame.y_stride*frame.height)
 	}
 	return ret
 }

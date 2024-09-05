@@ -86,7 +86,7 @@ func main() {
 		},
 	}
 	audioObserver := &agoraservice.AudioFrameObserver{
-		OnPlaybackAudioFrameBeforeMixing: func(localUser *agoraservice.LocalUser, channelId string, userId string, frame *agoraservice.PcmAudioFrame) bool {
+		OnPlaybackAudioFrameBeforeMixing: func(localUser *agoraservice.LocalUser, channelId string, userId string, frame *agoraservice.AudioFrame) bool {
 			// do something
 			fmt.Printf("Playback audio frame before mixing, from userId %s\n", userId)
 			return true
@@ -113,13 +113,14 @@ func main() {
 	track.SetEnabled(true)
 	localUser.PublishAudio(track)
 
-	frame := agoraservice.PcmAudioFrame{
-		Data:              make([]byte, 320),
-		Timestamp:         0,
+	frame := agoraservice.AudioFrame{
+		Type:              agoraservice.AudioFrameTypePCM16,
 		SamplesPerChannel: 160,
 		BytesPerSample:    2,
-		NumberOfChannels:  1,
-		SampleRate:        16000,
+		Channels:          1,
+		SamplesPerSec:     16000,
+		Buffer:            make([]byte, 320),
+		RenderTimeMs:      0,
 	}
 
 	file, err := os.Open("../../../test_data/demo.pcm")
@@ -134,7 +135,7 @@ func main() {
 	sendCount := 0
 	// send 180ms audio data
 	for i := 0; i < 18; i++ {
-		dataLen, err := file.Read(frame.Data)
+		dataLen, err := file.Read(frame.Buffer)
 		if err != nil || dataLen < 320 {
 			fmt.Println("Finished reading file:", err)
 			break
@@ -148,7 +149,7 @@ func main() {
 	for !(*bStop) {
 		shouldSendCount := int(time.Since(firstSendTime).Milliseconds()/10) - (sendCount - 18)
 		for i := 0; i < shouldSendCount; i++ {
-			dataLen, err := file.Read(frame.Data)
+			dataLen, err := file.Read(frame.Buffer)
 			if err != nil || dataLen < 320 {
 				fmt.Println("Finished reading file:", err)
 				file.Seek(0, 0)

@@ -89,3 +89,92 @@ const (
 	 */
 	VideoOrientation270 VideoOrientation = 270
 )
+
+/**
+ * Video buffer types.
+ */
+type VideoBufferType int
+
+const (
+	/**
+	 * 1: Raw data.
+	 */
+	VideoBufferRawData VideoBufferType = 1
+	/**
+	 * 2: The same as VIDEO_BUFFER_RAW_DATA.
+	 */
+	VideoBufferArray VideoBufferType = 2
+	/**
+	 * 3: The video buffer in the format of texture.
+	 */
+	VideoBufferTexture VideoBufferType = 3
+)
+
+/**
+ * Video pixel formats.
+ */
+type VideoPixelFormat int
+
+const (
+	/**
+	 * 0: Default format.
+	 */
+	VideoPixelDefault VideoPixelFormat = 0
+	/**
+	 * 1: I420.
+	 */
+	VideoPixelI420 VideoPixelFormat = 1
+	/**
+	 * 2: BGRA.
+	 */
+	VideoPixelBGRA VideoPixelFormat = 2
+	/**
+	 * 3: NV21.
+	 */
+	VideoPixelNV21 VideoPixelFormat = 3
+	/**
+	 * 4: RGBA.
+	 */
+	VideoPixelRGBA VideoPixelFormat = 4
+	/**
+	 * 8: NV12.
+	 */
+	VideoPixelNV12 VideoPixelFormat = 8
+	/**
+	 * 10: GL_TEXTURE_2D
+	 */
+	VideoTexture2D VideoPixelFormat = 10
+	/**
+	 * 11: GL_TEXTURE_OES
+	 */
+	VideoTextureOES VideoPixelFormat = 11
+	/*
+		12: pixel format for iOS CVPixelBuffer NV12
+	*/
+	VideoCVPixelNV12 VideoPixelFormat = 12
+	/*
+		13: pixel format for iOS CVPixelBuffer I420
+	*/
+	VideoCVPixelI420 VideoPixelFormat = 13
+	/*
+		14: pixel format for iOS CVPixelBuffer BGRA
+	*/
+	VideoCVPixelBGRA VideoPixelFormat = 14
+	/**
+	15: pixel format for iOS CVPixelBuffer P010(10bit NV12)
+	*/
+	VideoCVPixelP010 VideoPixelFormat = 15
+	/**
+	 * 16: I422.
+	 */
+	VideoPixelI422 VideoPixelFormat = 16
+	/**
+	 * 17: ID3D11Texture2D, only support DXGI_FORMAT_B8G8R8A8_UNORM, DXGI_FORMAT_B8G8R8A8_TYPELESS, DXGI_FORMAT_NV12 texture format
+	 */
+	VideoTextureID3D11Texture2D VideoPixelFormat = 17
+	/**
+	 * 18: I010. 10bit I420 data.
+	 * @technical preview
+	 */
+	VideoPixelI010 VideoPixelFormat = 18
+)

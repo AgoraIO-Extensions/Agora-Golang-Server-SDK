@@ -5,6 +5,17 @@ package agoraservice
 import "C"
 import "unsafe"
 
+type AudioFrame struct {
+	Type              AudioFrameType
+	SamplesPerChannel int    // The number of samples per channel in this frame.
+	BytesPerSample    int    // The number of bytes per sample: Two for PCM 16.
+	Channels          int    // The number of channels (data is interleaved, if stereo).
+	SamplesPerSec     int    // The Sample rate.
+	Buffer            []byte // The pointer to the data buffer.
+	RenderTimeMs      int64  // The timestamp to render the audio data. Use this member to synchronize the audio renderer while rendering the audio streams.
+	AvsyncType        int
+}
+
 type AudioPcmDataSender struct {
 	cSender unsafe.Pointer
 }
@@ -27,11 +38,11 @@ func (sender *AudioPcmDataSender) Release() {
 	sender.cSender = nil
 }
 
-func (sender *AudioPcmDataSender) SendAudioPcmData(frame *PcmAudioFrame) int {
-	cData := C.CBytes(frame.Data)
+func (sender *AudioPcmDataSender) SendAudioPcmData(frame *AudioFrame) int {
+	cData := C.CBytes(frame.Buffer)
 	defer C.free(cData)
 	return int(C.agora_audio_pcm_data_sender_send(sender.cSender, cData,
-		C.uint(frame.Timestamp), C.uint(frame.SamplesPerChannel),
-		C.uint(frame.BytesPerSample), C.uint(frame.NumberOfChannels),
-		C.uint(frame.SampleRate)))
+		C.uint(frame.RenderTimeMs), C.uint(frame.SamplesPerChannel),
+		C.uint(frame.BytesPerSample), C.uint(frame.Channels),
+		C.uint(frame.SamplesPerSec)))
 }

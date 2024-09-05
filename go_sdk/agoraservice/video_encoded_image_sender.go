@@ -5,6 +5,57 @@ package agoraservice
 import "C"
 import "unsafe"
 
+type EncodedVideoFrameInfo struct {
+	/**
+	 * The video codec: #VideoCodecTypeXxxx.
+	 */
+	CodecType VideoCodecType
+	/**
+	 * The width (px) of the video.
+	 */
+	Width int
+	/**
+	 * The height (px) of the video.
+	 */
+	Height int
+	/**
+	 * The number of video frames per second.
+	 * This value will be used for calculating timestamps of the encoded image.
+	 * If framesPerSecond equals zero, then real timestamp will be used.
+	 * Otherwise, timestamp will be adjusted to the value of framesPerSecond set.
+	 */
+	FramesPerSecond int
+	/**
+	 * The frame type of the encoded video frame: #VIDEO_FRAME_TYPE.
+	 */
+	FrameType VideoFrameType
+	/**
+	 * The rotation information of the encoded video frame: #VIDEO_ORIENTATION.
+	 */
+	Rotation VideoOrientation
+	/**
+	 * The track ID of the video frame.
+	 */
+	TrackId int // This can be reserved for multiple video tracks, we need to create different ssrc
+	// and additional payload for later implementation.
+	/**
+	 * This is a input parameter which means the timestamp for capturing the video.
+	 */
+	CaptureTimeMs int64
+	/**
+	 * The timestamp for decoding the video.
+	 */
+	DecodeTimeMs int64
+	/**
+	 * ID of the user.
+	 */
+	Uid uint32
+	/**
+	 * The stream type of video frame.
+	 */
+	StreamType int
+}
+
 type VideoEncodedImageSender struct {
 	cSender unsafe.Pointer
 }
