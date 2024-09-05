@@ -27,7 +27,7 @@ typedef struct _DecodeContext {
   uint8_t *samples[MAX_AUDIO_CHANNELS];
 
   struct SwrContext *swr_ctx;
-  AVChannelLayout dst_channels;
+  AVChannelLayout dst_ch_layout;
   int dst_sample_rate;
   enum AVSampleFormat dst_sample_fmt;
   int dst_nb_samples;
@@ -44,9 +44,9 @@ typedef struct _MediaDecoder {
 int init_swr(DecodeContext *decode_ctx) {
   AVChannelLayout stereo_layout = AV_CHANNEL_LAYOUT_STEREO;
   AVCodecContext *codec_ctx = decode_ctx->codec_ctx;
-  decode_ctx->dst_channels = codec_ctx->ch_layout;
-  if (decode_ctx->dst_channels.nb_channels > 2) {
-    decode_ctx->dst_channels = stereo_layout;
+  decode_ctx->dst_ch_layout = codec_ctx->ch_layout;
+  if (decode_ctx->dst_ch_layout.nb_channels > 2) {
+    decode_ctx->dst_ch_layout = stereo_layout;
   }
   decode_ctx->dst_sample_rate = codec_ctx->sample_rate;
   if (decode_ctx->dst_sample_rate > 48000) {
@@ -55,7 +55,8 @@ int init_swr(DecodeContext *decode_ctx) {
   decode_ctx->dst_sample_fmt = AV_SAMPLE_FMT_S16;
   if (codec_ctx->sample_fmt == decode_ctx->dst_sample_fmt &&
     codec_ctx->sample_rate == decode_ctx->dst_sample_rate &&
-    codec_ctx->ch_layout.nb_channels == decode_ctx->dst_channels.nb_channels) {
+    codec_ctx->ch_layout.nb_channels == decode_ctx->dst_ch_layout.nb_channels) {
+    // resample is not needed
     return 0;
   }
 
@@ -66,7 +67,7 @@ int init_swr(DecodeContext *decode_ctx) {
   }
 
   av_opt_set_chlayout(swr_ctx, "in_chlayout", &codec_ctx->ch_layout, 0);
-  av_opt_set_chlayout(swr_ctx, "out_chlayout", &decode_ctx->dst_channels, 0);
+  av_opt_set_chlayout(swr_ctx, "out_chlayout", &decode_ctx->dst_ch_layout, 0);
   av_opt_set_int(swr_ctx, "in_sample_rate", codec_ctx->sample_rate, 0);
   av_opt_set_int(swr_ctx, "out_sample_rate", decode_ctx->dst_sample_rate, 0);
   av_opt_set_sample_fmt(swr_ctx, "in_sample_fmt", codec_ctx->sample_fmt, 0);
@@ -87,21 +88,24 @@ int resample_audio(DecodeContext *decode_ctx, AVFrame *frame) {
   int result = 0;
   int dst_nb_samples = frame->nb_samples;
   if (swr_ctx) {
-    dst_nb_samples = av_rescale_rnd(swr_get_delay(swr_ctx, codec_ctx->sample_rate) + frame->nb_samples, decode_ctx->dst_sample_rate, codec_ctx->sample_rate, AV_ROUND_UP);
-    if (dst_nb_samples > frame->nb_samples) {
-      av_log(NULL, AV_LOG_ERROR, "dst_nb_samples %d > frame->nb_samples %d\n", dst_nb_samples, frame->nb_samples);
-      return -1;
-    }
+    // compute the number of samples after resample
+    dst_nb_samples = av_rescale_rnd(
+        swr_get_delay(swr_ctx, codec_ctx->sample_rate) + frame->nb_samples,
+        decode_ctx->dst_sample_rate, codec_ctx->sample_rate, AV_ROUND_UP);
+    // if (dst_nb_samples > frame->nb_samples) {
+    //   av_log(NULL, AV_LOG_ERROR, "dst_nb_samples %d > frame->nb_samples %d\n", dst_nb_samples, frame->nb_samples);
+    //   return -1;
+    // }
   }
   decode_ctx->dst_nb_samples = dst_nb_samples;
-  int buf_size = av_samples_get_buffer_size(NULL, decode_ctx->dst_channels.nb_channels, dst_nb_samples, decode_ctx->dst_sample_fmt, 1);
+  int buf_size = av_samples_get_buffer_size(NULL, decode_ctx->dst_ch_layout.nb_channels, dst_nb_samples, decode_ctx->dst_sample_fmt, 1);
   if (decode_ctx->buffer == NULL || decode_ctx->buffer_size < buf_size) {
     if (decode_ctx->buffer) {
       av_free(decode_ctx->buffer);
     }
     decode_ctx->buffer_size = buf_size;
     decode_ctx->buffer = (uint8_t *)av_malloc(decode_ctx->buffer_size);
-    av_samples_fill_arrays(decode_ctx->samples, NULL, decode_ctx->buffer, decode_ctx->dst_channels.nb_channels, dst_nb_samples, decode_ctx->dst_sample_fmt, 1);
+    av_samples_fill_arrays(decode_ctx->samples, NULL, decode_ctx->buffer, decode_ctx->dst_ch_layout.nb_channels, dst_nb_samples, decode_ctx->dst_sample_fmt, 1);
   }
   decode_ctx->actual_buffer_size = buf_size;
   if (!swr_ctx) {
@@ -134,6 +138,11 @@ int deinit_decoder(DecodeContext *decode_ctx) {
   deinit_swr(decode_ctx);
   avcodec_free_context(&decode_ctx->codec_ctx);
   av_frame_free(&decode_ctx->frame);
+  if (decode_ctx->buffer) {
+    av_free(decode_ctx->buffer);
+    decode_ctx->buffer = NULL;
+    decode_ctx->buffer_size = 0;
+  }
   decode_ctx->stream_index = -1;
   decode_ctx->is_eof = 1;
   return 0;
@@ -169,11 +178,6 @@ int init_decoder(MediaDecoder *decoder, int media_type) {
   }
   decode_ctx->codec = codec;
 
-  // if (!(codec->capabilities & AV_CODEC_CAP_DRAW_HORIZ_BAND)) {
-  //     av_log(NULL, AV_LOG_ERROR, "Codec does not support draw_horiz_band\n");
-  //     return -1;
-  // }
-
   decode_ctx->codec_ctx = avcodec_alloc_context3(codec);
   if (!decode_ctx->codec_ctx) {
       av_log(NULL, AV_LOG_ERROR, "Can't allocate decoder context\n");
@@ -206,7 +210,6 @@ int init_decoder(MediaDecoder *decoder, int media_type) {
       return AVERROR(ENOMEM);
   }
 
-  int line_size = 0;
   if (media_type == AVMEDIA_TYPE_VIDEO) {
     decode_ctx->buffer_size = av_image_get_buffer_size(codec_ctx->pix_fmt, codec_ctx->width, codec_ctx->height, 1);
     if (decode_ctx->buffer_size > 0) {
@@ -248,6 +251,7 @@ void * open_media_file(const char *file_name) {
     AVPacket *pkt = av_packet_alloc();
     if (!pkt) {
         av_log(NULL, AV_LOG_ERROR, "Cannot allocate packet\n");
+        close_media_file(decoder);
         return NULL;
     }
     decoder->pkt = pkt;
@@ -274,6 +278,7 @@ int get_frame(void *decoder, MediaFrame *frame) {
         } else if (pkt->stream_index == d->audio_ctx.stream_index) {
             media_type = AVMEDIA_TYPE_AUDIO;
         } else {
+            // skip other streams
             av_packet_unref(pkt);
             continue;
         }
@@ -282,6 +287,7 @@ int get_frame(void *decoder, MediaFrame *frame) {
         if (d->video_ctx.is_eof && d->audio_ctx.is_eof) {
           return AVERROR_EOF;
         }
+        // flush decoder if decoder did not reach EOF
         if (!d->video_ctx.is_eof && d->audio_ctx.is_eof) {
           media_type = AVMEDIA_TYPE_VIDEO;
         } else if (d->video_ctx.is_eof && !d->audio_ctx.is_eof) {
@@ -299,11 +305,12 @@ int get_frame(void *decoder, MediaFrame *frame) {
       } else if (media_type == AVMEDIA_TYPE_AUDIO) {
         decode_ctx = &d->audio_ctx;
       } else {
+        // this branch should not be reached
         av_packet_unref(pkt);
         continue;
       }
 
-      av_log(NULL, AV_LOG_INFO, "read frame result %d, pkg stream index %d, media type %d\n",
+      av_log(NULL, AV_LOG_DEBUG, "read frame result %d, pkg stream index %d, media type %d\n",
        result, pkt->stream_index, media_type);
       AVCodecContext *ctx = decode_ctx->codec_ctx;
       AVFrame *fr = decode_ctx->frame;
@@ -366,7 +373,7 @@ int get_frame(void *decoder, MediaFrame *frame) {
             frame->buffer_size = decode_ctx->actual_buffer_size;
             frame->format = decode_ctx->dst_sample_fmt;
             frame->samples = decode_ctx->dst_nb_samples;
-            frame->channels = decode_ctx->dst_channels.nb_channels;
+            frame->channels = decode_ctx->dst_ch_layout.nb_channels;
             frame->sample_rate = decode_ctx->dst_sample_rate;
             frame->bytes_per_sample = av_get_bytes_per_sample(decode_ctx->dst_sample_fmt);
           }
@@ -381,5 +388,6 @@ void close_media_file(void *decoder) {
     deinit_decoder(&d->video_ctx);
     deinit_decoder(&d->audio_ctx);
     avformat_close_input(&d->fmt_ctx);
+    av_packet_free(&d->pkt);
     free(d);
 }

@@ -103,12 +103,9 @@ func main() {
 	// }
 	con := agoraservice.NewConnection(&conCfg)
 	defer con.Release()
+
 	audioSender := con.NewPcmSender()
 	defer audioSender.Release()
-	con.Connect(token, channelName, userId)
-	defer con.Disconnect()
-	<-conSignal
-	audioSender.Start()
 
 	videoSender := con.GetVideoSender()
 	videoSender.SetVideoEncoderConfig(&agoraservice.VideoEncoderConfig{
@@ -121,6 +118,11 @@ func main() {
 		OrientationMode:   0,
 		DegradePreference: 0,
 	})
+
+	con.Connect(token, channelName, userId)
+	defer con.Disconnect()
+	<-conSignal
+	audioSender.Start()
 	videoSender.Start()
 
 	fn := C.CString("../../../test_data/test.mp4")
@@ -197,56 +199,4 @@ func main() {
 			fmt.Printf("SendVideoFrame %d ret: %d\n", cFrame.pts, ret)
 		}
 	}
-	// frame := agoraservice.PcmAudioFrame{
-	// 	Data:              make([]byte, 320),
-	// 	Timestamp:         0,
-	// 	SamplesPerChannel: 160,
-	// 	BytesPerSample:    2,
-	// 	NumberOfChannels:  1,
-	// 	SampleRate:        16000,
-	// }
-
-	// file, err := os.Open("../../../test_data/demo.pcm")
-	// if err != nil {
-	// 	fmt.Println("Error opening file:", err)
-	// 	return
-	// }
-	// defer file.Close()
-
-	// sender.AdjustVolume(100)
-	// sender.SetSendBufferSize(30)
-
-	// sendCount := 0
-	// // send 180ms audio data
-	// for i := 0; i < 18; i++ {
-	// 	dataLen, err := file.Read(frame.Data)
-	// 	if err != nil || dataLen < 320 {
-	// 		fmt.Println("Finished reading file:", err)
-	// 		break
-	// 	}
-	// 	sendCount++
-	// 	ret := sender.SendPcmData(&frame)
-	// 	fmt.Printf("SendPcmData %d ret: %d\n", sendCount, ret)
-	// }
-
-	// firstSendTime := time.Now()
-	// for !(*bStop) {
-	// 	shouldSendCount := int(time.Since(firstSendTime).Milliseconds()/10) - (sendCount - 18)
-	// 	for i := 0; i < shouldSendCount; i++ {
-	// 		dataLen, err := file.Read(frame.Data)
-	// 		if err != nil || dataLen < 320 {
-	// 			fmt.Println("Finished reading file:", err)
-	// 			file.Seek(0, 0)
-	// 			i--
-	// 			continue
-	// 		}
-
-	// 		sendCount++
-	// 		ret := sender.SendPcmData(&frame)
-	// 		fmt.Printf("SendPcmData %d ret: %d\n", sendCount, ret)
-	// 	}
-	// 	fmt.Printf("Sent %d frames this time\n", shouldSendCount)
-	// 	time.Sleep(50 * time.Millisecond)
-	// }
-	// sender.Stop()
 }
