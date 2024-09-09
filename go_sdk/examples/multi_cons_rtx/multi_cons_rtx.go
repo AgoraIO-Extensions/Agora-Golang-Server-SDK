@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"log"
 	"math/rand"
@@ -10,16 +11,10 @@ import (
 	"os"
 	"os/signal"
 	"sync"
-	"time"
 
 	"agora.io/agoraservice"
 
 	rtctokenbuilder "github.com/AgoraIO/Tools/DynamicKey/AgoraDynamicKey/go/src/rtctokenbuilder2"
-)
-
-const (
-	ConnectionCount         = 1
-	RandomRestartConnection = false
 )
 
 type GlobalContext struct {
@@ -31,7 +26,27 @@ type GlobalContext struct {
 	channelNamePrefix string
 	mediaNodeFactory  *agoraservice.MediaNodeFactory
 	waitTasks         *sync.WaitGroup
-	connectionCancels []context.CancelFunc
+	tasks             []*TaskContext
+	taskStopSignal    chan int
+}
+
+type TaskConfig struct {
+	sendYuv          bool
+	sendEncodedVideo bool
+	sendPcm          bool
+	sendEncodedAudio bool
+	sendData         bool
+
+	recvYuv          bool
+	recvEncodedVideo bool
+	recvPcm          bool
+	recvData         bool
+
+	dumpPcm          bool
+	dumpYuv          bool
+	dumpEncodedVideo bool
+
+	taskTime int64
 }
 
 func (globalCtx *GlobalContext) genToken(channelName string, userId string) (string, error) {
@@ -48,289 +63,6 @@ func (globalCtx *GlobalContext) genToken(channelName string, userId string) (str
 		}
 	}
 	return token, nil
-}
-
-func (globalCtx *GlobalContext) startTask(ctx context.Context, id int) {
-	defer globalCtx.waitTasks.Done()
-
-	channelName := fmt.Sprintf("%s%d", globalCtx.channelNamePrefix, id)
-	senderId := fmt.Sprintf("%d", id*1000+1)
-	receiverId := fmt.Sprintf("%d", id*1000+2)
-	token1, err1 := globalCtx.genToken(channelName, senderId)
-	token2, err2 := globalCtx.genToken(channelName, receiverId)
-	if err1 != nil || err2 != nil {
-		fmt.Printf("Failed to generate token, task %d\n", id)
-		return
-	}
-	dumpFile, err := os.OpenFile(fmt.Sprintf("./recv%d.pcm", id), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
-	if err != nil {
-		fmt.Printf("Failed to open dump file, %s", err.Error())
-		return
-	}
-	defer dumpFile.Close()
-
-	conSignal := make(chan struct{})
-	senderConObs := &agoraservice.RtcConnectionObserver{
-		OnConnected: func(con *agoraservice.RtcConnection, info *agoraservice.RtcConnectionInfo, reason int) {
-			// do something
-			fmt.Println("Connected")
-			conSignal <- struct{}{}
-		},
-		OnDisconnected: func(con *agoraservice.RtcConnection, info *agoraservice.RtcConnectionInfo, reason int) {
-			// do something
-			fmt.Println("Disconnected")
-		},
-		OnUserJoined: func(con *agoraservice.RtcConnection, uid string) {
-			fmt.Println("user joined, " + uid)
-		},
-		OnUserLeft: func(con *agoraservice.RtcConnection, uid string, reason int) {
-			fmt.Println("user left, " + uid)
-		},
-		OnStreamMessageError: func(con *agoraservice.RtcConnection, uid string, streamId int, errCode int, missed int, cached int) {
-			fmt.Printf("send stream message error: %d, channel %s, uid %s\n", errCode, channelName, uid)
-		},
-	}
-	// senderLocalUserObs := &agoraservice.LocalUserObserver{}
-	senderCon := agoraservice.NewRtcConnection(&agoraservice.RtcConnectionConfig{
-		AutoSubscribeAudio: false,
-		AutoSubscribeVideo: false,
-		ClientRole:         agoraservice.ClientRoleBroadcaster,
-		ChannelProfile:     agoraservice.ChannelProfileLiveBroadcasting,
-	})
-	defer senderCon.Release()
-	// create audio track
-	pcmSender := globalCtx.mediaNodeFactory.NewAudioPcmDataSender()
-	defer pcmSender.Release()
-	audioTrack := agoraservice.NewCustomAudioTrackPcm(pcmSender)
-	defer audioTrack.Release()
-	// create video track
-	yuvSender := globalCtx.mediaNodeFactory.NewVideoFrameSender()
-	defer yuvSender.Release()
-	videoTrack := agoraservice.NewCustomVideoTrackFrame(yuvSender)
-	defer videoTrack.Release()
-	// create datastream
-	streamId, errCode := senderCon.CreateDataStream(false, false)
-	if errCode != 0 {
-		fmt.Printf("Failed to create data stream: %d, channel %s\n", errCode, channelName)
-	}
-
-	senderCon.RegisterObserver(senderConObs)
-	senderCon.Connect(token1, channelName, senderId)
-	defer senderCon.Disconnect()
-
-	select {
-	case <-conSignal:
-	case <-time.After(5 * time.Second):
-		fmt.Printf("sender failed to connect, task %d\n", id)
-		return
-	}
-
-	// send audio
-	waitGroup := &sync.WaitGroup{}
-	waitGroup.Add(1)
-	go func() {
-		defer waitGroup.Done()
-
-		audioTrack.SetEnabled(true)
-		senderLocalUser := senderCon.GetLocalUser()
-		senderLocalUser.PublishAudio(audioTrack)
-		defer func() {
-			senderLocalUser.UnpublishAudio(audioTrack)
-			audioTrack.SetEnabled(false)
-		}()
-
-		audioTrack.AdjustPublishVolume(100)
-
-		frame := agoraservice.AudioFrame{
-			Type:              agoraservice.AudioFrameTypePCM16,
-			SamplesPerChannel: 160,
-			BytesPerSample:    2,
-			Channels:          1,
-			SamplesPerSec:     16000,
-			Buffer:            make([]byte, 320),
-			RenderTimeMs:      0,
-		}
-
-		file, err := os.Open("../../../test_data/demo.pcm")
-		if err != nil {
-			fmt.Println("Error opening file:", err)
-			return
-		}
-		defer file.Close()
-
-		ticker := time.NewTicker(50 * time.Millisecond)
-		sendCount := 0
-		firstSendTime := time.Now()
-		for {
-			select {
-			case <-ticker.C:
-				shouldSendCount := int(time.Since(firstSendTime).Milliseconds()/10) - (sendCount - 18)
-				for i := 0; i < shouldSendCount; i++ {
-					dataLen, err := file.Read(frame.Buffer)
-					if err != nil || dataLen < 320 {
-						fmt.Println("Finished reading file:", err)
-						file.Seek(0, 0)
-						i--
-						continue
-					}
-
-					sendCount++
-					ret := pcmSender.SendAudioPcmData(&frame)
-					fmt.Printf("SendAudioPcmData %d ret: %d\n", sendCount, ret)
-				}
-				fmt.Printf("Sent %d frames this time\n", shouldSendCount)
-			case <-ctx.Done():
-				fmt.Printf("task %d audio sender finished\n", id)
-				return
-			}
-		}
-	}()
-
-	// send video
-	waitGroup.Add(1)
-	go func() {
-		defer waitGroup.Done()
-		videoTrack.SetVideoEncoderConfiguration(&agoraservice.VideoEncoderConfiguration{
-			CodecType:         agoraservice.VideoCodecTypeH264,
-			Width:             320,
-			Height:            240,
-			Framerate:         30,
-			Bitrate:           500,
-			MinBitrate:        100,
-			OrientationMode:   agoraservice.VideoOrientation0,
-			DegradePreference: 0,
-		})
-		videoTrack.SetEnabled(true)
-		senderLocalUser := senderCon.GetLocalUser()
-		senderLocalUser.PublishVideo(videoTrack)
-		defer func() {
-			senderLocalUser.UnpublishVideo(videoTrack)
-			videoTrack.SetEnabled(false)
-		}()
-
-		w := 416
-		h := 240
-		dataSize := w * h * 3 / 2
-		data := make([]byte, dataSize)
-		// read yuv from file 103_RaceHorses_416x240p30_300.yuv
-		file, err := os.Open("../../../test_data/RaceHorses_416x240p30_300.yuv")
-		if err != nil {
-			fmt.Println("Error opening file:", err)
-			return
-		}
-		defer file.Close()
-
-		ticker := time.NewTicker(33 * time.Millisecond)
-		for {
-			select {
-			case <-ticker.C:
-				dataLen, err := file.Read(data)
-				if err != nil || dataLen < dataSize {
-					file.Seek(0, 0)
-					continue
-				}
-				// senderCon.SendStreamMessage(streamId, data)
-				yuvSender.SendVideoFrame(&agoraservice.ExternalVideoFrame{
-					Type:      agoraservice.VideoBufferRawData,
-					Format:    agoraservice.VideoPixelI420,
-					Buffer:    data,
-					Stride:    w,
-					Height:    h,
-					Timestamp: 0,
-				})
-			case <-ctx.Done():
-				fmt.Printf("task %d video sender finished\n", id)
-				return
-			}
-		}
-	}()
-
-	// send datastream
-	if streamId >= 0 {
-		waitGroup.Add(1)
-		go func() {
-			defer waitGroup.Done()
-			ticker := time.NewTicker(33 * time.Millisecond)
-			msg := []byte(fmt.Sprintf("Hello, Agora! from task %d", id))
-			for {
-				select {
-				case <-ticker.C:
-					ret := senderCon.SendStreamMessage(streamId, msg)
-					fmt.Printf("SendStreamMessage ret: %d, task %d\n", ret, id)
-				case <-ctx.Done():
-					fmt.Printf("task %d data stream sender finished\n", id)
-					return
-				}
-			}
-		}()
-	}
-
-	receiverConObs := &agoraservice.RtcConnectionObserver{
-		OnConnected: func(con *agoraservice.RtcConnection, info *agoraservice.RtcConnectionInfo, reason int) {
-			// do something
-			fmt.Println("Connected")
-			conSignal <- struct{}{}
-		},
-		OnDisconnected: func(con *agoraservice.RtcConnection, info *agoraservice.RtcConnectionInfo, reason int) {
-			// do something
-			fmt.Println("Disconnected")
-		},
-		OnUserJoined: func(con *agoraservice.RtcConnection, uid string) {
-			fmt.Println("user joined, " + uid)
-		},
-		OnUserLeft: func(con *agoraservice.RtcConnection, uid string, reason int) {
-			fmt.Println("user left, " + uid)
-		},
-	}
-	receiverLocalUserObs := &agoraservice.LocalUserObserver{
-		OnStreamMessage: func(localUser *agoraservice.LocalUser, uid string, streamId int, data []byte) {
-			fmt.Printf("recv stream message: %s, channel %s, uid %s\n", string(data), channelName, uid)
-		},
-	}
-	recieverConAudioFrameObs := &agoraservice.AudioFrameObserver{
-		OnPlaybackAudioFrameBeforeMixing: func(localUser *agoraservice.LocalUser, channelId string, userId string, frame *agoraservice.AudioFrame) bool {
-			// do something
-			fmt.Printf("Playback audio frame before mixing, from channel %s, userId %s, audio duration %dms\n",
-				channelId, userId, frame.SamplesPerChannel*1000/frame.SamplesPerSec)
-			if userId == senderId {
-				dumpFile.Write(frame.Buffer)
-			}
-			return true
-		},
-	}
-	receiverConVideoFrameObs := &agoraservice.VideoFrameObserver{
-		OnFrame: func(localUser *agoraservice.LocalUser, channelId string, userId string, frame *agoraservice.VideoFrame) bool {
-			// do something
-			fmt.Printf("recv video frame, from channel %s, user %s, video size %dx%d\n",
-				channelId, userId, frame.Width, frame.Height)
-			return true
-		},
-	}
-	receiverCon := agoraservice.NewRtcConnection(&agoraservice.RtcConnectionConfig{
-		AutoSubscribeAudio: true,
-		AutoSubscribeVideo: true,
-		ClientRole:         agoraservice.ClientRoleBroadcaster,
-		ChannelProfile:     agoraservice.ChannelProfileLiveBroadcasting,
-	})
-	defer receiverCon.Release()
-
-	receiverCon.RegisterObserver(receiverConObs)
-	localUser := receiverCon.GetLocalUser()
-	localUser.SetPlaybackAudioFrameBeforeMixingParameters(1, 16000)
-	localUser.RegisterLocalUserObserver(receiverLocalUserObs)
-	localUser.RegisterAudioFrameObserver(recieverConAudioFrameObs)
-	localUser.RegisterVideoFrameObserver(receiverConVideoFrameObs)
-
-	receiverCon.Connect(token2, channelName, receiverId)
-	select {
-	case <-conSignal:
-	case <-time.After(5 * time.Second):
-		fmt.Printf("receiver failed to connect, task %d\n", id)
-	}
-	defer receiverCon.Disconnect()
-
-	waitGroup.Wait()
-	fmt.Printf("task %d finished\n", id)
 }
 
 func globalInit() *GlobalContext {
@@ -371,7 +103,8 @@ func globalInit() *GlobalContext {
 		channelNamePrefix: channelName,
 		mediaNodeFactory:  mediaNodeFactory,
 		waitTasks:         &sync.WaitGroup{},
-		connectionCancels: make([]context.CancelFunc, ConnectionCount),
+		tasks:             nil,
+		taskStopSignal:    make(chan int, 100),
 	}
 }
 
@@ -384,17 +117,67 @@ func main() {
 	go func() {
 		log.Println(http.ListenAndServe("localhost:6060", nil))
 	}()
+
+	// parse command options
+	var (
+		channelName      = flag.String("channelName", "gosdktest", "Channel name")
+		sendYuv          = flag.Bool("sendYuv", false, "Send YUV data")
+		sendEncodedVideo = flag.Bool("sendEncodedVideo", false, "Send encoded video data")
+		sendPcm          = flag.Bool("sendPcm", false, "Send PCM audio data")
+		sendEncodedAudio = flag.Bool("sendEncodedAudio", false, "Send encoded audio data")
+		sendData         = flag.Bool("sendData", false, "Send custom data")
+
+		recvYuv          = flag.Bool("recvYuv", false, "Receive YUV data")
+		recvEncodedVideo = flag.Bool("recvEncodedVideo", false, "Receive encoded video data")
+		recvPcm          = flag.Bool("recvPcm", false, "Receive PCM audio data")
+		recvData         = flag.Bool("recvData", false, "Receive custom data")
+
+		dumpPcm          = flag.Bool("dumpPcm", false, "Dump PCM audio data")
+		dumpYuv          = flag.Bool("dumpYuv", false, "Dump YUV data")
+		dumpEncodedVideo = flag.Bool("dumpEncodedVideo", false, "Dump encoded video data")
+
+		taskCount = flag.Int("taskCount", 1, "Task count")
+		randTask  = flag.Bool("randTask", false, "Randomly restart task")
+	)
+
+	flag.Parse()
+
 	globalCtx := globalInit()
 	if globalCtx == nil {
 		return
 	}
 	defer globalCtx.release()
+	globalCtx.channelNamePrefix = *channelName
+	globalCtx.tasks = make([]*TaskContext, *taskCount)
 
-	for i := 0; i < ConnectionCount; i++ {
+	taskCfg := TaskConfig{
+		sendYuv:          *sendYuv,
+		sendEncodedVideo: *sendEncodedVideo,
+		sendPcm:          *sendPcm,
+		sendEncodedAudio: *sendEncodedAudio,
+		sendData:         *sendData,
+
+		recvYuv:          *recvYuv,
+		recvEncodedVideo: *recvEncodedVideo,
+		recvPcm:          *recvPcm,
+		recvData:         *recvData,
+
+		dumpPcm:          *dumpPcm,
+		dumpYuv:          *dumpYuv,
+		dumpEncodedVideo: *dumpEncodedVideo,
+	}
+	for i := 0; i < *taskCount; i++ {
 		globalCtx.waitTasks.Add(1)
-		ctx, cancel := context.WithCancel(context.Background())
-		globalCtx.connectionCancels[i] = cancel
-		go globalCtx.startTask(ctx, i)
+		tmpCfg := taskCfg
+		if *randTask {
+			tmpCfg.taskTime = int64(5 + rand.Intn(10))
+		}
+		task := globalCtx.newTask(i, &tmpCfg)
+		globalCtx.tasks[i] = task
+		go func(t *TaskContext) {
+			defer globalCtx.waitTasks.Done()
+			t.startTask()
+		}(task)
 	}
 
 	globalCtx.waitTasks.Add(1)
@@ -402,27 +185,22 @@ func main() {
 		defer globalCtx.waitTasks.Done()
 		stop := false
 		for !stop {
-			// random select a connection to stop and start new task
-			randTime := time.Duration(5+rand.Intn(10)) * time.Second
-			randIndex := 0
-			if ConnectionCount > 1 {
-				randIndex = rand.Intn(ConnectionCount - 1)
-			}
 			select {
-			case <-time.After(randTime):
-				if !RandomRestartConnection {
+			case taskId := <-globalCtx.taskStopSignal:
+				if !(*randTask) {
 					break
 				}
-				globalCtx.connectionCancels[randIndex]()
-				ctx, cancel := context.WithCancel(context.Background())
-				globalCtx.connectionCancels[randIndex] = cancel
+				tmpCfg := taskCfg
+				tmpCfg.taskTime = int64(5 + rand.Intn(10))
+				task := globalCtx.newTask(taskId, &tmpCfg)
+				globalCtx.tasks[taskId] = task
 				globalCtx.waitTasks.Add(1)
-				go globalCtx.startTask(ctx, randIndex)
+				go func(t *TaskContext) {
+					defer globalCtx.waitTasks.Done()
+					t.startTask()
+				}(task)
 			case <-globalCtx.ctx.Done():
 				stop = true
-				for _, cancel := range globalCtx.connectionCancels {
-					cancel()
-				}
 			}
 		}
 	}()
