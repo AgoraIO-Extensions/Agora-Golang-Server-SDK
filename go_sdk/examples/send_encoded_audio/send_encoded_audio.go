@@ -1,7 +1,6 @@
 package main
 
-// #cgo CFLAGS: -I/opt/homebrew/Cellar/ffmpeg/7.0.2/include
-// #cgo LDFLAGS: -L/opt/homebrew/Cellar/ffmpeg/7.0.2/lib -lavformat -lavcodec -lavutil
+// #cgo pkg-config: libavformat libavcodec libavutil
 // #include <libavformat/avformat.h>
 // #include <libavutil/avutil.h>
 // #include <libavcodec/avcodec.h>
