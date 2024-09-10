@@ -1,7 +1,7 @@
 package main
 
-// #cgo CFLAGS: -I/opt/homebrew/Cellar/ffmpeg/7.0.1/include
-// #cgo LDFLAGS: -L/opt/homebrew/Cellar/ffmpeg/7.0.1/lib -lavformat -lavcodec -lavutil
+// #cgo CFLAGS: -I/opt/homebrew/Cellar/ffmpeg/7.0.2/include
+// #cgo LDFLAGS: -L/opt/homebrew/Cellar/ffmpeg/7.0.2/lib -lavformat -lavcodec -lavutil
 // #include <libavformat/avformat.h>
 // #include <libavutil/avutil.h>
 // #include <libavcodec/avcodec.h>
@@ -40,8 +40,8 @@ func getStreamInfo(pFormatContext *C.struct_AVFormatContext) *C.struct_AVStream 
 	return streams[0]
 }
 
-func closeMediaFile(pFormatContext *C.struct_AVFormatContext) {
-	C.avformat_close_input(&pFormatContext)
+func closeMediaFile(pFormatContext **C.struct_AVFormatContext) {
+	C.avformat_close_input(pFormatContext)
 }
 
 func main() {
@@ -144,8 +144,14 @@ func main() {
 	track.SetEnabled(true)
 	localUser.PublishAudio(track)
 
-	pFormatContext := openMediaFile("../../../test_data/test.aac")
+	pFormatContext := openMediaFile("../../../test_data/send_audio_16k.aac")
+	if pFormatContext == nil {
+		return
+	}
+	defer closeMediaFile(&pFormatContext)
+
 	packet := C.av_packet_alloc()
+	defer C.av_packet_free(&packet)
 	streamInfo := getStreamInfo(pFormatContext)
 	codecParam := (*C.struct_AVCodecParameters)(unsafe.Pointer(streamInfo.codecpar))
 	tb := streamInfo.time_base
@@ -161,8 +167,8 @@ func main() {
 		if ret < 0 {
 			fmt.Println("Finished reading file:", ret)
 			// file.Seek(0, 0)
-			closeMediaFile(pFormatContext)
-			pFormatContext = openMediaFile("../../../test_data/test.aac")
+			closeMediaFile(&pFormatContext)
+			pFormatContext = openMediaFile("../../../test_data/send_audio_16k.aac")
 			streamInfo = getStreamInfo(pFormatContext)
 			codecParam = (*C.struct_AVCodecParameters)(unsafe.Pointer(streamInfo.codecpar))
 			continue
@@ -192,7 +198,6 @@ func main() {
 		//TODO: sleep time should be calculated based on the audio frame duration
 		time.Sleep(21 * time.Millisecond)
 	}
-	closeMediaFile(pFormatContext)
 	localUser.UnpublishAudio(track)
 	track.SetEnabled(false)
 	con.Disconnect()

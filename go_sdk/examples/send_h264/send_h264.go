@@ -1,7 +1,7 @@
 package main
 
-// #cgo CFLAGS: -I/opt/homebrew/Cellar/ffmpeg/7.0.1/include
-// #cgo LDFLAGS: -L/opt/homebrew/Cellar/ffmpeg/7.0.1/lib -lavformat -lavcodec -lavutil
+// #cgo CFLAGS: -I/opt/homebrew/Cellar/ffmpeg/7.0.2/include
+// #cgo LDFLAGS: -L/opt/homebrew/Cellar/ffmpeg/7.0.2/lib -lavformat -lavcodec -lavutil
 // #include <libavformat/avformat.h>
 // #include <libavutil/avutil.h>
 // #include <libavcodec/avcodec.h>
@@ -41,8 +41,8 @@ func getStreamInfo(pFormatContext *C.struct_AVFormatContext) *C.struct_AVStream 
 	return streams[0]
 }
 
-func closeMediaFile(pFormatContext *C.struct_AVFormatContext) {
-	C.avformat_close_input(&pFormatContext)
+func closeMediaFile(pFormatContext **C.struct_AVFormatContext) {
+	C.avformat_close_input(pFormatContext)
 }
 
 func main() {
@@ -145,32 +145,17 @@ func main() {
 	con.Connect(token, channelName, userId)
 	<-conSignal
 
-	// track.SetVideoEncoderConfiguration(&agoraservice.VideoEncoderConfiguration{
-	// 	CodecType:         2,
-	// 	Width:             320,
-	// 	Height:            240,
-	// 	Framerate:         30,
-	// 	Bitrate:           500,
-	// 	MinBitrate:        100,
-	// 	OrientationMode:   0,
-	// 	DegradePreference: 0,
-	// })
 	track.SetEnabled(true)
 	localUser.PublishVideo(track)
 
-	// w := 416
-	// h := 240
-	// dataSize := w * h * 3 / 2
-	// data := make([]byte, dataSize)
-	// // read yuv from file 103_RaceHorses_416x240p30_300.yuv
-	// file, err := os.Open("../../../test_data/103_RaceHorses_416x240p30_300.yuv")
-	// if err != nil {
-	// 	fmt.Println("Error opening file:", err)
-	// 	return
-	// }
-	// defer file.Close()
-	pFormatContext := openMediaFile("../../../test_data/elephant.h264")
+	pFormatContext := openMediaFile("../../../test_data/send_video.h264")
+	if pFormatContext == nil {
+		return
+	}
+	defer closeMediaFile(&pFormatContext)
+
 	packet := C.av_packet_alloc()
+	defer C.av_packet_free(&packet)
 	streamInfo := getStreamInfo(pFormatContext)
 	codecParam := (*C.struct_AVCodecParameters)(unsafe.Pointer(streamInfo.codecpar))
 
@@ -179,9 +164,8 @@ func main() {
 		ret := int(C.av_read_frame(pFormatContext, packet))
 		if ret < 0 {
 			fmt.Println("Finished reading file:", ret)
-			// file.Seek(0, 0)
-			closeMediaFile(pFormatContext)
-			pFormatContext = openMediaFile("../../../test_data/elephant.h264")
+			closeMediaFile(&pFormatContext)
+			pFormatContext = openMediaFile("../../../test_data/send_video.h264")
 			streamInfo = getStreamInfo(pFormatContext)
 			codecParam = (*C.struct_AVCodecParameters)(unsafe.Pointer(streamInfo.codecpar))
 			continue

@@ -65,8 +65,8 @@ func getStreamInfo(pFormatContext *C.struct_AVFormatContext) *C.struct_AVStream 
 	return streams[0]
 }
 
-func closeMediaFile(pFormatContext *C.struct_AVFormatContext) {
-	C.avformat_close_input(&pFormatContext)
+func closeMediaFile(pFormatContext **C.struct_AVFormatContext) {
+	C.avformat_close_input(pFormatContext)
 }
 
 func (globalCtx *GlobalContext) newTask(id int, cfg *TaskConfig) *TaskContext {
@@ -107,7 +107,7 @@ func (taskCtx *TaskContext) sendPcm() {
 
 	file, err := os.Open("../../../test_data/send_audio_16k_1ch.pcm")
 	if err != nil {
-		fmt.Println("Error opening file:", err)
+		fmt.Printf("task %d Error opening file: %s\n", taskCtx.id, err.Error())
 		return
 	}
 	defer file.Close()
@@ -122,7 +122,7 @@ func (taskCtx *TaskContext) sendPcm() {
 			for i := 0; i < shouldSendCount; i++ {
 				dataLen, err := file.Read(frame.Buffer)
 				if err != nil || dataLen < 320 {
-					fmt.Println("Finished reading file:", err)
+					fmt.Printf("task %d Finished reading file: %s\n", taskCtx.id, err.Error())
 					file.Seek(0, 0)
 					i--
 					continue
@@ -155,7 +155,11 @@ func (taskCtx *TaskContext) sendEncodedAudio() {
 	}()
 
 	pFormatContext := openMediaFile("../../../test_data/send_audio_16k.aac")
-	defer closeMediaFile(pFormatContext)
+	if pFormatContext == nil {
+		fmt.Printf("task %d Failed to open media file\n", taskCtx.id)
+		return
+	}
+	defer closeMediaFile(&pFormatContext)
 
 	packet := C.av_packet_alloc()
 	defer C.av_packet_free(&packet)
@@ -177,8 +181,8 @@ func (taskCtx *TaskContext) sendEncodedAudio() {
 				}
 				ret := int(C.av_read_frame(pFormatContext, packet))
 				if ret < 0 {
-					fmt.Println("Finished reading file:", ret)
-					closeMediaFile(pFormatContext)
+					fmt.Printf("task %d Finished reading file: %d\n", taskCtx.id, ret)
+					closeMediaFile(&pFormatContext)
 					pFormatContext = openMediaFile("../../../test_data/send_audio_16k.aac")
 					streamInfo = getStreamInfo(pFormatContext)
 					codecParam = (*C.struct_AVCodecParameters)(unsafe.Pointer(streamInfo.codecpar))
@@ -197,7 +201,7 @@ func (taskCtx *TaskContext) sendEncodedAudio() {
 					SendEvenIfEmpty:   true,
 					NumberOfChannels:  int(codecParam.ch_layout.nb_channels),
 				})
-				fmt.Printf("SendEncodedAudioFrame %d ret: %d\n", sendAudioDuration, ret)
+				// fmt.Printf("task %d SendEncodedAudioFrame %d ret: %d\n", taskCtx.id, sendAudioDuration, ret)
 				C.av_packet_unref(packet)
 			}
 		case <-ctx.Done():
@@ -238,7 +242,7 @@ func (taskCtx *TaskContext) sendYuv() {
 	// read yuv from file 103_RaceHorses_416x240p30_300.yuv
 	file, err := os.Open("../../../test_data/send_video_cif.yuv")
 	if err != nil {
-		fmt.Println("Error opening file:", err)
+		fmt.Printf("task %d Error opening file: %s\n", taskCtx.id, err.Error())
 		return
 	}
 	defer file.Close()
@@ -283,6 +287,12 @@ func (taskCtx *TaskContext) sendEncodedVideo() {
 	}()
 
 	pFormatContext := openMediaFile("../../../test_data/send_video.h264")
+	if pFormatContext == nil {
+		fmt.Printf("task %d Failed to open media file\n", taskCtx.id)
+		return
+	}
+	defer closeMediaFile(&pFormatContext)
+
 	packet := C.av_packet_alloc()
 	defer C.av_packet_free(&packet)
 	streamInfo := getStreamInfo(pFormatContext)
@@ -297,7 +307,7 @@ func (taskCtx *TaskContext) sendEncodedVideo() {
 			if ret < 0 {
 				fmt.Println("Finished reading file:", ret)
 				// file.Seek(0, 0)
-				closeMediaFile(pFormatContext)
+				closeMediaFile(&pFormatContext)
 				pFormatContext = openMediaFile("../../../test_data/send_video.h264")
 				streamInfo = getStreamInfo(pFormatContext)
 				codecParam = (*C.struct_AVCodecParameters)(unsafe.Pointer(streamInfo.codecpar))
@@ -388,21 +398,21 @@ func (taskCtx *TaskContext) startTask() {
 	obs := &agoraservice.RtcConnectionObserver{
 		OnConnected: func(con *agoraservice.RtcConnection, info *agoraservice.RtcConnectionInfo, reason int) {
 			// do something
-			fmt.Println("Connected")
+			fmt.Printf("task %d Connected\n", id)
 			conSignal <- struct{}{}
 		},
 		OnDisconnected: func(con *agoraservice.RtcConnection, info *agoraservice.RtcConnectionInfo, reason int) {
 			// do something
-			fmt.Println("Disconnected")
+			fmt.Printf("task %d Disconnected\n", id)
 		},
 		OnUserJoined: func(con *agoraservice.RtcConnection, uid string) {
-			fmt.Println("user joined, " + uid)
+			fmt.Printf("task %d user %s joined\n", id, uid)
 		},
 		OnUserLeft: func(con *agoraservice.RtcConnection, uid string, reason int) {
-			fmt.Println("user left, " + uid)
+			fmt.Printf("task %d user %s left\n", id, uid)
 		},
 		OnStreamMessageError: func(con *agoraservice.RtcConnection, uid string, streamId int, errCode int, missed int, cached int) {
-			fmt.Printf("send stream message error: %d, channel %s, uid %s\n", errCode, channelName, uid)
+			fmt.Printf("task %d send stream message error: %d, channel %s, uid %s\n", id, errCode, channelName, uid)
 		},
 	}
 	// senderLocalUserObs := &agoraservice.LocalUserObserver{}
@@ -450,7 +460,7 @@ func (taskCtx *TaskContext) startTask() {
 		var errCode int = 0
 		taskCtx.streamId, errCode = con.CreateDataStream(false, false)
 		if errCode != 0 {
-			fmt.Printf("Failed to create data stream: %d, channel %s\n", errCode, channelName)
+			fmt.Printf("task %d Failed to create data stream: %d, channel %s\n", id, errCode, channelName)
 		}
 	}
 
@@ -460,8 +470,8 @@ func (taskCtx *TaskContext) startTask() {
 		recvAudioFrameObs := &agoraservice.AudioFrameObserver{
 			OnPlaybackAudioFrameBeforeMixing: func(localUser *agoraservice.LocalUser, channelId string, userId string, frame *agoraservice.AudioFrame) bool {
 				// do something
-				fmt.Printf("Playback audio frame before mixing, from channel %s, userId %s, audio duration %dms\n",
-					channelId, userId, frame.SamplesPerChannel*1000/frame.SamplesPerSec)
+				// fmt.Printf("Playback audio frame before mixing, from channel %s, userId %s, audio duration %dms\n",
+				// 	channelId, userId, frame.SamplesPerChannel*1000/frame.SamplesPerSec)
 				if userId == senderId {
 					return true
 				}
@@ -470,7 +480,7 @@ func (taskCtx *TaskContext) startTask() {
 						var err error
 						taskCtx.dumpPcmFile, err = os.OpenFile(fmt.Sprintf("./recv%d.pcm", id), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
 						if err != nil {
-							fmt.Printf("Failed to open dump file, %s", err.Error())
+							fmt.Printf("task %d Failed to open dump file, %s", id, err.Error())
 							return false
 						}
 					}
@@ -486,8 +496,8 @@ func (taskCtx *TaskContext) startTask() {
 		recvVideoFrameObs := &agoraservice.VideoFrameObserver{
 			OnFrame: func(localUser *agoraservice.LocalUser, channelId string, userId string, frame *agoraservice.VideoFrame) bool {
 				// do something
-				fmt.Printf("recv video frame, from channel %s, user %s, video size %dx%d\n",
-					channelId, userId, frame.Width, frame.Height)
+				// fmt.Printf("recv video frame, from channel %s, user %s, video size %dx%d\n",
+				// 	channelId, userId, frame.Width, frame.Height)
 				if userId == senderId {
 					return true
 				}
@@ -498,7 +508,7 @@ func (taskCtx *TaskContext) startTask() {
 							fmt.Sprintf("./recv%d_%dx%d.yuv", id, frame.Width, frame.Height),
 							os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
 						if err != nil {
-							fmt.Printf("Failed to open dump file, %s", err.Error())
+							fmt.Printf("task %d Failed to open dump file, %s", id, err.Error())
 							return false
 						}
 					}
@@ -514,19 +524,19 @@ func (taskCtx *TaskContext) startTask() {
 	localUserObs := &agoraservice.LocalUserObserver{}
 	if cfg.recvEncodedVideo {
 		localUserObs.OnUserVideoTrackSubscribed = func(localUser *agoraservice.LocalUser, uid string, info *agoraservice.VideoTrackInfo, remoteVideoTrack *agoraservice.RemoteVideoTrack) {
-			fmt.Printf("user %s video subscribed\n", uid)
+			fmt.Printf("task %d user %s video subscribed\n", id, uid)
 			remoteVideoTrack.RegisterVideoEncodedImageReceiver(&agoraservice.VideoEncodedImageReceiver{
 				OnEncodedVideoFrame: func(receiver *agoraservice.VideoEncodedImageReceiver, uid string, imageBuffer []byte, frameInfo *agoraservice.EncodedVideoFrameInfo) bool {
 					if uid == senderId {
 						return true
 					}
-					fmt.Printf("user %s encoded video received, frame len %d\n", uid, len(imageBuffer))
+					// fmt.Printf("user %s encoded video received, frame len %d\n", uid, len(imageBuffer))
 					if cfg.dumpEncodedVideo {
 						if taskCtx.dumpEncodedVideoFile == nil {
 							var err error
 							taskCtx.dumpEncodedVideoFile, err = os.OpenFile(fmt.Sprintf("./recv%d.h264", id), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
 							if err != nil {
-								fmt.Printf("Failed to open dump file, %s", err.Error())
+								fmt.Printf("task %d Failed to open dump file, %s", id, err.Error())
 								return false
 							}
 						}
@@ -539,7 +549,7 @@ func (taskCtx *TaskContext) startTask() {
 	}
 	if cfg.recvData {
 		localUserObs.OnStreamMessage = func(localUser *agoraservice.LocalUser, uid string, streamId int, data []byte) {
-			fmt.Printf("recv stream message: %s, channel %s, uid %s\n", string(data), channelName, uid)
+			fmt.Printf("task %d recv stream message: %s, channel %s, uid %s\n", id, string(data), channelName, uid)
 		}
 	}
 	localUser.RegisterLocalUserObserver(localUserObs)
@@ -549,7 +559,7 @@ func (taskCtx *TaskContext) startTask() {
 	select {
 	case <-conSignal:
 	case <-time.After(5 * time.Second):
-		fmt.Printf("sender failed to connect, task %d\n", id)
+		fmt.Printf("task %d failed to connect\n", id)
 		return
 	}
 

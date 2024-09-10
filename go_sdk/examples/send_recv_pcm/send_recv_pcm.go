@@ -123,7 +123,7 @@ func main() {
 		RenderTimeMs:      0,
 	}
 
-	file, err := os.Open("../../../test_data/demo.pcm")
+	file, err := os.Open("../../../test_data/send_audio_16k_1ch.pcm")
 	if err != nil {
 		fmt.Println("Error opening file:", err)
 		return

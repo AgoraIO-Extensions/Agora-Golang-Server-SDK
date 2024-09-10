@@ -121,23 +121,23 @@ func main() {
 	// parse command options
 	var (
 		channelName      = flag.String("channelName", "gosdktest", "Channel name")
-		sendYuv          = flag.Bool("sendYuv", false, "Send YUV data")
-		sendEncodedVideo = flag.Bool("sendEncodedVideo", false, "Send encoded video data")
-		sendPcm          = flag.Bool("sendPcm", false, "Send PCM audio data")
-		sendEncodedAudio = flag.Bool("sendEncodedAudio", false, "Send encoded audio data")
-		sendData         = flag.Bool("sendData", false, "Send custom data")
+		sendYuv          = flag.Bool("sendYuv", false, "Enable Send YUV data")
+		sendEncodedVideo = flag.Bool("sendEncodedVideo", false, "Enable Send encoded video data")
+		sendPcm          = flag.Bool("sendPcm", false, "Enable Send PCM audio data")
+		sendEncodedAudio = flag.Bool("sendEncodedAudio", false, "Enable Send encoded audio data")
+		sendData         = flag.Bool("sendData", false, "Enable Send custom data")
 
-		recvYuv          = flag.Bool("recvYuv", false, "Receive YUV data")
-		recvEncodedVideo = flag.Bool("recvEncodedVideo", false, "Receive encoded video data")
-		recvPcm          = flag.Bool("recvPcm", false, "Receive PCM audio data")
-		recvData         = flag.Bool("recvData", false, "Receive custom data")
+		recvYuv          = flag.Bool("recvYuv", false, "Enable Receive YUV data")
+		recvEncodedVideo = flag.Bool("recvEncodedVideo", false, "Enable Receive encoded video data")
+		recvPcm          = flag.Bool("recvPcm", false, "Enable Receive PCM audio data")
+		recvData         = flag.Bool("recvData", false, "Enable Receive custom data")
 
-		dumpPcm          = flag.Bool("dumpPcm", false, "Dump PCM audio data")
-		dumpYuv          = flag.Bool("dumpYuv", false, "Dump YUV data")
-		dumpEncodedVideo = flag.Bool("dumpEncodedVideo", false, "Dump encoded video data")
+		dumpPcm          = flag.Bool("dumpPcm", false, "Enable Dump PCM audio data")
+		dumpYuv          = flag.Bool("dumpYuv", false, "Enable Dump YUV data")
+		dumpEncodedVideo = flag.Bool("dumpEncodedVideo", false, "Enable Dump encoded video data")
 
 		taskCount = flag.Int("taskCount", 1, "Task count")
-		randTask  = flag.Bool("randTask", false, "Randomly restart task")
+		randTask  = flag.Bool("randTask", false, "Enable Randomly restart task")
 	)
 
 	flag.Parse()
