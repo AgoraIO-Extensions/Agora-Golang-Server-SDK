@@ -91,7 +91,7 @@ data,
 
 # Change log
 ## 2024.09.13 release 1.2.2
-- there is no need to config ffmpeg path for **send_mp4** any more
+- there is no need to config ffmpeg path for **send_mp4** example any more
 - make video pixel format support for other than yuv420p
 ## 2024.09.04 release 1.2.1
 - move examples to **go_wrapper/examples** directory
