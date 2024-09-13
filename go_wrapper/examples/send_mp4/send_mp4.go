@@ -1,7 +1,6 @@
 package main
 
-// #cgo CFLAGS: -I/opt/homebrew/Cellar/ffmpeg/7.0.1/include
-// #cgo LDFLAGS: -L/opt/homebrew/Cellar/ffmpeg/7.0.1/lib -lavformat -lavcodec -lavutil -lswresample
+// #cgo pkg-config: libavformat libavcodec libavutil libswresample libswscale
 // #include <string.h>
 // #include <stdlib.h>
 // #include <libavutil/error.h>
@@ -125,7 +124,7 @@ func main() {
 	audioSender.Start()
 	videoSender.Start()
 
-	fn := C.CString("../../../test_data/test.mp4")
+	fn := C.CString("../../../test_data/shangtang_video.mp4")
 	defer C.free(unsafe.Pointer(fn))
 	decoder := C.open_media_file(fn)
 	if decoder == nil {
@@ -169,6 +168,7 @@ func main() {
 		}
 		if cFrame.frame_type == C.AVMEDIA_TYPE_AUDIO {
 			if cFrame.format != C.AV_SAMPLE_FMT_S16 {
+				fmt.Println("Unsupported audio format")
 				continue
 			}
 			audioFrame := agoraservice.PcmAudioFrame{
@@ -184,6 +184,7 @@ func main() {
 		}
 		if cFrame.frame_type == C.AVMEDIA_TYPE_VIDEO {
 			if cFrame.format != C.AV_PIX_FMT_YUV420P {
+				fmt.Println("Unsupported video format")
 				continue
 			}
 			videoFrame := agoraservice.VideoFrame{

@@ -7,6 +7,8 @@
 #include <libavutil/opt.h>
 #include <libavutil/channel_layout.h>
 #include <libswresample/swresample.h>
+#include <libswscale/swscale.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <sys/_types/_null.h>
 #include "decode_media.h"
@@ -26,12 +28,21 @@ typedef struct _DecodeContext {
   // for audio
   uint8_t *samples[MAX_AUDIO_CHANNELS];
 
+  // for audio resample
   struct SwrContext *swr_ctx;
   AVChannelLayout dst_ch_layout;
   int dst_sample_rate;
   enum AVSampleFormat dst_sample_fmt;
   int dst_nb_samples;
   int actual_buffer_size;
+
+  // for video resize
+  struct SwsContext *sws_ctx;
+  enum AVPixelFormat dst_pix_fmt;
+  int dst_width;
+  int dst_height;
+  uint8_t *dst_data[4];
+  int dst_linesize[4];
 } DecodeContext;
 
 typedef struct _MediaDecoder {
@@ -134,8 +145,67 @@ int deinit_swr(DecodeContext *decode_ctx) {
   return 0;
 }
 
+int init_sws(DecodeContext *decode_ctx) {
+  AVCodecContext *codec_ctx = decode_ctx->codec_ctx;
+  decode_ctx->dst_pix_fmt = AV_PIX_FMT_YUV420P;
+  decode_ctx->dst_width = codec_ctx->width;
+  decode_ctx->dst_height = codec_ctx->height;
+  int ret = av_image_alloc(decode_ctx->dst_data, decode_ctx->dst_linesize, 
+      decode_ctx->dst_width, decode_ctx->dst_height, decode_ctx->dst_pix_fmt, 1);
+  if (ret < 0) {
+    av_log(NULL, AV_LOG_ERROR, "Can't allocate image\n");
+    return ret;
+  }
+  decode_ctx->buffer = decode_ctx->dst_data[0];
+  decode_ctx->buffer_size = av_image_get_buffer_size(decode_ctx->dst_pix_fmt, decode_ctx->dst_width, decode_ctx->dst_height, 1);
+
+  if (decode_ctx->dst_pix_fmt == codec_ctx->pix_fmt &&
+    decode_ctx->dst_width == codec_ctx->width &&
+    decode_ctx->dst_height == codec_ctx->height) {
+    return 0;
+  }
+  struct SwsContext *sws_ctx = sws_getContext(
+    codec_ctx->width, codec_ctx->height, codec_ctx->pix_fmt,
+    decode_ctx->dst_width, decode_ctx->dst_height, decode_ctx->dst_pix_fmt, SWS_BILINEAR, NULL, NULL, NULL);
+  if (!sws_ctx) {
+    av_log(NULL, AV_LOG_ERROR, "Can't allocate sws context\n");
+    return AVERROR(ENOMEM);
+  }
+  decode_ctx->sws_ctx = sws_ctx;
+  return 0;
+}
+
+int resize_video(DecodeContext *decode_ctx, AVFrame *fr) {
+  AVCodecContext *ctx = decode_ctx->codec_ctx;
+  struct SwsContext *sws_ctx = decode_ctx->sws_ctx;
+  if (!sws_ctx) {
+    int ret = av_image_copy_to_buffer(decode_ctx->buffer, decode_ctx->buffer_size,
+                            (const uint8_t* const *)fr->data, (const int*) fr->linesize,
+                            ctx->pix_fmt, ctx->width, ctx->height, 1);
+    if (ret < 0) {
+      av_log(NULL, AV_LOG_ERROR, "Error copying image to buffer\n");
+    }
+    return ret;
+  }
+  int ret = sws_scale(sws_ctx, (const uint8_t* const *)fr->data, fr->linesize, 
+      0, ctx->height, (uint8_t * const *)decode_ctx->dst_data, decode_ctx->dst_linesize);
+  if (ret < 0) {
+    av_log(NULL, AV_LOG_ERROR, "Error scaling image\n");
+  }
+  return ret;
+}
+
+int deinit_sws(DecodeContext *decode_ctx) {
+  if (decode_ctx->sws_ctx) {
+    sws_freeContext(decode_ctx->sws_ctx);
+    decode_ctx->sws_ctx = NULL;
+  }
+  return 0;
+}
+
 int deinit_decoder(DecodeContext *decode_ctx) {
   deinit_swr(decode_ctx);
+  deinit_sws(decode_ctx);
   avcodec_free_context(&decode_ctx->codec_ctx);
   av_frame_free(&decode_ctx->frame);
   if (decode_ctx->buffer) {
@@ -211,13 +281,10 @@ int init_decoder(MediaDecoder *decoder, int media_type) {
   }
 
   if (media_type == AVMEDIA_TYPE_VIDEO) {
-    decode_ctx->buffer_size = av_image_get_buffer_size(codec_ctx->pix_fmt, codec_ctx->width, codec_ctx->height, 1);
-    if (decode_ctx->buffer_size > 0) {
-      decode_ctx->buffer = (uint8_t *)av_malloc(decode_ctx->buffer_size);
-    }
-    av_log(NULL, AV_LOG_INFO, "stream index %d, video codec: %s, pix_fmt %s, width %d, height %d, buffer_size %d\n", 
-      decode_ctx->stream_index, codec->name, av_get_pix_fmt_name(codec_ctx->pix_fmt), codec_ctx->width, 
-      codec_ctx->height, decode_ctx->buffer_size);
+    av_log(NULL, AV_LOG_INFO, "stream index %d, video codec: %s, pix_fmt %s, width %d, height %d\n", 
+      decode_ctx->stream_index, codec->name, av_get_pix_fmt_name(codec_ctx->pix_fmt),
+      codec_ctx->width, codec_ctx->height);
+    init_sws(decode_ctx);
   } else if (media_type == AVMEDIA_TYPE_AUDIO) {
     av_log(NULL, AV_LOG_INFO, "stream index %d, audio codec: %s, sample_fmt %s, sample_rate %d, channels %d, frame_size %d\n", 
       decode_ctx->stream_index, codec->name, av_get_sample_fmt_name(codec_ctx->sample_fmt),
@@ -234,6 +301,7 @@ void * open_media_file(const char *file_name) {
 
     int result = 0;
 
+    // av_log_set_level(AV_LOG_DEBUG);
     result = avformat_open_input(&decoder->fmt_ctx, file_name, NULL, NULL);
     if (result < 0) {
         av_log(NULL, AV_LOG_ERROR, "Can't open file\n");
@@ -341,14 +409,9 @@ int get_frame(void *decoder, MediaFrame *frame) {
           }
 
           if (media_type == AVMEDIA_TYPE_VIDEO) {
-            if (fr->format != AV_PIX_FMT_YUV420P) {
-              av_log(NULL, AV_LOG_ERROR, "Unsupported pixel format, %s\n", av_get_pix_fmt_name(fr->format));
-            }
-            int ret = av_image_copy_to_buffer(decode_ctx->buffer, decode_ctx->buffer_size,
-                                    (const uint8_t* const *)fr->data, (const int*) fr->linesize,
-                                    ctx->pix_fmt, ctx->width, ctx->height, 1);
+            int ret = resize_video(decode_ctx, fr);
             if (ret < 0) {
-              av_log(NULL, AV_LOG_ERROR, "Error copying image to buffer\n");
+              av_log(NULL, AV_LOG_ERROR, "Error resize video, code %d\n", ret);
               return ret;
             }
             frame->frame_type = AVMEDIA_TYPE_VIDEO;
@@ -356,10 +419,10 @@ int get_frame(void *decoder, MediaFrame *frame) {
             frame->pts = fr->pts * 1000 * av_q2d(fmt_ctx->streams[decode_ctx->stream_index]->time_base);
             frame->buffer = decode_ctx->buffer;
             frame->buffer_size = decode_ctx->buffer_size;
-            frame->format = fr->format;
-            frame->width = fr->width;
-            frame->height = fr->height;
-            frame->stride = fr->width;
+            frame->format = decode_ctx->dst_pix_fmt;
+            frame->width = decode_ctx->dst_width;
+            frame->height = decode_ctx->dst_height;
+            frame->stride = decode_ctx->dst_width;
           } else if (media_type == AVMEDIA_TYPE_AUDIO) {
             int ret = resample_audio(decode_ctx, fr);
             if (ret < 0) {
