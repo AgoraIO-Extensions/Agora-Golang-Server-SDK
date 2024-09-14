@@ -8,7 +8,7 @@
   - not tested on go 1.19 and below
 
 ## Prepare C version of agora rtc sdk
-- download and unzip [agora_sdk.zip](https://download.agora.io/sdk/release/agora_rtc_sdk_linux_20240814_320567.zip)
+- download and unzip [agora_sdk.zip](https://download.agora.io/sdk/release/agora_rtc_sdk_linux_v4.4_20240914_1538_336910.zip)
 ```
 unzip agora_sdk.zip
 ```
@@ -40,7 +40,7 @@ go test -v -count=1 -timeout 20s -run ^TestBaseCase$ agoraservice
 ```
 
 # Build and run on mac
-- download and unzip [agora_sdk_mac.zip](https://download.agora.io/sdk/release/agora_rtc_sdk_mac_20240814_320567.zip)
+- download and unzip [agora_sdk_mac.zip](https://download.agora.io/sdk/release/agora_rtc_sdk_mac_v4.4_20240914_1538_336910.zip)
 ```
 unzip agora_sdk_mac.zip
 ```
