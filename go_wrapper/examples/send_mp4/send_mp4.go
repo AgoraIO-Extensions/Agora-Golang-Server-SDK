@@ -124,7 +124,7 @@ func main() {
 	audioSender.Start()
 	videoSender.Start()
 
-	fn := C.CString("../../../test_data/shangtang_video.mp4")
+	fn := C.CString("../../../test_data/demo-1.mp4")
 	defer C.free(unsafe.Pointer(fn))
 	decoder := C.open_media_file(fn)
 	if decoder == nil {

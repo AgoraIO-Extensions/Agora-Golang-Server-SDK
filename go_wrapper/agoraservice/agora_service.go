@@ -60,6 +60,7 @@ type AgoraService struct {
 	consByCLocalUser     map[unsafe.Pointer]*RtcConnection
 	consByCVideoObserver map[unsafe.Pointer]*RtcConnection
 	connectionRWMutex    *sync.RWMutex
+	cFuncMutex           *sync.Mutex
 }
 
 func newAgoraService() *AgoraService {
@@ -71,6 +72,7 @@ func newAgoraService() *AgoraService {
 		consByCLocalUser:     make(map[unsafe.Pointer]*RtcConnection),
 		consByCVideoObserver: make(map[unsafe.Pointer]*RtcConnection),
 		connectionRWMutex:    &sync.RWMutex{},
+		cFuncMutex:           &sync.Mutex{},
 	}
 }
 

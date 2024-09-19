@@ -10,7 +10,6 @@
 #include <libswscale/swscale.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include <sys/_types/_null.h>
 #include "decode_media.h"
 
 #define MAX_AUDIO_CHANNELS 10

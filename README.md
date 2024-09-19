@@ -88,6 +88,8 @@ data,
   - if you don't use VAD, and your glibc version is between 2.16 and 2.27, you can disable VAD by rename **audio_vad.go** file in go_wrapper/agoraserver/ to **audio_vad.go.bak**
 
 # Change log
+## 2024.09.19 release 1.3
+- fix possible crash
 ## 2024.09.13 release 1.2.2
 - there is no need to config ffmpeg path for **send_mp4** example any more
 - make video pixel format support for other than yuv420p

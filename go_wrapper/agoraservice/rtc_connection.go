@@ -138,12 +138,13 @@ func NewConnection(cfg *RtcConnectionConfig) *RtcConnection {
 	defer FreeCRtcConnectionConfig(cCfg)
 
 	ret := &RtcConnection{
-		cConnection:    C.agora_rtc_conn_create(agoraService.service, cCfg),
 		subAudioConfig: cfg.SubAudioConfig,
 		handler:        cfg.ConnectionHandler,
 		audioObserver:  cfg.AudioFrameObserver,
 		videoObserver:  cfg.VideoFrameObserver,
 	}
+	agoraService.cFuncMutex.Lock()
+	ret.cConnection = C.agora_rtc_conn_create(agoraService.service, cCfg)
 	ret.cLocalUser = C.agora_rtc_conn_get_local_user(ret.cConnection)
 	// C.agora_local_user_subscribe_all_audio(ret.cLocalUser)
 	if ret.handler != nil {
@@ -164,6 +165,7 @@ func NewConnection(cfg *RtcConnectionConfig) *RtcConnection {
 		ret.cAudioObserver = CAudioFrameObserver(ret.audioObserver)
 		C.agora_local_user_register_audio_frame_observer(ret.cLocalUser, ret.cAudioObserver)
 	}
+	agoraService.cFuncMutex.Unlock()
 
 	if ret.videoObserver != nil {
 		ret.cVideoObserver = CVideoFrameObserver(ret.videoObserver)
@@ -173,7 +175,9 @@ func NewConnection(cfg *RtcConnectionConfig) *RtcConnection {
 	agoraService.connectionRWMutex.Lock()
 	agoraService.consByCCon[ret.cConnection] = ret
 	agoraService.consByCLocalUser[ret.cLocalUser] = ret
-	agoraService.consByCVideoObserver[ret.cVideoObserver] = ret
+	if ret.cVideoObserver != nil {
+		agoraService.consByCVideoObserver[ret.cVideoObserver] = ret
+	}
 	agoraService.connectionRWMutex.Unlock()
 	return ret
 }
@@ -185,13 +189,16 @@ func (conn *RtcConnection) Release() {
 	agoraService.connectionRWMutex.Lock()
 	delete(agoraService.consByCCon, conn.cConnection)
 	delete(agoraService.consByCLocalUser, conn.cLocalUser)
-	delete(agoraService.consByCVideoObserver, conn.cVideoObserver)
-	agoraService.connectionRWMutex.Unlock()
-	if conn.cAudioObserver != nil {
-		C.agora_local_user_unregister_audio_frame_observer(conn.cLocalUser)
+	if conn.cVideoObserver != nil {
+		delete(agoraService.consByCVideoObserver, conn.cVideoObserver)
 	}
+	agoraService.connectionRWMutex.Unlock()
 	if conn.cVideoObserver != nil {
 		C.agora_local_user_unregister_video_frame_observer(conn.cLocalUser, conn.cVideoObserver)
+	}
+	agoraService.cFuncMutex.Lock()
+	if conn.cAudioObserver != nil {
+		C.agora_local_user_unregister_audio_frame_observer(conn.cLocalUser)
 	}
 	if conn.cLocalUserObserver != nil {
 		C.agora_local_user_unregister_observer(conn.cLocalUser)
@@ -200,6 +207,7 @@ func (conn *RtcConnection) Release() {
 		C.agora_rtc_conn_unregister_observer(conn.cConnection)
 	}
 	C.agora_rtc_conn_destroy(conn.cConnection)
+	agoraService.cFuncMutex.Unlock()
 	conn.cConnection = nil
 	if conn.cAudioObserver != nil {
 		FreeCAudioFrameObserver(conn.cAudioObserver)
