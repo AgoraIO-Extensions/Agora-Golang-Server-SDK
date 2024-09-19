@@ -105,12 +105,12 @@ func TestBaseCase(t *testing.T) {
 			waitSenderStop.Done()
 		}()
 		sender := senderCon.GetVideoSender()
-		w := 416
-		h := 240
+		w := 352
+		h := 288
 		dataSize := w * h * 3 / 2
 		data := make([]byte, dataSize)
 		// read yuv from file 103_RaceHorses_416x240p30_300.yuv
-		file, err := os.Open("../../test_data/103_RaceHorses_416x240p30_300.yuv")
+		file, err := os.Open("../../test_data/send_video_cif_352x288.yuv")
 		if err != nil {
 			fmt.Println("Error opening file:", err)
 			return
