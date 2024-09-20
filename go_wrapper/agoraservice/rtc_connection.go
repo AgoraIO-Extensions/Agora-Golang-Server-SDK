@@ -145,15 +145,12 @@ func NewConnection(cfg *RtcConnectionConfig) *RtcConnection {
 	}
 	agoraService.cFuncMutex.Lock()
 	ret.cConnection = C.agora_rtc_conn_create(agoraService.service, cCfg)
-	agoraService.cFuncMutex.Unlock()
 	ret.cLocalUser = C.agora_rtc_conn_get_local_user(ret.cConnection)
 	// C.agora_local_user_subscribe_all_audio(ret.cLocalUser)
 	if ret.handler != nil {
 		ret.cHandler, ret.cLocalUserObserver = CRtcConnectionEventHandler(ret.handler)
-		agoraService.cFuncMutex.Lock()
 		C.agora_rtc_conn_register_observer(ret.cConnection, ret.cHandler)
 		C.agora_local_user_register_observer(ret.cLocalUser, ret.cLocalUserObserver)
-		agoraService.cFuncMutex.Unlock()
 	}
 	if ret.subAudioConfig == nil {
 		ret.subAudioConfig = &SubscribeAudioConfig{
@@ -166,10 +163,9 @@ func NewConnection(cfg *RtcConnectionConfig) *RtcConnection {
 
 	if ret.audioObserver != nil {
 		ret.cAudioObserver = CAudioFrameObserver(ret.audioObserver)
-		agoraService.cFuncMutex.Lock()
 		C.agora_local_user_register_audio_frame_observer(ret.cLocalUser, ret.cAudioObserver)
-		agoraService.cFuncMutex.Unlock()
 	}
+	agoraService.cFuncMutex.Unlock()
 
 	if ret.videoObserver != nil {
 		ret.cVideoObserver = CVideoFrameObserver(ret.videoObserver)
@@ -197,25 +193,19 @@ func (conn *RtcConnection) Release() {
 		delete(agoraService.consByCVideoObserver, conn.cVideoObserver)
 	}
 	agoraService.connectionRWMutex.Unlock()
-	if conn.cAudioObserver != nil {
-		agoraService.cFuncMutex.Lock()
-		C.agora_local_user_unregister_audio_frame_observer(conn.cLocalUser)
-		agoraService.cFuncMutex.Unlock()
-	}
 	if conn.cVideoObserver != nil {
 		C.agora_local_user_unregister_video_frame_observer(conn.cLocalUser, conn.cVideoObserver)
 	}
+	agoraService.cFuncMutex.Lock()
+	if conn.cAudioObserver != nil {
+		C.agora_local_user_unregister_audio_frame_observer(conn.cLocalUser)
+	}
 	if conn.cLocalUserObserver != nil {
-		agoraService.cFuncMutex.Lock()
 		C.agora_local_user_unregister_observer(conn.cLocalUser)
-		agoraService.cFuncMutex.Unlock()
 	}
 	if conn.cHandler != nil {
-		agoraService.cFuncMutex.Lock()
 		C.agora_rtc_conn_unregister_observer(conn.cConnection)
-		agoraService.cFuncMutex.Unlock()
 	}
-	agoraService.cFuncMutex.Lock()
 	C.agora_rtc_conn_destroy(conn.cConnection)
 	agoraService.cFuncMutex.Unlock()
 	conn.cConnection = nil
