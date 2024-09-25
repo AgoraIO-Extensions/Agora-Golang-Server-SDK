@@ -1006,3 +1006,49 @@ func TestRenewToken(t *testing.T) {
 	case <-disconnectedSignal:
 	}
 }
+
+func TestCrash(t *testing.T) {
+	appid := os.Getenv("AGORA_APP_ID")
+	if appid == "" {
+		fmt.Println("Please set AGORA_APP_ID environment variable")
+		t.FailNow()
+	}
+	svcCfg := AgoraServiceConfig{
+		AppId: appid,
+	}
+	Init(&svcCfg)
+	defer Destroy()
+
+	wg := sync.WaitGroup{}
+	for i := 0; i < 400; i++ {
+		wg.Add(1)
+		go func(taskId int) {
+			defer wg.Done()
+			cfg := RtcConnectionConfig{
+				SubAudio:       true,
+				SubVideo:       true,
+				ClientRole:     1,
+				ChannelProfile: 1,
+				ConnectionHandler: &RtcConnectionEventHandler{
+					OnConnected: func(con *RtcConnection, info *RtcConnectionInfo, reason int) {
+						t.Log("sender Connected")
+					},
+					OnDisconnected: func(con *RtcConnection, info *RtcConnectionInfo, reason int) {
+						t.Log("sender Disconnected")
+					},
+				},
+				AudioFrameObserver: &RtcConnectionAudioFrameObserver{
+					OnPlaybackAudioFrameBeforeMixing: func(con *RtcConnection, channelId string, userId string, frame *PcmAudioFrame) {
+					},
+				},
+				VideoFrameObserver: nil,
+			}
+			for j := 0; j < 100; j++ {
+				con := NewConnection(&cfg)
+				con.Release()
+				t.Logf("task %d, connection %d\n", taskId, j)
+			}
+		}(i)
+	}
+	wg.Wait()
+}
