@@ -1,12 +1,19 @@
 package agoraservice
 
-// #cgo CFLAGS: -I${SRCDIR}/../../agora_sdk/include/c/api2 -I${SRCDIR}/../../agora_sdk/include/c/base
+// #cgo darwin CFLAGS: -I${SRCDIR}/../../agora_sdk/include/c/api2 -I${SRCDIR}/../../agora_sdk/include/c/base
+// #cgo linux CFLAGS: -D__linux__=1 -I${SRCDIR}/../../agora_sdk/include/c/api2 -I${SRCDIR}/../../agora_sdk/include/c/base
 // #cgo darwin LDFLAGS: -Wl,-rpath,../../agora_sdk_mac -L../../agora_sdk_mac -lAgoraRtcKit -lAgorafdkaac -lAgoraffmpeg
 // #cgo linux LDFLAGS: -L../../agora_sdk/ -lagora_rtc_sdk -lagora-fdkaac -laosl
 // #include "agora_local_user.h"
 // #include "agora_rtc_conn.h"
 // #include "agora_service.h"
 // #include "agora_media_base.h"
+//
+// #ifndef agora_service_load_extension_provider
+// AGORA_API_C_INT agora_service_load_extension_provider(AGORA_HANDLE agora_svc, const char* path, unsigned int unload_after_use) {
+// 	 return -1;
+// }
+// #endif
 import "C"
 import (
 	"sync"
