@@ -143,3 +143,38 @@ func Release() int {
 	agoraService.inited = false
 	return 0
 }
+
+// LoadExtensionProvider loads an extension provider.
+func LoadExtensionProvider(path string, unloadAfterUse bool) int {
+	cPath := C.CString(path)
+	defer C.free(unsafe.Pointer(cPath))
+	var cUnloadAfterUse C.uint = 0
+	if unloadAfterUse {
+		cUnloadAfterUse = 1
+	}
+	return int(C.agora_service_load_extension_provider(agoraService.service, cPath, cUnloadAfterUse))
+}
+
+func EnableExtension(providerName, extensionName, trackId string, autoEnableOnTrack bool) int {
+	cProviderName := C.CString(providerName)
+	defer C.free(unsafe.Pointer(cProviderName))
+	cExtensionName := C.CString(extensionName)
+	defer C.free(unsafe.Pointer(cExtensionName))
+	cTrackId := C.CString(trackId)
+	defer C.free(unsafe.Pointer(cTrackId))
+	var cAutoEnableOnTrack C.uint = 0
+	if autoEnableOnTrack {
+		cAutoEnableOnTrack = 1
+	}
+	return int(C.agora_service_enable_extension(agoraService.service, cProviderName, cExtensionName, cTrackId, cAutoEnableOnTrack))
+}
+
+func DisableExtension(providerName, extensionName, trackId string) int {
+	cProviderName := C.CString(providerName)
+	defer C.free(unsafe.Pointer(cProviderName))
+	cExtensionName := C.CString(extensionName)
+	defer C.free(unsafe.Pointer(cExtensionName))
+	cTrackId := C.CString(trackId)
+	defer C.free(unsafe.Pointer(cTrackId))
+	return int(C.agora_service_disable_extension(agoraService.service, cProviderName, cExtensionName, cTrackId))
+}

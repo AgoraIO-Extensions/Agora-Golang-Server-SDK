@@ -14,6 +14,13 @@ type AudioFrame struct {
 	Buffer            []byte // The pointer to the data buffer.
 	RenderTimeMs      int64  // The timestamp to render the audio data. Use this member to synchronize the audio renderer while rendering the audio streams.
 	AvsyncType        int
+
+	// these field below are only used for audio observer.
+	FarFiledFlag int
+	Rms          int
+	VoiceProb    int
+	MusicProb    int
+	Pitch        int
 }
 
 type AudioPcmDataSender struct {
