@@ -19,9 +19,12 @@ type VideoEncoderConfiguration struct {
 	// kbps
 	MinBitrate int
 	// 0: adaptive, 1: fixed landscape, 2: fixed portrait
-	OrientationMode VideoOrientation
+	OrientationMode OrientationMode
 	// 0: maintain, 1: maintain frame rate, 2: maintain quality
-	DegradePreference int
+	DegradePreference DegradationPreference
+	// The mirror mode is disabled by default
+	// If mirror_type is set to VIDEO_MIRROR_MODE_ENABLED, then the video frame would be mirrored before encoding.
+	MirrorMode VideoMirrorModeType
 }
 
 type VideoEncodedImageSenderOptions struct {
@@ -96,5 +99,6 @@ func (track *LocalVideoTrack) SetVideoEncoderConfiguration(cfg *VideoEncoderConf
 	cCfg.min_bitrate = C.int(cfg.MinBitrate * 1000)
 	cCfg.orientation_mode = C.int(cfg.OrientationMode)
 	cCfg.degradation_preference = C.int(cfg.DegradePreference)
+	cCfg.mirror_mode = C.int(cfg.MirrorMode)
 	return int(C.agora_local_video_track_set_video_encoder_config(track.cTrack, &cCfg))
 }

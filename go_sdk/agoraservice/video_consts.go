@@ -66,6 +66,70 @@ const (
 	VideoFrameTypeUnknown VideoFrameType = -1
 )
 
+// OrientationMode represents video output orientation modes.
+type OrientationMode int
+
+const (
+	// OrientationModeAdaptive indicates that the output video always follows the orientation of the captured video.
+	// The receiver takes the rotational information passed on from the video encoder. This mode applies to scenarios
+	// where video orientation can be adjusted on the receiver:
+	// - If the captured video is in landscape mode, the output video is in landscape mode.
+	// - If the captured video is in portrait mode, the output video is in portrait mode.
+	OrientationModeAdaptive OrientationMode = 0
+
+	// OrientationModeFixedLandscape indicates landscape mode. In this mode, the SDK always outputs videos in landscape (horizontal) mode.
+	// If the captured video is in portrait mode, the video encoder crops it to fit the output. Applies to situations where the receiving end
+	// cannot process the rotational information. For example, CDN live streaming.
+	OrientationModeFixedLandscape OrientationMode = 1
+
+	// OrientationModeFixedPortrait indicates portrait mode. In this mode, the SDK always outputs video in portrait (portrait) mode.
+	// If the captured video is in landscape mode, the video encoder crops it to fit the output. Applies to situations where the receiving end
+	// cannot process the rotational information. For example, CDN live streaming.
+	OrientationModeFixedPortrait OrientationMode = 2
+)
+
+// DegradationPreference represents video degradation preferences under limited bandwidth.
+type DegradationPreference int
+
+const (
+	// DegradeMaintainQuality prefers to reduce the video frame rate while maintaining video quality during video
+	// encoding under limited bandwidth. This degradation preference is suitable for scenarios where
+	// video quality is prioritized.
+	//
+	// Note: In the COMMUNICATION channel profile, the resolution of the video sent may change, so
+	// remote users need to handle this issue.
+	DegradeMaintainQuality DegradationPreference = 0
+
+	// DegradeMaintainFramerate prefers to reduce the video quality while maintaining the video frame rate during video
+	// encoding under limited bandwidth. This degradation preference is suitable for scenarios where
+	// smoothness is prioritized and video quality is allowed to be reduced.
+	DegradeMaintainFramerate DegradationPreference = 1
+
+	// DegradeMaintainBalanced reduces the video frame rate and video quality simultaneously during video encoding under
+	// limited bandwidth. MaintainBalanced has a lower reduction than MaintainQuality and MaintainFramerate,
+	// and this preference is suitable for scenarios where both smoothness and video quality are a
+	// priority.
+	DegradeMaintainBalanced DegradationPreference = 2
+
+	// DegradeMaintainResolution degrades framerate in order to maintain resolution.
+	DegradeMaintainResolution DegradationPreference = 3
+
+	// DegradeDisabled disables VQC adjustment.
+	DegradeDisabled DegradationPreference = 100
+)
+
+// VideoMirrorModeType represents the video mirror mode types.
+type VideoMirrorModeType int
+
+const (
+	// VideoMirrorModeAuto represents the mirror mode determined by the SDK.
+	VideoMirrorModeAuto VideoMirrorModeType = 0
+	// VideoMirrorModeEnabled enables the mirror mode.
+	VideoMirrorModeEnabled VideoMirrorModeType = 1
+	// VideoMirrorModeDisabled disables the mirror mode.
+	VideoMirrorModeDisabled VideoMirrorModeType = 2
+)
+
 /**
  * The rotation information.
  */

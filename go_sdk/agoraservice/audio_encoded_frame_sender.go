@@ -11,7 +11,7 @@ type EncodedAudioFrameInfo struct {
 	// - 0: The audio frame source is not a speech.
 	Speech bool
 
-	// Codec is the audio codec: AUDIO_CODEC_TYPE.
+	// Codec is the audio codec: AudioCodecType.
 	Codec AudioCodecType
 
 	// SampleRateHz is the sample rate (Hz) of the audio frame.

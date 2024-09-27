@@ -195,6 +195,27 @@ func (localUser *LocalUser) UnpublishVideo(track *LocalVideoTrack) int {
 	return int(C.agora_local_user_unpublish_video(localUser.cLocalUser, track.cTrack))
 }
 
+func (localUser *LocalUser) SetPlaybackAudioFrameParameters(channels int, sampleRate int, mode int, samplesPerCall int) int {
+	if localUser.cLocalUser == nil {
+		return -1
+	}
+	return int(C.agora_local_user_set_playback_audio_frame_parameters(localUser.cLocalUser, C.uint(channels), C.uint(sampleRate), C.int(mode), C.int(samplesPerCall)))
+}
+
+func (localUser *LocalUser) SetRecordingAudioFrameParameters(channels int, sampleRate int, mode int, samplesPerCall int) int {
+	if localUser.cLocalUser == nil {
+		return -1
+	}
+	return int(C.agora_local_user_set_recording_audio_frame_parameters(localUser.cLocalUser, C.uint(channels), C.uint(sampleRate), C.int(mode), C.int(samplesPerCall)))
+}
+
+func (localUser *LocalUser) SetMixedAudioFrameParameters(channels int, sampleRate int, samplesPerCall int) int {
+	if localUser.cLocalUser == nil {
+		return -1
+	}
+	return int(C.agora_local_user_set_mixed_audio_frame_parameters(localUser.cLocalUser, C.uint(channels), C.uint(sampleRate), C.int(samplesPerCall)))
+}
+
 func (localUser *LocalUser) SetPlaybackAudioFrameBeforeMixingParameters(channels int, sampleRate int) int {
 	if localUser.cLocalUser == nil {
 		return -1

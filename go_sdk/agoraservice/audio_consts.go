@@ -90,6 +90,8 @@ const (
 	AudioCodecHeAac2 AudioCodecType = 11
 	// AudioCodecLpcnet represents the LPCNET audio codec.
 	AudioCodecLpcnet AudioCodecType = 12
+	// 13: Opus multi channel codec, supporting 3 to 8 channels audio.
+	AudioCodecOpusMC AudioCodecType = 13
 )
 
 // AudioEncodingType represents the audio encoding types of audio encoded frame observer.

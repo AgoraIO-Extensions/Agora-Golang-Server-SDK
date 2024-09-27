@@ -102,14 +102,14 @@ type AudioEncoderConfiguration struct {
 type RtcConnectionConfig struct {
 	/**
 	 * Determines whether to subscribe to all audio streams automatically.
-	 * - 1: (Default) Subscribe to all audio streams automatically.
-	 * - 0: Do not subscribe to any audio stream automatically.
+	 * - true: (Default) Subscribe to all audio streams automatically.
+	 * - false: Do not subscribe to any audio stream automatically.
 	 */
 	AutoSubscribeAudio bool
 	/**
 	 * Determines whether to subscribe to all video streams automatically.
-	 * - 1: (Default) Subscribe to all video streams automatically.
-	 * - 0: Do not subscribe to any video stream automatically.
+	 * - true: (Default) Subscribe to all video streams automatically.
+	 * - false: Do not subscribe to any video stream automatically.
 	 */
 	AutoSubscribeVideo bool
 	/**
@@ -144,18 +144,6 @@ type RtcConnectionConfig struct {
 	 */
 	VideoRecvMediaPacket bool
 }
-
-// type RtcConnectionConfig struct {
-// 	SubAudio       bool
-// 	SubVideo       bool
-// 	ClientRole     int
-// 	ChannelProfile int
-
-// 	SubAudioConfig     *SubscribeAudioConfig
-// 	ConnectionHandler  *RtcConnectionObserver
-// 	AudioFrameObserver *AudioFrameObserver
-// 	VideoFrameObserver *VideoFrameObserver
-// }
 
 type RtcConnection struct {
 	cConnection unsafe.Pointer

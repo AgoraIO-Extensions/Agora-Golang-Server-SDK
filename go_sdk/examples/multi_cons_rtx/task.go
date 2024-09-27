@@ -223,7 +223,7 @@ func (taskCtx *TaskContext) sendYuv() {
 		Framerate:         30,
 		Bitrate:           500,
 		MinBitrate:        100,
-		OrientationMode:   agoraservice.VideoOrientation0,
+		OrientationMode:   agoraservice.OrientationModeAdaptive,
 		DegradePreference: 0,
 	})
 	videoTrack.SetEnabled(true)
