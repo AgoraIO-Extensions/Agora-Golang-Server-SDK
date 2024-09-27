@@ -142,7 +142,7 @@ func GoPcmAudioFrame(frame *C.struct__audio_frame) *AudioFrame {
 		Buffer:            C.GoBytes(unsafe.Pointer(frame.buffer), bufferLen),
 		RenderTimeMs:      int64(frame.render_time_ms),
 		AvsyncType:        int(frame.avsync_type),
-		FarFiledFlag:      int(frame.far_filed_flag),
+		FarFieldFlag:      int(frame.far_filed_flag),
 		Rms:               int(frame.rms),
 		VoiceProb:         int(frame.voice_prob),
 		MusicProb:         int(frame.music_prob),

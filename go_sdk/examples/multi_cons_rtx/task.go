@@ -469,6 +469,12 @@ func (taskCtx *TaskContext) startTask() {
 		recvAudioFrameObs := &agoraservice.AudioFrameObserver{
 			OnPlaybackAudioFrameBeforeMixing: func(localUser *agoraservice.LocalUser, channelId string, userId string, frame *agoraservice.AudioFrame) bool {
 				// do something
+				if cfg.enableAudioLabel {
+					fmt.Printf("task %d OnPlaybackAudioFrameBeforeMixing, from channel %s, "+
+						"userId %s, audio duration %dms, farFieldFlag %d, rms %d, voiceProb %d, musicProb %d, pitch %d\n",
+						id, channelId, userId, frame.SamplesPerChannel*1000/frame.SamplesPerSec,
+						frame.FarFieldFlag, frame.Rms, frame.VoiceProb, frame.MusicProb, frame.Pitch)
+				}
 				// fmt.Printf("Playback audio frame before mixing, from channel %s, userId %s, audio duration %dms\n",
 				// 	channelId, userId, frame.SamplesPerChannel*1000/frame.SamplesPerSec)
 				if userId == senderId {

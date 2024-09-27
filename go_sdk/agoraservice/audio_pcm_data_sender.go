@@ -16,7 +16,7 @@ type AudioFrame struct {
 	AvsyncType        int
 
 	// these field below are only used for audio observer.
-	FarFiledFlag int
+	FarFieldFlag int
 	Rms          int
 	VoiceProb    int
 	MusicProb    int

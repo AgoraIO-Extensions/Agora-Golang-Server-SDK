@@ -31,12 +31,14 @@ type GlobalContext struct {
 }
 
 type TaskConfig struct {
+	// send options
 	sendYuv          bool
 	sendEncodedVideo bool
 	sendPcm          bool
 	sendEncodedAudio bool
 	sendData         bool
-
+	// recv options
+	enableAudioLabel bool
 	recvYuv          bool
 	recvEncodedVideo bool
 	recvPcm          bool
@@ -127,6 +129,7 @@ func main() {
 		sendEncodedAudio = flag.Bool("sendEncodedAudio", false, "Enable Send encoded audio data")
 		sendData         = flag.Bool("sendData", false, "Enable Send custom data")
 
+		enableAudioLabel = flag.Bool("enableAudioLabel", false, "Enable Audio Label")
 		recvYuv          = flag.Bool("recvYuv", false, "Enable Receive YUV data")
 		recvEncodedVideo = flag.Bool("recvEncodedVideo", false, "Enable Receive encoded video data")
 		recvPcm          = flag.Bool("recvPcm", false, "Enable Receive PCM audio data")
@@ -150,6 +153,10 @@ func main() {
 	globalCtx.channelNamePrefix = *channelName
 	globalCtx.tasks = make([]*TaskContext, *taskCount)
 
+	if *enableAudioLabel {
+		agoraservice.EnableExtension("agora.builtin", "agora_audio_label_generator", "", true)
+	}
+
 	taskCfg := TaskConfig{
 		sendYuv:          *sendYuv,
 		sendEncodedVideo: *sendEncodedVideo,
@@ -157,6 +164,7 @@ func main() {
 		sendEncodedAudio: *sendEncodedAudio,
 		sendData:         *sendData,
 
+		enableAudioLabel: *enableAudioLabel,
 		recvYuv:          *recvYuv,
 		recvEncodedVideo: *recvEncodedVideo,
 		recvPcm:          *recvPcm,
