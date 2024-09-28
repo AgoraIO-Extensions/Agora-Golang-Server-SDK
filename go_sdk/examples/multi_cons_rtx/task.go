@@ -121,7 +121,11 @@ func (taskCtx *TaskContext) sendPcm() {
 			for i := 0; i < shouldSendCount; i++ {
 				dataLen, err := file.Read(frame.Buffer)
 				if err != nil || dataLen < 320 {
-					fmt.Printf("task %d Finished reading file: %s\n", taskCtx.id, err.Error())
+					errMsg := ""
+					if err != nil {
+						errMsg = err.Error()
+					}
+					fmt.Printf("task %d Finished reading file: %s\n", taskCtx.id, errMsg)
 					file.Seek(0, 0)
 					i--
 					continue
