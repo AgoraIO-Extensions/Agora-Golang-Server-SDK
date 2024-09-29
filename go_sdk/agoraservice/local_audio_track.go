@@ -59,14 +59,14 @@ func (track *LocalAudioTrack) AdjustPublishVolume(volume int) int {
 // NOTICE: these interface below is temporary, may be removed in the future
 // size is the number of 10ms audio frames
 // the default value of this param is 30, ie. 300ms
-func (track *LocalAudioTrack) SetMaxBufferAudioFrameNumber(frameNum int) {
+func (track *LocalAudioTrack) SetMaxBufferedAudioFrameNumber(frameNum int) {
 	if track.cTrack == nil {
 		return
 	}
 	C.agora_local_audio_track_set_max_bufferd_frame_number(track.cTrack, C.int(frameNum))
 }
 
-func (track *LocalAudioTrack) ClearBuffer() int {
+func (track *LocalAudioTrack) ClearSenderBuffer() int {
 	if track.cTrack == nil {
 		return -1
 	}
