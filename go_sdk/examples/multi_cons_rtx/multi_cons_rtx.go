@@ -82,19 +82,11 @@ func globalInit() *GlobalContext {
 		fmt.Println("Please set AGORA_APP_ID environment variable, and AGORA_APP_CERTIFICATE if needed")
 		return nil
 	}
-	svcCfg := agoraservice.AgoraServiceConfig{
-		EnableAudioProcessor: true,
-		EnableAudioDevice:    false,
-		EnableVideo:          true,
+	svcCfg := agoraservice.NewAgoraServiceConfig()
+	svcCfg.EnableVideo = true
+	svcCfg.AppId = appid
 
-		AppId:          appid,
-		ChannelProfile: agoraservice.ChannelProfileLiveBroadcasting,
-		AudioScenario:  agoraservice.AudioScenarioChorus,
-		UseStringUid:   false,
-		LogPath:        "./agora_rtc_log/agorasdk.log",
-		LogSize:        1024 * 1024,
-	}
-	agoraservice.Initialize(&svcCfg)
+	agoraservice.Initialize(svcCfg)
 	mediaNodeFactory := agoraservice.NewMediaNodeFactory()
 	return &GlobalContext{
 		ctx:               ctx,

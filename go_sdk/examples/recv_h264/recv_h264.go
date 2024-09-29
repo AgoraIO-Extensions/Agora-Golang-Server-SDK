@@ -50,19 +50,11 @@ func main() {
 			return
 		}
 	}
-	svcCfg := agoraservice.AgoraServiceConfig{
-		EnableAudioProcessor: true,
-		EnableAudioDevice:    false,
-		EnableVideo:          true,
+	svcCfg := agoraservice.NewAgoraServiceConfig()
+	svcCfg.EnableVideo = true
+	svcCfg.AppId = appid
 
-		AppId:          appid,
-		ChannelProfile: agoraservice.ChannelProfileLiveBroadcasting,
-		AudioScenario:  agoraservice.AudioScenarioChorus,
-		UseStringUid:   false,
-		LogPath:        "./agora_rtc_log/agorasdk.log",
-		LogSize:        512 * 1024,
-	}
-	agoraservice.Initialize(&svcCfg)
+	agoraservice.Initialize(svcCfg)
 	defer agoraservice.Release()
 	mediaNodeFactory := agoraservice.NewMediaNodeFactory()
 	defer mediaNodeFactory.Release()

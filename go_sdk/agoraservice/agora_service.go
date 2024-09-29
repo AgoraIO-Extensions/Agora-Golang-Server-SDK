@@ -94,6 +94,21 @@ func newAgoraService() *AgoraService {
 
 var agoraService *AgoraService = newAgoraService()
 
+func NewAgoraServiceConfig() *AgoraServiceConfig {
+	return &AgoraServiceConfig{
+		EnableAudioProcessor: true,
+		EnableAudioDevice:    false,
+		EnableVideo:          false,
+		AppId:                "",
+		AreaCode:             AreaCodeGlob,
+		ChannelProfile:       ChannelProfileLiveBroadcasting,
+		AudioScenario:        AudioScenarioChorus,
+		UseStringUid:         false,
+		LogPath:              "./agora_rtc_log/agorasdk.log",
+		LogSize:              1024 * 1024,
+	}
+}
+
 // Initialize the Agora service.
 // The Agora service is the core service of the Agora SDK.
 // You must call this method before calling any other methods.
