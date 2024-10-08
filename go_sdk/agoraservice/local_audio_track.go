@@ -72,3 +72,11 @@ func (track *LocalAudioTrack) ClearSenderBuffer() int {
 	}
 	return int(C.agora_local_audio_track_clear_sender_buffer(track.cTrack))
 }
+
+func (track *LocalAudioTrack) SetSendDelayMs(delayMs int) int {
+	if track.cTrack == nil {
+		return -1
+	}
+	C.agora_local_audio_track_set_send_delay_ms(track.cTrack, C.int(delayMs))
+	return 0
+}

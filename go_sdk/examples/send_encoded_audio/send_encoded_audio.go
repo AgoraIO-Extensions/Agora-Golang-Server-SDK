@@ -94,12 +94,27 @@ func main() {
 	conHandler := &agoraservice.RtcConnectionObserver{
 		OnConnected: func(con *agoraservice.RtcConnection, info *agoraservice.RtcConnectionInfo, reason int) {
 			// do something
-			fmt.Println("Connected")
+			fmt.Printf("Connected, reason %d\n", reason)
 			conSignal <- struct{}{}
 		},
 		OnDisconnected: func(con *agoraservice.RtcConnection, info *agoraservice.RtcConnectionInfo, reason int) {
 			// do something
-			fmt.Println("Disconnected")
+			fmt.Printf("Disconnected, reason %d\n", reason)
+		},
+		OnConnecting: func(con *agoraservice.RtcConnection, conInfo *agoraservice.RtcConnectionInfo, reason int) {
+			fmt.Printf("Connecting, reason %d\n", reason)
+		},
+		OnReconnecting: func(con *agoraservice.RtcConnection, conInfo *agoraservice.RtcConnectionInfo, reason int) {
+			fmt.Printf("Reconnecting, reason %d\n", reason)
+		},
+		OnReconnected: func(con *agoraservice.RtcConnection, conInfo *agoraservice.RtcConnectionInfo, reason int) {
+			fmt.Printf("Reconnected, reason %d\n", reason)
+		},
+		OnConnectionLost: func(con *agoraservice.RtcConnection, conInfo *agoraservice.RtcConnectionInfo) {
+			fmt.Printf("Connection lost\n")
+		},
+		OnConnectionFailure: func(con *agoraservice.RtcConnection, conInfo *agoraservice.RtcConnectionInfo, errCode int) {
+			fmt.Printf("Connection failure, error code %d\n", errCode)
 		},
 		OnUserJoined: func(con *agoraservice.RtcConnection, uid string) {
 			fmt.Println("user joined, " + uid)
@@ -128,6 +143,7 @@ func main() {
 	track := agoraservice.NewCustomAudioTrackEncoded(sender, agoraservice.AudioTrackMixDisabled) // .NewCustomAudioTrackPcm(sender)
 	defer track.Release()
 
+	localUser.SetAudioScenario(agoraservice.AudioScenarioChorus)
 	con.Connect(token, channelName, userId)
 	<-conSignal
 

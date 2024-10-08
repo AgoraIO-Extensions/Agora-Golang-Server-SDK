@@ -222,3 +222,10 @@ func (localUser *LocalUser) SetPlaybackAudioFrameBeforeMixingParameters(channels
 	}
 	return int(C.agora_local_user_set_playback_audio_frame_before_mixing_parameters(localUser.cLocalUser, C.uint(channels), C.uint(sampleRate)))
 }
+
+func (localUser *LocalUser) SetAudioScenario(audioScenario AudioScenario) int {
+	if localUser.cLocalUser == nil {
+		return -1
+	}
+	return int(C.agora_local_user_set_audio_scenario(localUser.cLocalUser, C.int(audioScenario)))
+}

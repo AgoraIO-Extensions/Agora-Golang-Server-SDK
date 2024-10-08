@@ -401,12 +401,27 @@ func (taskCtx *TaskContext) startTask() {
 	obs := &agoraservice.RtcConnectionObserver{
 		OnConnected: func(con *agoraservice.RtcConnection, info *agoraservice.RtcConnectionInfo, reason int) {
 			// do something
-			fmt.Printf("task %d Connected\n", id)
+			fmt.Printf("task %d Connected, reason %d\n", id, reason)
 			conSignal <- struct{}{}
 		},
 		OnDisconnected: func(con *agoraservice.RtcConnection, info *agoraservice.RtcConnectionInfo, reason int) {
 			// do something
-			fmt.Printf("task %d Disconnected\n", id)
+			fmt.Printf("task %d Disconnected, reason %d\n", id, reason)
+		},
+		OnConnecting: func(con *agoraservice.RtcConnection, conInfo *agoraservice.RtcConnectionInfo, reason int) {
+			fmt.Printf("task %d Connecting, reason %d\n", id, reason)
+		},
+		OnReconnecting: func(con *agoraservice.RtcConnection, conInfo *agoraservice.RtcConnectionInfo, reason int) {
+			fmt.Printf("task %d Reconnecting, reason %d\n", id, reason)
+		},
+		OnReconnected: func(con *agoraservice.RtcConnection, conInfo *agoraservice.RtcConnectionInfo, reason int) {
+			fmt.Printf("task %d Reconnected, reason %d\n", id, reason)
+		},
+		OnConnectionLost: func(con *agoraservice.RtcConnection, conInfo *agoraservice.RtcConnectionInfo) {
+			fmt.Printf("task %d Connection lost\n", id)
+		},
+		OnConnectionFailure: func(con *agoraservice.RtcConnection, conInfo *agoraservice.RtcConnectionInfo, errCode int) {
+			fmt.Printf("task %d Connection failure, error code %d\n", id, errCode)
 		},
 		OnUserJoined: func(con *agoraservice.RtcConnection, uid string) {
 			fmt.Printf("task %d user %s joined\n", id, uid)
@@ -562,6 +577,7 @@ func (taskCtx *TaskContext) startTask() {
 		}
 	}
 	localUser.RegisterLocalUserObserver(localUserObs)
+	localUser.SetAudioScenario(agoraservice.AudioScenarioChorus)
 	con.Connect(token1, channelName, senderId)
 	defer con.Disconnect()
 
