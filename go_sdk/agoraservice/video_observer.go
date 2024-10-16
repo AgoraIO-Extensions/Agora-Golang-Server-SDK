@@ -25,7 +25,7 @@ func goOnVideoFrame(cObserver unsafe.Pointer, channelId *C.char, uid *C.char, fr
 	goChannelId := C.GoString(channelId)
 	goUid := C.GoString(uid)
 	goFrame := GoVideoFrame(frame)
-	ret := con.videoObserver.OnFrame(con.GetLocalUser(), goChannelId, goUid, goFrame)
+	ret := con.videoObserver.OnFrame(goChannelId, goUid, goFrame)
 	if ret {
 		return C.int(1)
 	}
@@ -57,7 +57,7 @@ func goOnEncodedVideoFrame(observer unsafe.Pointer, uid C.uint32_t, imageBuffer 
 		Uid:             uint32(video_encoded_frame_info.uid),
 		StreamType:      int(video_encoded_frame_info.stream_type),
 	}
-	if con.encodedVideoObserver.OnEncodedVideoFrame(con.GetLocalUser(), goUid, goImageBuffer, goFrameInfo) {
+	if con.encodedVideoObserver.OnEncodedVideoFrame(goUid, goImageBuffer, goFrameInfo) {
 		return C.int(1)
 	}
 	return C.int(0)

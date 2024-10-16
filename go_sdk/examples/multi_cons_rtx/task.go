@@ -527,7 +527,7 @@ func (taskCtx *TaskContext) startTask() {
 	}
 	if cfg.recvYuv {
 		recvVideoFrameObs := &agoraservice.VideoFrameObserver{
-			OnFrame: func(localUser *agoraservice.LocalUser, channelId string, userId string, frame *agoraservice.VideoFrame) bool {
+			OnFrame: func(channelId string, userId string, frame *agoraservice.VideoFrame) bool {
 				// do something
 				// fmt.Printf("recv video frame, from channel %s, user %s, video size %dx%d\n",
 				// 	channelId, userId, frame.Width, frame.Height)
@@ -560,7 +560,7 @@ func (taskCtx *TaskContext) startTask() {
 			fmt.Printf("task %d user %s video subscribed\n", id, uid)
 		}
 		encodedVideoObserver := &agoraservice.VideoEncodedFrameObserver{
-			OnEncodedVideoFrame: func(localUser *agoraservice.LocalUser, uid string, imageBuffer []byte, frameInfo *agoraservice.EncodedVideoFrameInfo) bool {
+			OnEncodedVideoFrame: func(uid string, imageBuffer []byte, frameInfo *agoraservice.EncodedVideoFrameInfo) bool {
 				if uid == senderId {
 					return true
 				}

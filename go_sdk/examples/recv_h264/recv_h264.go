@@ -106,7 +106,7 @@ func main() {
 		},
 	}
 	encodedVideoObserver := &agoraservice.VideoEncodedFrameObserver{
-		OnEncodedVideoFrame: func(localUser *agoraservice.LocalUser, uid string, imageBuffer []byte, frameInfo *agoraservice.EncodedVideoFrameInfo) bool {
+		OnEncodedVideoFrame: func(uid string, imageBuffer []byte, frameInfo *agoraservice.EncodedVideoFrameInfo) bool {
 			// fmt.Printf("user %s encoded video received\n", uid)
 			videoChan <- &EncodedVideoData{
 				uid:       uid,

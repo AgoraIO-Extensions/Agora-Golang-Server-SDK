@@ -84,11 +84,11 @@ type AudioFrameObserver struct {
 }
 
 type VideoFrameObserver struct {
-	OnFrame func(localUser *LocalUser, channelId string, userId string, frame *VideoFrame) bool
+	OnFrame func(channelId string, userId string, frame *VideoFrame) bool
 }
 
 type VideoEncodedFrameObserver struct {
-	OnEncodedVideoFrame func(localUser *LocalUser, uid string, imageBuffer []byte,
+	OnEncodedVideoFrame func(uid string, imageBuffer []byte,
 		frameInfo *EncodedVideoFrameInfo) bool
 }
 
