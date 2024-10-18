@@ -8,7 +8,7 @@ PACKAGE_HOME=$(
 UNAME_S=`uname -s`
 OS=unknown
 
-linux_sdk="https://download.agora.io/sdk/release/agora_rtc_sdk-linux-gnu-v4.4.30-20241012_114642-379681.zip"
+linux_sdk="https://download.agora.io/sdk/release/agora_rtc_sdk-linux-v4.4.30-20241018_185922-389525.zip"
 mac_sdk="https://download.agora.io/sdk/release/agora_rtc_sdk_mac_v4.4.30_22304_FULL_20241015_1616_384496.zip"
 
 if [[ $UNAME_S == Linux ]]; then

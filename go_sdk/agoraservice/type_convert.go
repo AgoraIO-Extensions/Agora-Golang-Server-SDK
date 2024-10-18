@@ -15,7 +15,10 @@ package agoraservice
 #include "video_observer_cgo.h"
 */
 import "C"
-import "unsafe"
+import (
+	"runtime"
+	"unsafe"
+)
 
 func CAgoraServiceConfig(cfg *AgoraServiceConfig) *C.struct__agora_service_config {
 	ret := (*C.struct__agora_service_config)(C.malloc(C.sizeof_struct__agora_service_config))
@@ -239,4 +242,13 @@ func GoVideoTrackInfo(cInfo *C.struct__video_track_info) *VideoTrackInfo {
 		ObservationPosition: uint(cInfo.observation_position),
 	}
 	return ret
+}
+
+func unsafeCBytes(data []byte) (unsafe.Pointer, runtime.Pinner) {
+	ptr := unsafe.Pointer(&data[0])
+
+	var pinner runtime.Pinner
+	pinner.Pin(ptr)
+
+	return ptr, pinner
 }

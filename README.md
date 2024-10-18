@@ -3,7 +3,7 @@
   - Ubuntu 18.04 LTS and above
   - CentOS 7.0 and above
 - go version:
-  - go 1.20 and above
+  - go 1.21 and above
   - not tested on go 1.19 and below
 - examples require:
   - ffmpeg version 6.x and above, and corresponding development library installed (libavformat-dev, libavcodec-dev, libswscale-dev...)

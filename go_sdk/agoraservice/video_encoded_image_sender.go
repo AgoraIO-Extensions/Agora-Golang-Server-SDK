@@ -79,8 +79,8 @@ func (sender *VideoEncodedImageSender) Release() {
 }
 
 func (sender *VideoEncodedImageSender) SendEncodedVideoImage(payload []byte, frameInfo *EncodedVideoFrameInfo) int {
-	cData := C.CBytes(payload)
-	defer C.free(cData)
+	cData, pinner := unsafeCBytes(payload)
+	defer pinner.Unpin()
 	cFrameInfo := &C.struct__encoded_video_frame_info{
 		codec_type:        C.int(frameInfo.CodecType),
 		width:             C.int(frameInfo.Width),

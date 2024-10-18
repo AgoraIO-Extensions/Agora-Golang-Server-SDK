@@ -92,8 +92,8 @@ func (sender *VideoFrameSender) Release() {
 }
 
 func (sender *VideoFrameSender) SendVideoFrame(frame *ExternalVideoFrame) int {
-	cData := C.CBytes(frame.Buffer)
-	defer C.free(cData)
+	cData, pinner := unsafeCBytes(frame.Buffer)
+	defer pinner.Unpin()
 	cFrame := C.struct__external_video_frame{}
 	C.memset(unsafe.Pointer(&cFrame), 0, C.sizeof_struct__external_video_frame)
 	cFrame._type = C.int(frame.Type)

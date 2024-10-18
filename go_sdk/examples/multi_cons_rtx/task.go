@@ -45,6 +45,9 @@ const (
 	SendPcmPath          = "../test_data/send_audio_16k_1ch.pcm"
 	SendYuvWidth         = 640
 	SendYuvHeight        = 360
+	SendYuvFps           = 15
+	SendYuvBitrate       = 500
+	SendYuvMinBitrate    = 100
 	SendYuvPath          = "../test_data/360p_I420.yuv"
 	SendEncodedAudioPath = "../test_data/send_audio_16k.aac"
 	SendEncodedVideoPath = "../test_data/send_video.h264"
@@ -231,11 +234,11 @@ func (taskCtx *TaskContext) sendYuv() {
 
 	videoTrack.SetVideoEncoderConfiguration(&agoraservice.VideoEncoderConfiguration{
 		CodecType:         agoraservice.VideoCodecTypeH264,
-		Width:             320,
-		Height:            240,
-		Framerate:         30,
-		Bitrate:           500,
-		MinBitrate:        100,
+		Width:             SendYuvWidth,
+		Height:            SendYuvHeight,
+		Framerate:         SendYuvFps,
+		Bitrate:           SendYuvBitrate,
+		MinBitrate:        SendYuvMinBitrate,
 		OrientationMode:   agoraservice.OrientationModeAdaptive,
 		DegradePreference: 0,
 	})
@@ -259,7 +262,7 @@ func (taskCtx *TaskContext) sendYuv() {
 	}
 	defer file.Close()
 
-	ticker := time.NewTicker(33 * time.Millisecond)
+	ticker := time.NewTicker((1000 / SendYuvFps) * time.Millisecond)
 	for {
 		select {
 		case <-ticker.C:
