@@ -124,6 +124,7 @@ func (taskCtx *TaskContext) sendPcm() {
 	defer file.Close()
 
 	ticker := time.NewTicker(50 * time.Millisecond)
+	defer ticker.Stop()
 	sendCount := 0
 	firstSendTime := time.Now()
 	for {
@@ -184,6 +185,7 @@ func (taskCtx *TaskContext) sendEncodedAudio() {
 
 	var sendAudioDuration int64 = 0
 	ticker := time.NewTicker(50 * time.Millisecond)
+	defer ticker.Stop()
 	firstSendTime := time.Now()
 	for {
 		select {
@@ -263,6 +265,7 @@ func (taskCtx *TaskContext) sendYuv() {
 	defer file.Close()
 
 	ticker := time.NewTicker((1000 / SendYuvFps) * time.Millisecond)
+	defer ticker.Stop()
 	for {
 		select {
 		case <-ticker.C:
@@ -315,6 +318,7 @@ func (taskCtx *TaskContext) sendEncodedVideo() {
 
 	sendInterval := 1000 * int64(codecParam.framerate.den) / int64(codecParam.framerate.num)
 	ticker := time.NewTicker(time.Duration(sendInterval) * time.Millisecond)
+	defer ticker.Stop()
 	for {
 		select {
 		case <-ticker.C:
@@ -358,6 +362,7 @@ func (taskCtx *TaskContext) sendData() {
 	id := taskCtx.id
 
 	ticker := time.NewTicker(33 * time.Millisecond)
+	defer ticker.Stop()
 	msg := []byte(fmt.Sprintf("Hello, Agora! from task %d", id))
 	for {
 		select {
@@ -409,7 +414,8 @@ func (taskCtx *TaskContext) startTask() {
 		}
 	}()
 
-	conSignal := make(chan struct{})
+	// make sure channel not block callback
+	conSignal := make(chan struct{}, 1)
 	obs := &agoraservice.RtcConnectionObserver{
 		OnConnected: func(con *agoraservice.RtcConnection, info *agoraservice.RtcConnectionInfo, reason int) {
 			// do something
