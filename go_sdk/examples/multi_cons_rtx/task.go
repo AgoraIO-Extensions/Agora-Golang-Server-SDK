@@ -596,6 +596,7 @@ func (taskCtx *TaskContext) startTask() {
 		}
 	}
 	localUser.RegisterLocalUserObserver(localUserObs)
+	defer localUser.UnregisterLocalUserObserver()
 	localUser.SetAudioScenario(agoraservice.AudioScenarioChorus)
 	con.Connect(token1, channelName, senderId)
 	defer con.Disconnect()

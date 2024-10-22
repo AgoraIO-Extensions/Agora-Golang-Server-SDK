@@ -237,6 +237,9 @@ func (conn *RtcConnection) Release() {
 	if conn.cVideoObserver != nil {
 		C.agora_local_user_unregister_video_frame_observer(localUser.cLocalUser, conn.cVideoObserver)
 	}
+	if conn.cEncodedVideoObserver != nil {
+		C.agora_local_user_unregister_video_encoded_frame_observer(localUser.cLocalUser, conn.cEncodedVideoObserver)
+	}
 	if conn.cLocalUserObserver != nil {
 		C.agora_local_user_unregister_observer(localUser.cLocalUser)
 	}
@@ -364,6 +367,11 @@ func (conn *RtcConnection) RegisterObserver(handler *RtcConnectionObserver) int 
 }
 
 func (conn *RtcConnection) UnregisterObserver() int {
+	if conn.cHandler != nil {
+		C.agora_rtc_conn_unregister_observer(conn.cConnection)
+		FreeCRtcConnectionObserver(conn.cHandler)
+		conn.cHandler = nil
+	}
 	conn.handler = nil
 	return 0
 }
@@ -381,6 +389,11 @@ func (conn *RtcConnection) registerLocalUserObserver(handler *LocalUserObserver)
 }
 
 func (conn *RtcConnection) unregisterLocalUserObserver() int {
+	if conn.cLocalUserObserver != nil {
+		C.agora_local_user_unregister_observer(conn.localUser.cLocalUser)
+		FreeCLocalUserObserver(conn.cLocalUserObserver)
+		conn.cLocalUserObserver = nil
+	}
 	conn.localUserObserver = nil
 	return 0
 }
@@ -398,6 +411,11 @@ func (conn *RtcConnection) registerAudioFrameObserver(observer *AudioFrameObserv
 }
 
 func (conn *RtcConnection) unregisterAudioFrameObserver() int {
+	if conn.cAudioObserver != nil {
+		C.agora_local_user_unregister_audio_frame_observer(conn.localUser.cLocalUser)
+		FreeCAudioFrameObserver(conn.cAudioObserver)
+		conn.cAudioObserver = nil
+	}
 	conn.audioObserver = nil
 	return 0
 }
@@ -409,15 +427,23 @@ func (conn *RtcConnection) registerVideoFrameObserver(observer *VideoFrameObserv
 	conn.videoObserver = observer
 	if conn.cVideoObserver == nil {
 		conn.cVideoObserver = CVideoFrameObserver()
-		C.agora_local_user_register_video_frame_observer(conn.localUser.cLocalUser, conn.cVideoObserver)
 		agoraService.connectionRWMutex.Lock()
 		agoraService.consByCVideoObserver[conn.cVideoObserver] = conn
 		agoraService.connectionRWMutex.Unlock()
+		C.agora_local_user_register_video_frame_observer(conn.localUser.cLocalUser, conn.cVideoObserver)
 	}
 	return 0
 }
 
 func (conn *RtcConnection) unregisterVideoFrameObserver() int {
+	if conn.cVideoObserver != nil {
+		C.agora_local_user_unregister_video_frame_observer(conn.localUser.cLocalUser, conn.cVideoObserver)
+		agoraService.connectionRWMutex.Lock()
+		delete(agoraService.consByCVideoObserver, conn.cVideoObserver)
+		agoraService.connectionRWMutex.Unlock()
+		FreeCVideoFrameObserver(conn.cVideoObserver)
+		conn.cVideoObserver = nil
+	}
 	conn.videoObserver = nil
 	return 0
 }
@@ -429,15 +455,23 @@ func (conn *RtcConnection) registerVideoEncodedFrameObserver(observer *VideoEnco
 	conn.encodedVideoObserver = observer
 	if conn.cEncodedVideoObserver == nil {
 		conn.cEncodedVideoObserver = CVideoEncodedFrameObserver()
-		C.agora_local_user_register_video_encoded_frame_observer(conn.localUser.cLocalUser, conn.cEncodedVideoObserver)
 		agoraService.connectionRWMutex.Lock()
 		agoraService.consByCEncodedVideoObserver[conn.cEncodedVideoObserver] = conn
 		agoraService.connectionRWMutex.Unlock()
+		C.agora_local_user_register_video_encoded_frame_observer(conn.localUser.cLocalUser, conn.cEncodedVideoObserver)
 	}
 	return 0
 }
 
 func (conn *RtcConnection) unregisterVideoEncodedFrameObserver() int {
+	if conn.cEncodedVideoObserver != nil {
+		C.agora_local_user_unregister_video_encoded_frame_observer(conn.localUser.cLocalUser, conn.cEncodedVideoObserver)
+		agoraService.connectionRWMutex.Lock()
+		delete(agoraService.consByCEncodedVideoObserver, conn.cEncodedVideoObserver)
+		agoraService.connectionRWMutex.Unlock()
+		FreeCEncodedVideoFrameObserver(conn.cEncodedVideoObserver)
+		conn.cEncodedVideoObserver = nil
+	}
 	conn.encodedVideoObserver = nil
 	return 0
 }
