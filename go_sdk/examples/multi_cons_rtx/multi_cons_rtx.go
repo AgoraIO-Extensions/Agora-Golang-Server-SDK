@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/signal"
 	"sync"
+	"time"
 
 	agoraservice "github.com/AgoraIO-Extensions/Agora-Golang-Server-SDK/v2/go_sdk/agoraservice"
 
@@ -201,6 +202,19 @@ func main() {
 				}(task)
 			case <-globalCtx.ctx.Done():
 				stop = true
+			}
+		}
+	}()
+
+	go func() {
+		ticker := time.NewTicker(1 * time.Minute)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-globalCtx.ctx.Done():
+				return
+			case <-ticker.C:
+				printStats()
 			}
 		}
 	}()
