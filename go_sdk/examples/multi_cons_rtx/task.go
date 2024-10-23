@@ -99,10 +99,10 @@ func (taskCtx *TaskContext) sendPcm() {
 	audioTrack.SetEnabled(true)
 	senderLocalUser := con.GetLocalUser()
 	senderLocalUser.PublishAudio(audioTrack)
-	defer func() {
-		senderLocalUser.UnpublishAudio(audioTrack)
-		audioTrack.SetEnabled(false)
-	}()
+	// defer func() {
+	// 	senderLocalUser.UnpublishAudio(audioTrack)
+	// 	audioTrack.SetEnabled(false)
+	// }()
 
 	audioTrack.AdjustPublishVolume(100)
 
@@ -165,10 +165,10 @@ func (taskCtx *TaskContext) sendEncodedAudio() {
 	encodedAudioTrack.SetEnabled(true)
 	senderLocalUser := con.GetLocalUser()
 	senderLocalUser.PublishAudio(encodedAudioTrack)
-	defer func() {
-		senderLocalUser.UnpublishAudio(encodedAudioTrack)
-		encodedAudioTrack.SetEnabled(false)
-	}()
+	// defer func() {
+	// 	senderLocalUser.UnpublishAudio(encodedAudioTrack)
+	// 	encodedAudioTrack.SetEnabled(false)
+	// }()
 
 	pFormatContext := openMediaFile(SendEncodedAudioPath)
 	if pFormatContext == nil {
@@ -247,10 +247,10 @@ func (taskCtx *TaskContext) sendYuv() {
 	videoTrack.SetEnabled(true)
 	senderLocalUser := con.GetLocalUser()
 	senderLocalUser.PublishVideo(videoTrack)
-	defer func() {
-		senderLocalUser.UnpublishVideo(videoTrack)
-		videoTrack.SetEnabled(false)
-	}()
+	// defer func() {
+	// 	senderLocalUser.UnpublishVideo(videoTrack)
+	// 	videoTrack.SetEnabled(false)
+	// }()
 
 	w := SendYuvWidth
 	h := SendYuvHeight
@@ -299,10 +299,10 @@ func (taskCtx *TaskContext) sendEncodedVideo() {
 	encodedVideoTrack.SetEnabled(true)
 	localUser := con.GetLocalUser()
 	localUser.PublishVideo(encodedVideoTrack)
-	defer func() {
-		localUser.UnpublishVideo(encodedVideoTrack)
-		encodedVideoTrack.SetEnabled(false)
-	}()
+	// defer func() {
+	// 	localUser.UnpublishVideo(encodedVideoTrack)
+	// 	encodedVideoTrack.SetEnabled(false)
+	// }()
 
 	pFormatContext := openMediaFile(SendEncodedVideoPath)
 	if pFormatContext == nil {
@@ -459,37 +459,37 @@ func (taskCtx *TaskContext) startTask() {
 		ChannelProfile:     agoraservice.ChannelProfileLiveBroadcasting,
 	})
 	taskCtx.con = con
-	defer con.Release()
+	defer taskCtx.releaseTask()
 
 	if cfg.sendPcm {
 		// create audio track
 		taskCtx.audioPcmSender = globalCtx.mediaNodeFactory.NewAudioPcmDataSender()
-		defer taskCtx.audioPcmSender.Release()
+		// defer taskCtx.audioPcmSender.Release()
 		taskCtx.audioTrack = agoraservice.NewCustomAudioTrackPcm(taskCtx.audioPcmSender)
-		defer taskCtx.audioTrack.Release()
+		// defer taskCtx.audioTrack.Release()
 	}
 	if cfg.sendEncodedAudio {
 		taskCtx.encodedAudioSender = globalCtx.mediaNodeFactory.NewAudioEncodedFrameSender() // .NewAudioPcmDataSender()
-		defer taskCtx.encodedAudioSender.Release()
+		// defer taskCtx.encodedAudioSender.Release()
 		taskCtx.encodedAudioTrack = agoraservice.NewCustomAudioTrackEncoded(taskCtx.encodedAudioSender, agoraservice.AudioTrackMixDisabled) // .NewCustomAudioTrackPcm(sender)
-		defer taskCtx.encodedAudioTrack.Release()
+		// defer taskCtx.encodedAudioTrack.Release()
 	}
 	if cfg.sendYuv {
 		// create video track
 		taskCtx.videoYuvSender = globalCtx.mediaNodeFactory.NewVideoFrameSender()
-		defer taskCtx.videoYuvSender.Release()
+		// defer taskCtx.videoYuvSender.Release()
 		taskCtx.videoTrack = agoraservice.NewCustomVideoTrackFrame(taskCtx.videoYuvSender)
-		defer taskCtx.videoTrack.Release()
+		// defer taskCtx.videoTrack.Release()
 	}
 	if cfg.sendEncodedVideo {
 		taskCtx.encodedVideoSender = globalCtx.mediaNodeFactory.NewVideoEncodedImageSender()
-		defer taskCtx.encodedVideoSender.Release()
+		// defer taskCtx.encodedVideoSender.Release()
 		taskCtx.encodedVideoTrack = agoraservice.NewCustomVideoTrackEncoded(taskCtx.encodedVideoSender, &agoraservice.VideoEncodedImageSenderOptions{
 			CcMode:        agoraservice.VideoSendCcDisabled,
 			CodecType:     agoraservice.VideoCodecTypeH264,
 			TargetBitrate: 500,
 		})
-		defer taskCtx.encodedVideoTrack.Release()
+		// defer taskCtx.encodedVideoTrack.Release()
 	}
 	// create datastream
 	if cfg.sendData {
@@ -596,10 +596,10 @@ func (taskCtx *TaskContext) startTask() {
 		}
 	}
 	localUser.RegisterLocalUserObserver(localUserObs)
-	defer localUser.UnregisterLocalUserObserver()
+	// defer localUser.UnregisterLocalUserObserver()
 	localUser.SetAudioScenario(agoraservice.AudioScenarioChorus)
 	con.Connect(token1, channelName, senderId)
-	defer con.Disconnect()
+	// defer con.Disconnect()
 
 	select {
 	case <-conSignal:
@@ -664,4 +664,58 @@ func (taskCtx *TaskContext) startTask() {
 	}()
 	waitGroup.Wait()
 	fmt.Printf("task %d finished\n", id)
+}
+
+func (taskCtx *TaskContext) releaseTask() {
+	fmt.Printf("task %d release\n", taskCtx.id)
+	if taskCtx.con == nil {
+		fmt.Printf("task %d release empty connection\n", taskCtx.id)
+		return
+	}
+	localUser := taskCtx.con.GetLocalUser()
+	if taskCtx.audioPcmSender != nil {
+		taskCtx.audioPcmSender.Release()
+		taskCtx.audioPcmSender = nil
+	}
+	if taskCtx.audioTrack != nil {
+		localUser.UnpublishAudio(taskCtx.audioTrack)
+		taskCtx.audioTrack.Release()
+		taskCtx.audioTrack = nil
+	}
+	if taskCtx.videoYuvSender != nil {
+		taskCtx.videoYuvSender.Release()
+		taskCtx.videoYuvSender = nil
+	}
+	if taskCtx.videoTrack != nil {
+		localUser.UnpublishVideo(taskCtx.videoTrack)
+		taskCtx.videoTrack.Release()
+		taskCtx.videoTrack = nil
+	}
+	if taskCtx.encodedAudioSender != nil {
+		taskCtx.encodedAudioSender.Release()
+		taskCtx.encodedAudioSender = nil
+	}
+	if taskCtx.encodedAudioTrack != nil {
+		localUser.UnpublishAudio(taskCtx.encodedAudioTrack)
+		taskCtx.encodedAudioTrack.Release()
+		taskCtx.encodedAudioTrack = nil
+	}
+	if taskCtx.encodedVideoSender != nil {
+		taskCtx.encodedVideoSender.Release()
+		taskCtx.encodedVideoSender = nil
+	}
+	if taskCtx.encodedVideoTrack != nil {
+		localUser.UnpublishVideo(taskCtx.encodedVideoTrack)
+		taskCtx.encodedVideoTrack.Release()
+		taskCtx.encodedVideoTrack = nil
+	}
+	localUser.UnregisterAudioFrameObserver()
+	localUser.UnregisterVideoFrameObserver()
+	localUser.UnregisterVideoEncodedFrameObserver()
+	taskCtx.con.Disconnect()
+	taskCtx.con.UnregisterObserver()
+	localUser.UnregisterLocalUserObserver()
+	taskCtx.con.Release()
+	taskCtx.con = nil
+	fmt.Printf("task %d released\n", taskCtx.id)
 }
