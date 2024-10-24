@@ -322,6 +322,7 @@ void * open_media_file(const char *file_name) {
         return NULL;
     }
     decoder->pkt = pkt;
+    decoder->fmt_ctx->flags |= AVFMT_FLAG_SORT_DTS;
 
     init_decoder(decoder, AVMEDIA_TYPE_VIDEO);
     init_decoder(decoder, AVMEDIA_TYPE_AUDIO);
@@ -388,7 +389,7 @@ int get_frame(void *decoder, MediaFrame *frame) {
       av_packet_unref(pkt);
 
       if (result < 0) {
-          av_log(NULL, AV_LOG_ERROR, "Error submitting a packet for decoding\n");
+          av_log(NULL, AV_LOG_ERROR, "Error submitting a packet for decoding, %s\n", av_err2str(result));
           return result;
       }
 

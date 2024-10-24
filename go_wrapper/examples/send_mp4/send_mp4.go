@@ -31,7 +31,6 @@ func main() {
 		<-c
 		*bStop = true
 		fmt.Println("Application terminated")
-		os.Exit(0)
 	}()
 
 	// get environment variable
@@ -124,26 +123,62 @@ func main() {
 	audioSender.Start()
 	videoSender.Start()
 
-	fn := C.CString("../../../test_data/demo-1.mp4")
-	defer C.free(unsafe.Pointer(fn))
-	decoder := C.open_media_file(fn)
+	fileList := []string{
+		"../../../mp4_list/welcome.mp4",
+		"../../../mp4_list/1.mp4",
+		"../../../mp4_list/welcome2.mp4",
+		"../../../mp4_list/2.mp4",
+		"../../../mp4_list/farewell.mp4",
+	}
+	fileIndex := 0
+
+	cFileList := make([]*C.char, len(fileList))
+	for i, f := range fileList {
+		cFileList[i] = C.CString(f)
+	}
+	defer func() {
+		for _, f := range cFileList {
+			C.free(unsafe.Pointer(f))
+		}
+	}()
+	decoder := C.open_media_file(cFileList[fileIndex])
 	if decoder == nil {
 		fmt.Println("Error opening media file")
 		return
 	}
-	defer C.close_media_file(decoder)
+	// defer C.close_media_file(decoder)
+	defer func() {
+		if decoder != nil {
+			C.close_media_file(decoder)
+			decoder = nil
+		}
+	}()
 
 	cFrame := C.struct__MediaFrame{}
 	C.memset(unsafe.Pointer(&cFrame), 0, C.sizeof_struct__MediaFrame)
 
+	curOffset := int64(0)
+	lastPts := int64(0)
 	firstPts := int64(0)
 	firstSendTime := time.Now()
 	for !(*bStop) {
 		totalSendTime := time.Since(firstSendTime).Milliseconds()
 		ret := C.get_frame(decoder, &cFrame)
 		if ret == C.AVERROR_EOF {
-			fmt.Println("Finished reading file:", ret)
-			break
+			fmt.Printf("Finished reading file %s, code: %d\n", fileList[fileIndex], ret)
+
+			curOffset = lastPts
+			if decoder != nil {
+				C.close_media_file(decoder)
+				decoder = nil
+			}
+			fileIndex = (fileIndex + 1) % len(cFileList)
+			decoder = C.open_media_file(cFileList[fileIndex])
+			if decoder == nil {
+				fmt.Println("Error opening media file")
+				return
+			}
+			continue
 		}
 		if ret != 0 {
 			fmt.Println("Error reading frame:", ret)
@@ -155,6 +190,8 @@ func main() {
 		if cFrame.pts <= 0 {
 			cFrame.pts = 1
 		}
+		cFrame.pts = C.int64_t(curOffset) + cFrame.pts
+		lastPts = int64(cFrame.pts)
 		if firstPts == 0 {
 			firstPts = int64(cFrame.pts)
 			firstSendTime = time.Now()
