@@ -46,6 +46,18 @@ type ExternalVideoFrame struct {
 	MetadataBuffer []byte
 	// AlphaBuffer is the alpha buffer.
 	AlphaBuffer []byte
+	// [For bgra or rgba only] Extract alphaBuffer from bgra or rgba data. Set it true if you do not explicitly specify the alphabuffer.
+	// The default value is false
+	FillAlphaBuffer bool
+
+	// The relative position between alphabuffer and the frame.
+	// 0: Normal frame;
+	// 1: Alphabuffer is above the frame;
+	// 2: Alphabuffer is below the frame;
+	// 3: Alphabuffer is on the left of frame;
+	// 4: Alphabuffer is on the right of frame;
+	// The default value is 0.
+	AlphaMode int
 }
 
 // VideoFrame represents a video frame.
@@ -67,6 +79,14 @@ type VideoFrame struct {
 	TextureID      int              // TextureID is the texture ID used by the video frame.
 	Matrix         [16]float32      // Matrix is the incoming 4x4 transformational matrix.
 	AlphaBuffer    []byte           // AlphaBuffer is the alpha buffer.
+	// The relative position between alphabuffer and the frame.
+	// 0: Normal frame;
+	// 1: Alphabuffer is above the frame;
+	// 2: Alphabuffer is below the frame;
+	// 3: Alphabuffer is on the left of frame;
+	// 4: Alphabuffer is on the right of frame;
+	// The default value is 0.
+	AlphaMode int
 }
 
 type VideoFrameSender struct {
@@ -108,15 +128,19 @@ func (sender *VideoFrameSender) SendVideoFrame(frame *ExternalVideoFrame) int {
 	cFrame.rotation = C.int(frame.Rotation)
 	cFrame.timestamp = C.longlong(frame.Timestamp)
 	if frame.MetadataBuffer != nil {
-		metadata := C.CBytes(frame.MetadataBuffer)
-		defer C.free(metadata)
+		metadata, metadataPinner := unsafeCBytes(frame.MetadataBuffer)
+		defer metadataPinner.Unpin()
 		cFrame.metadata_buffer = (*C.uint8_t)(metadata)
 		cFrame.metadata_size = C.int(len(frame.MetadataBuffer))
 	}
-	// if frame.AlphaBuffer != nil {
-	// 	alpha := C.CBytes(frame.AlphaBuffer)
-	// 	defer C.free(alpha)
-	// 	cFrame.alpha_buffer = alpha
-	// }
+	if frame.AlphaBuffer != nil {
+		alpha, alphaPinner := unsafeCBytes(frame.AlphaBuffer)
+		defer alphaPinner.Unpin()
+		cFrame.alpha_buffer = (*C.uint8_t)(alpha)
+	}
+	if frame.FillAlphaBuffer {
+		cFrame.fill_alpha_buffer = C.uint8_t(1)
+	}
+	cFrame.alpha_mode = C.int(frame.AlphaMode)
 	return int(C.agora_video_frame_sender_send(sender.cSender, &cFrame))
 }

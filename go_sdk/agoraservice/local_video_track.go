@@ -25,6 +25,9 @@ type VideoEncoderConfiguration struct {
 	// The mirror mode is disabled by default
 	// If mirror_type is set to VIDEO_MIRROR_MODE_ENABLED, then the video frame would be mirrored before encoding.
 	MirrorMode VideoMirrorModeType
+	// Whether to encode and send the alpha data to the remote when alpha data is present.
+	// The default value is false.
+	EncodeAlpha bool
 }
 
 type VideoEncodedImageSenderOptions struct {
@@ -100,5 +103,6 @@ func (track *LocalVideoTrack) SetVideoEncoderConfiguration(cfg *VideoEncoderConf
 	cCfg.orientation_mode = C.int(cfg.OrientationMode)
 	cCfg.degradation_preference = C.int(cfg.DegradePreference)
 	cCfg.mirror_mode = C.int(cfg.MirrorMode)
+	cCfg.encode_alpha = CIntFromBool(cfg.EncodeAlpha)
 	return int(C.agora_local_video_track_set_video_encoder_config(track.cTrack, &cCfg))
 }
