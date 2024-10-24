@@ -77,6 +77,8 @@ data,
   - if you don't use VAD, and your glibc version is between 2.16 and 2.27, you can disable VAD by rename **audio_vad.go** file in go_sdk/agoraserver/ to **audio_vad.go.bak**
 
 # Change log
+## 2024.10.24 release 2.1.0
+- Fixed some bug
 ## 2024.10.12 release 2.0.0
 - Simplify SDK install.
 - Make golang SDK interfaces consistent with agora SDK interfaces of other program languages.
