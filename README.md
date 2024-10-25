@@ -73,7 +73,7 @@ make install
 ```
 replace github.com/AgoraIO-Extensions/Agora-Golang-Server-SDK/v2 => /path/to/Agora-Golang-Server-SDK
 
-require github.com/AgoraIO-Extensions/Agora-Golang-Server-SDK/v2 v2.0.4
+require github.com/AgoraIO-Extensions/Agora-Golang-Server-SDK/v2 v2.1.0
 ```
 - Add import in your go file
 ```
@@ -87,7 +87,7 @@ import (
 	svcCfg.AppId = appid
 	agoraservice.Initialize(svcCfg)
 ```
-- When you run your project, remember to add agora_sdk (or agora_sdk_mac directory for mac) directory path to your LD_LIBRARY_PATH (or DYLD_LIBRARY_PATH for mac) environment variable.
+- When you run your project, remember to add **agora_sdk directory** (or **agora_sdk_mac directory** for mac) path to your **LD_LIBRARY_PATH** (or **DYLD_LIBRARY_PATH** for mac) environment variable.
 
 
 # FAQ
