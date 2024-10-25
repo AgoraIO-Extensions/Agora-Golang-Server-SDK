@@ -1,24 +1,64 @@
 # Required OS and go version
 - supported linux version: 
   - Ubuntu 18.04 LTS and above
-  - CentOS 7.0 and above
 - go version:
   - go 1.21 and above
-  - not tested on go 1.19 and below
-- examples require:
+  - go 1.20 and below are not supported
+- **advanced examples** require:
   - ffmpeg version 6.x and above, and corresponding development library installed (libavformat-dev, libavcodec-dev, libswscale-dev...)
   - pkg-config installed
 
-# Build and run examples
+# Build SDK
 ```
+# This step download agora sdk to agora_sdk and agora_sdk_mac directory
 make deps
+# If no error occured, you can use sdk in your project now.
 make build
+```
+
+# Build and run basic examples
+- Download testing data for testing examples. You can also use your own data and modify the data path in examples.
+```
+curl -o test_data.zip https://download.agora.io/demo/test/server_sdk_test_data_202410252135.zip
+unzip test_data.zip
+```
+- Build basic examples
+```
 make examples
+```
+- Run basic example
+```
 cd ./bin
+# you should get AGORA_APP_ID and AGORA_APP_CERTIFICATE from agora console
+export AGORA_APP_ID=xxxx
+# if you turn on authentication for your project on agora console, then AGORA_APP_CERTIFICATE is needed.
+export AGORA_APP_CERTIFICATE=xxx
+# for linux, use the command bellow to load agora sdk library
 export LD_LIBRARY_PATH=../agora_sdk
 # for mac, use command bellow
 # export DYLD_LIBRARY_PATH=../agora_sdk_mac
-./multi_cons_rtx -h
+./send_recv_pcm
+```
+
+# Build and run advanced examples
+- Install ffmpeg development library as required in the first chapter in this README
+- Download test data in the same way with basic examples. If you already downloaded it, this step can be skipped.
+- Build advanced examples
+```
+make advanced-examples
+```
+- Run advanced examples
+```
+cd ./bin
+# you should get AGORA_APP_ID and AGORA_APP_CERTIFICATE from agora console
+export AGORA_APP_ID=xxxx
+# if you turn on authentication for your project on agora console, then AGORA_APP_CERTIFICATE is needed.
+export AGORA_APP_CERTIFICATE=xxx
+# for linux, use the command bellow to load agora sdk library
+export LD_LIBRARY_PATH=../agora_sdk
+# for mac, use command bellow
+# export DYLD_LIBRARY_PATH=../agora_sdk_mac
+./send_h264
 ```
 
 # Intergrate into your project
@@ -26,14 +66,14 @@ export LD_LIBRARY_PATH=../agora_sdk
 ```
 git clone git@github.com:AgoraIO-Extensions/Agora-Golang-Server-SDK.git
 cd Agora-Golang-Server-SDK
-git checkout dev/2.0
+git checkout release/2.1.0
 make install
 ```
 - Add the following dependency to your go.mod
 ```
 replace github.com/AgoraIO-Extensions/Agora-Golang-Server-SDK/v2 => /path/to/Agora-Golang-Server-SDK
 
-require github.com/AgoraIO-Extensions/Agora-Golang-Server-SDK/v2 v2.0.4
+require github.com/AgoraIO-Extensions/Agora-Golang-Server-SDK/v2 v2.1.0
 ```
 - Add import in your go file
 ```
@@ -47,25 +87,8 @@ import (
 	svcCfg.AppId = appid
 	agoraservice.Initialize(svcCfg)
 ```
+- When you run your project, remember to add **agora_sdk directory** (or **agora_sdk_mac directory** for mac) path to your **LD_LIBRARY_PATH** (or **DYLD_LIBRARY_PATH** for mac) environment variable.
 
-# vad usage
-- call NewAudioVad to create a new vad instance
-- call ProcessPcmFrame to process one audio frame, the frame is a slice of 16 bits,16khze and mono pcm
-data,
-- ProcessPcmFrame(frame *PcmInAudioFrame) (*PcmOutAudioFrame, int) is a function with a dual return - value, indicating an update of the speech state. The int parameter represents the current Voice Activity Detection (VAD) state, where:
-
-- 0 represents no speech detected;
-- 1 represents the start of speech;
-- 2 represents speech in progress;
-- 3 represents the end of the current speech segment;
-- -1 represents an error occurred.
-- If the function is in states 1, 2, or 3, the PcmOutAudioFrame will contain the PCM data corresponding to the VAD state.
-
-- When a user wants to perform ASR/TTS processing, they should send the data from the PcmOutAudioFrame to the ASR system.
-- call Release() when the vad instance is no longer needed
--- NOTE： 
-- The VAD instance should be released after the ASR system is no longer needed.
-- One VAD instance corresponds to one audio stream
 
 # FAQ
 ## compile error

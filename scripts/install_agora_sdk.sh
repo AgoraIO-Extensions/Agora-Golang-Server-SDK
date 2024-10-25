@@ -28,26 +28,41 @@ fi
 
 echo "OS: ${OS}"
 
-# Download the Agora RTC SDK
-if [[ -d agora_sdk ]]; then
-    rm -rf agora_sdk
-fi
-if [[ -d agora_sdk_mac ]]; then
-    rm -rf agora_sdk_mac
-fi
-if [[ -f agora_sdk.zip ]]; then
-    rm -f agora_sdk.zip
-fi
-if [[ -f agora_sdk_mac.zip ]]; then
-    rm -f agora_sdk_mac.zip
-fi
+check_and_download() {
+    download_url=$1
+    dst_dir=$2
+    version_file="${dst_dir}/sdk_version"
+    if [[ -f "${version_file}" ]]; then
+        sdk_version=$(cat "${version_file}")
+        if [[ "${sdk_version}" == $download_url ]]; then
+            echo "${dst_dir} downloaded"
+            return 0
+        fi
+    fi
+    zip_file="${dst_dir}.zip"
+    if [[ -f $zip_file ]]; then
+        rm -f $zip_file
+    fi
+    if [[ -d $dst_dir ]]; then
+        rm -rf $dst_dir
+    fi
+    echo "Downloading ${download_url} to ${zip_file}"
+    curl -o $zip_file $download_url
+    if [[ $? -ne 0 ]]; then
+        echo "Failed to download ${download_url}"
+        return 1
+    fi
+    unzip $zip_file
+    rm -f $zip_file
+    if [[ "${dst_dir}" != "agora_sdk" ]]; then
+        mv agora_sdk $dst_dir
+    fi
+    echo $download_url > "${dst_dir}/sdk_version"
+    echo "$dst_dir downloaded"
+}
 
+# Download the Agora RTC SDK
 if [[ $OS == mac ]]; then
-    curl -o agora_sdk_mac.zip $mac_sdk
-    unzip agora_sdk_mac.zip
-    mv agora_sdk agora_sdk_mac
-    rm -f agora_sdk_mac.zip
+    check_and_download $mac_sdk agora_sdk_mac
 fi
-curl -o agora_sdk.zip $linux_sdk
-unzip agora_sdk.zip
-rm -f agora_sdk.zip
+check_and_download $linux_sdk agora_sdk
