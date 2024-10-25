@@ -6,10 +6,11 @@ GOBUILD=$(GOCMD) build
 GOCLEAN=$(GOCMD) clean
 GOTEST=$(GOCMD) test
 GOGET=$(GOCMD) get
-EXAMPLES_PATH=./go_sdk/examples
 CURRENT_PATH=$(shell pwd)
 UNAME_S := $(shell uname -s)
 OS := unknown
+BASIC_EXAMPLES := send_recv_pcm send_recv_yuv recv_h264
+ADVANCED_EXAMPLES := multi_cons_rtx send_encoded_audio send_h264 send_mp4
 
 ifeq ($(UNAME_S),Linux)
     OS := linux
@@ -56,9 +57,8 @@ install: deps
 # Build examples
 .PHONY: examples
 examples:
-	for dir in $(EXAMPLES_PATH)/*; do \
-		if [ -d "$$dir" ]; then \
-			go mod tidy -C $$dir; \
-			$(GOBUILD) -C $$dir -o $(CURRENT_PATH)/bin/$$(basename $$dir); \
-		fi \
-	done
+	./scripts/build_examples.sh $(BASIC_EXAMPLES)
+
+.PHONY: advanced-examples
+advanced-examples:
+	./scripts/build_examples.sh $(ADVANCED_EXAMPLES)
