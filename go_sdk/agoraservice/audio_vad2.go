@@ -5,15 +5,15 @@ import (
 )
 
 type AudioVadConfigV2 struct {
+	PreStartRecognizeCount int     // pre start recognize count, buffer size for 10ms 16KHz 16bit 1channel PCM, default value is 16
+	StartRecognizeCount    int     // start recognize count, buffer size for 10ms 16KHz 16bit 1channel PCM, default value is 30
+	StopRecognizeCount     int     // max recognize count, buffer size for 10ms 16KHz 16bit 1channel PCM, default value is 20
+	ActivePercent          float32 // active percent, if over this percent, will be recognized as speaking, default value is 0.7
+	InactivePercent        float32 // inactive percent, if below this percent, will be recognized as non-speaking, default value is 0.5
 	StartVoiceProb         int     // start voice prob, default value is 70
-	StartRms               int     // start rms, default value is -40
+	StartRms               int     // start rms, default value is -50
 	StopVoiceProb          int     // stop voice prob, default value is 70
-	StopRms                int     // stop rms, default value is -40
-	StartRecognizeCount    int     // start recognize count, buffer size for 10ms 16KHz 16bit 1channel PCM, default value is 10
-	StopRecognizeCount     int     // max recognize count, buffer size for 10ms 16KHz 16bit 1channel PCM, default value is 6
-	PreStartRecognizeCount int     // pre start recognize count, buffer size for 10ms 16KHz 16bit 1channel PCM, default value is 10
-	ActivePercent          float32 // active percent, if over this percent, will be recognized as speaking, default value is 0.6
-	InactivePercent        float32 // inactive percent, if below this percent, will be recognized as non-speaking, default value is 0.2
+	StopRms                int     // stop rms, default value is -50
 }
 
 type VadFrame struct {
@@ -110,15 +110,15 @@ func (buf *VadBuffer) flushAudio() *AudioFrame {
 func NewAudioVadV2(cfg *AudioVadConfigV2) *AudioVadV2 {
 	if cfg == nil {
 		cfg = &AudioVadConfigV2{
+			PreStartRecognizeCount: 16,
+			StartRecognizeCount:    30,
+			StopRecognizeCount:     20,
+			ActivePercent:          0.7,
+			InactivePercent:        0.5,
 			StartVoiceProb:         70,
 			StartRms:               -50.0,
 			StopVoiceProb:          70,
 			StopRms:                -50.0,
-			StartRecognizeCount:    30,
-			StopRecognizeCount:     20,
-			PreStartRecognizeCount: 16,
-			ActivePercent:          0.7,
-			InactivePercent:        0.5,
 		}
 	}
 	if cfg.StartRecognizeCount <= 0 {
@@ -160,7 +160,7 @@ func (vad *AudioVadV2) isActive(frame *AudioFrame) bool {
 	return active
 }
 
-func (vad *AudioVadV2) ProcessAudioFrame(frame *AudioFrame) (*AudioFrame, VadState) {
+func (vad *AudioVadV2) Process(frame *AudioFrame) (*AudioFrame, VadState) {
 	if vad.expectFormat == nil {
 		vad.expectFormat = &VadFrameFormat{
 			BytesPerSample: frame.BytesPerSample,

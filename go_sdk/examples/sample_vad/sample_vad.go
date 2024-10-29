@@ -82,19 +82,22 @@ func main() {
 	defer mediaNodeFactory.Release()
 
 	agoraservice.EnableExtension("agora.builtin", "agora_audio_label_generator", "", true)
-	agoraservice.GetAgoraParameter().SetParameters("{\"che.audio.label.enable\": true}")
 
+	// Recommended  configurations:
+	// For not-so-noisy environments, use this configuration: (16, 30, 20, 0.7, 0.5, 70, -50, 70, -50)
+	// For noisy environments, use this configuration: (16, 30, 20, 0.7, 0.5, 70, -40, 70, -40)
+	// For high-noise environments, use this configuration: (16, 30, 20, 0.7, 0.5, 70, -30, 70, -30)
 	vad := agoraservice.NewAudioVadV2(
 		&agoraservice.AudioVadConfigV2{
+			PreStartRecognizeCount: 16,
+			StartRecognizeCount:    30,
+			StopRecognizeCount:     20,
+			ActivePercent:          0.7,
+			InactivePercent:        0.5,
 			StartVoiceProb:         70,
 			StartRms:               -50.0,
 			StopVoiceProb:          70,
 			StopRms:                -50.0,
-			StartRecognizeCount:    30,
-			StopRecognizeCount:     20,
-			PreStartRecognizeCount: 16,
-			ActivePercent:          0.7,
-			InactivePercent:        0.5,
 		})
 	defer vad.Release()
 
@@ -165,7 +168,7 @@ func main() {
 				preVadDump.Write(frame.Buffer)
 			}
 			// vad
-			vadResult, state := vad.ProcessAudioFrame(frame)
+			vadResult, state := vad.Process(frame)
 			duration := 0
 			if vadResult != nil {
 				duration = vadResult.SamplesPerChannel / 16
