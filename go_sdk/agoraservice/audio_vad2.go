@@ -83,6 +83,7 @@ func (buf *VadBuffer) getActivePercent(lastN int) float32 {
 		}
 		curIndex++
 	}
+	// fmt.Printf("[vad] getActivePercent: %d, %d, %f\n", count, lastN, float32(count)/float32(lastN))
 	return float32(count) / float32(lastN)
 }
 
@@ -92,13 +93,16 @@ func (buf *VadBuffer) flushAudio() *AudioFrame {
 		return nil
 	}
 	// copy a frame
+	samplesCount := 0
 	ret := *(l.Front().Value.(*VadFrame).frame)
 	data := make([]byte, 0, l.Len()*ret.SamplesPerChannel*ret.BytesPerSample*ret.Channels)
 	for e := l.Front(); e != nil; e = e.Next() {
 		v := e.Value.(*VadFrame)
 		data = append(data, v.frame.Buffer...)
+		samplesCount += v.frame.SamplesPerChannel
 	}
 	ret.Buffer = data
+	ret.SamplesPerChannel = samplesCount
 	l.Init()
 	return &ret
 }
@@ -107,9 +111,9 @@ func NewAudioVadV2(cfg *AudioVadConfigV2) *AudioVadV2 {
 	if cfg == nil {
 		cfg = &AudioVadConfigV2{
 			StartVoiceProb:         70,
-			StartRms:               -40.0,
+			StartRms:               -50.0,
 			StopVoiceProb:          70,
-			StopRms:                -40.0,
+			StopRms:                -50.0,
 			StartRecognizeCount:    30,
 			StopRecognizeCount:     20,
 			PreStartRecognizeCount: 16,
@@ -123,6 +127,7 @@ func NewAudioVadV2(cfg *AudioVadConfigV2) *AudioVadV2 {
 	if cfg.StopRecognizeCount <= 0 {
 		cfg.StopRecognizeCount = 6
 	}
+	// fmt.Printf("[vad] NewAudioVadV2: %v\n", cfg)
 	startQueueSize := cfg.StartRecognizeCount + cfg.PreStartRecognizeCount
 	return &AudioVadV2{
 		config:       cfg,
@@ -149,10 +154,10 @@ func (vad *AudioVadV2) isActive(frame *AudioFrame) bool {
 		rmsProb = vad.config.StartRms
 	}
 
-	if frame.FarFieldFlag == 1 && frame.VoiceProb > voiceProb && frame.Rms > rmsProb {
-		return true
-	}
-	return false
+	active := frame.FarFieldFlag == 1 && frame.VoiceProb > voiceProb && frame.Rms > rmsProb
+	// fmt.Printf("[vad] isActive: %v, isSpeaking: %v, FarFieldFlag: %d, voiceProb: %d, rms: %d, pitch: %d\n",
+	// 	active, vad.isSpeaking, frame.FarFieldFlag, frame.VoiceProb, frame.Rms, frame.Pitch)
+	return active
 }
 
 func (vad *AudioVadV2) ProcessAudioFrame(frame *AudioFrame) (*AudioFrame, VadState) {
@@ -169,9 +174,15 @@ func (vad *AudioVadV2) ProcessAudioFrame(frame *AudioFrame) (*AudioFrame, VadSta
 			return nil, VadStateWaitSpeeking
 		}
 	}
+	// if vad.isSpeaking {
+	// 	fmt.Printf("[vad] +++++++++++++++++\n")
+	// } else {
+	// 	fmt.Printf("[vad] -----------------\n")
+	// }
 	vadFrame := newVadFrame(frame, vad.isActive(frame))
 	if !vad.isSpeaking {
 		full := vad.startBuffer.pushBack(vadFrame)
+		// fmt.Printf("[vad] isSpeaking: false, startBuffer: %d\n", vad.startBuffer.queue.Len())
 		if full {
 			activePercent := vad.startBuffer.getActivePercent(vad.config.StartRecognizeCount)
 			if activePercent >= vad.config.ActivePercent {
@@ -184,6 +195,7 @@ func (vad *AudioVadV2) ProcessAudioFrame(frame *AudioFrame) (*AudioFrame, VadSta
 		return nil, VadStateWaitSpeeking
 	} else {
 		full := vad.stopBuffer.pushBack(vadFrame)
+		// fmt.Printf("[vad] isSpeaking: true, stopBuffer: %d\n", vad.stopBuffer.queue.Len())
 		if full {
 			activePercent := vad.stopBuffer.getActivePercent(vad.config.StopRecognizeCount)
 			if (1.0 - activePercent) >= vad.config.InactivePercent {

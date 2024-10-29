@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/signal"
@@ -10,6 +11,34 @@ import (
 
 	rtctokenbuilder "github.com/AgoraIO/Tools/DynamicKey/AgoraDynamicKey/go/src/rtctokenbuilder2"
 )
+
+type AudioLabel struct {
+	BufferSize        int `json:"buffer_size"`
+	SamplesPerChannel int `json:"samples_per_channel"`
+	BytesPerSample    int `json:"bytes_per_sample"`
+	Channels          int `json:"channels"`
+	SampleRate        int `json:"sample_rate"`
+	FarFieldFlag      int `json:"far_field_flag"`
+	VoiceProb         int `json:"voice_prob"`
+	Rms               int `json:"rms"`
+	Pitch             int `json:"pitch"`
+}
+
+func AudioFrameToString(frame *agoraservice.AudioFrame) string {
+	al := AudioLabel{
+		BufferSize:        len(frame.Buffer),
+		SamplesPerChannel: frame.SamplesPerChannel,
+		BytesPerSample:    frame.BytesPerSample,
+		Channels:          frame.Channels,
+		SampleRate:        frame.SamplesPerSec,
+		FarFieldFlag:      frame.FarFieldFlag,
+		VoiceProb:         frame.VoiceProb,
+		Rms:               frame.Rms,
+		Pitch:             frame.Pitch,
+	}
+	alStr, _ := json.Marshal(al)
+	return string(alStr)
+}
 
 func main() {
 	bStop := new(bool)
@@ -55,7 +84,18 @@ func main() {
 	agoraservice.EnableExtension("agora.builtin", "agora_audio_label_generator", "", true)
 	agoraservice.GetAgoraParameter().SetParameters("{\"che.audio.label.enable\": true}")
 
-	vad := agoraservice.NewAudioVadV2(nil)
+	vad := agoraservice.NewAudioVadV2(
+		&agoraservice.AudioVadConfigV2{
+			StartVoiceProb:         70,
+			StartRms:               -50.0,
+			StopVoiceProb:          70,
+			StopRms:                -50.0,
+			StartRecognizeCount:    30,
+			StopRecognizeCount:     20,
+			PreStartRecognizeCount: 16,
+			ActivePercent:          0.7,
+			InactivePercent:        0.5,
+		})
 	defer vad.Release()
 
 	conCfg := agoraservice.RtcConnectionConfig{
@@ -97,16 +137,34 @@ func main() {
 			fmt.Println("user left, " + uid)
 		},
 	}
-	var dumpFile *os.File = nil
+	var preVadDump *os.File = nil
+	var vadDump *os.File = nil
 	defer func() {
-		if dumpFile != nil {
-			dumpFile.Close()
+		if preVadDump != nil {
+			preVadDump.Close()
+		}
+		if vadDump != nil {
+			vadDump.Close()
 		}
 	}()
+	var vadCount *int = new(int)
+	*vadCount = 0
 	audioObserver := &agoraservice.AudioFrameObserver{
 		OnPlaybackAudioFrameBeforeMixing: func(localUser *agoraservice.LocalUser, channelId string, userId string, frame *agoraservice.AudioFrame) bool {
 			// do something
 			// fmt.Printf("Playback audio frame before mixing, from userId %s\n", userId)
+			if preVadDump == nil {
+				var err error
+				preVadDump, err = os.OpenFile(fmt.Sprintf("./pre_vad_%s_%v.pcm", userId, time.Now().Format("2006-01-02-15-04-05")), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
+				if err != nil {
+					fmt.Println("Failed to create dump file: ", err)
+				}
+			}
+			if preVadDump != nil {
+				fmt.Printf("PreVad: %s\n", AudioFrameToString(frame))
+				preVadDump.Write(frame.Buffer)
+			}
+			// vad
 			vadResult, state := vad.ProcessAudioFrame(frame)
 			duration := 0
 			if vadResult != nil {
@@ -114,15 +172,21 @@ func main() {
 			}
 			if state == agoraservice.VadStateIsSpeeking || state == agoraservice.VadStateStartSpeeking {
 				fmt.Printf("Vad result: state: %v, duration: %v\n", state, duration)
-				if dumpFile == nil {
+				if vadDump == nil {
+					*vadCount++
 					var err error
-					dumpFile, err = os.OpenFile(fmt.Sprintf("./recv_%v.pcm", time.Now().Format("2006-01-02-15-04-05")), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
+					vadDump, err = os.OpenFile(fmt.Sprintf("./vad_%d_%s_%v.pcm", *vadCount, userId, time.Now().Format("2006-01-02-15-04-05")), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
 					if err != nil {
 						fmt.Println("Failed to create dump file: ", err)
 					}
 				}
-				if dumpFile != nil {
-					dumpFile.Write(vadResult.Buffer)
+				if vadDump != nil {
+					vadDump.Write(vadResult.Buffer)
+				}
+			} else {
+				if vadDump != nil {
+					vadDump.Close()
+					vadDump = nil
 				}
 			}
 			return true
