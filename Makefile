@@ -9,6 +9,9 @@ GOGET=$(GOCMD) get
 CURRENT_PATH=$(shell pwd)
 UNAME_S := $(shell uname -s)
 OS := unknown
+
+ENABLE_ASAN=0
+
 BASIC_EXAMPLES := send_recv_pcm send_recv_yuv recv_h264
 ADVANCED_EXAMPLES := multi_cons_rtx send_encoded_audio send_h264 send_mp4
 
@@ -24,6 +27,11 @@ else ifeq ($(UNAME_S),Darwin)
 #     OS := windows
 else
     $(error Unsupported OS: $(UNAME_S))
+endif
+
+ifeq ($(ENABLE_ASAN), 1)
+		export CGO_CFLAGS=-fsanitize=address -fno-omit-frame-pointer -O1 -g
+		export CGO_LDFLAGS=-fsanitize=address -O1 -g
 endif
 
 # Install dependencies

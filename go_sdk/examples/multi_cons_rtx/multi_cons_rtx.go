@@ -1,5 +1,7 @@
 package main
 
+// void __lsan_do_leak_check(void);
+import "C"
 import (
 	"context"
 	"flag"
@@ -109,6 +111,7 @@ func (ctx *GlobalContext) release() {
 }
 
 func main() {
+	defer C.__lsan_do_leak_check()
 	go func() {
 		log.Println(http.ListenAndServe(":6060", nil))
 	}()
