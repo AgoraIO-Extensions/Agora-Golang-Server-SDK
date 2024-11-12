@@ -97,3 +97,7 @@ extern void goOnUserVideoTrackStateChanged(void* agora_local_user, user_id_t use
 void cgo_on_user_video_track_state_changed(AGORA_HANDLE agora_local_user, user_id_t user_id, AGORA_HANDLE agora_remote_video_track, int state, int reason, int elapsed) {
   goOnUserVideoTrackStateChanged(agora_local_user, user_id, agora_remote_video_track, state, reason, elapsed);
 }
+extern void goOnAudioVolumeIndication(void* agora_local_user, struct _audio_volume_info* speakers,  unsigned int speaker_number, int total_volume);
+void cgo_on_audio_volume_indication(AGORA_HANDLE agora_local_user, const audio_volume_info* speakers, unsigned int speaker_number, int total_volume) {
+  goOnAudioVolumeIndication(agora_local_user, (struct _audio_volume_info*)speakers, speaker_number, total_volume);
+}

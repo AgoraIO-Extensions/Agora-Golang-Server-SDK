@@ -3,13 +3,17 @@ package agoraservice
 /*
 #cgo CFLAGS: -I../../agora_sdk/include/c/api2 -I../../agora_sdk/include/c/base
 
+
+#include <string.h>
 #include "agora_local_user.h"
 #include "agora_rtc_conn.h"
 #include "agora_service.h"
 #include "agora_media_base.h"
 */
 import "C"
-import "unsafe"
+import (
+	"unsafe"
+)
 
 //export goOnConnected
 func goOnConnected(cCon unsafe.Pointer, cConInfo *C.struct__rtc_conn_info, reason C.int) {
@@ -201,6 +205,41 @@ func goOnUserInfoUpdated(cLocalUser unsafe.Pointer, uid *C.char, msg C.int, val 
 	}
 	// note： best practise is never reelase handler until app is exiting
 	con.localUserObserver.OnUserInfoUpdated(con.GetLocalUser(), C.GoString(uid), int(msg), int(val))
+}
+
+func GoAudioVolumeInfo(frame *C.struct__audio_volume_info) *AudioVolumeInfo {
+
+	ret := &AudioVolumeInfo{
+		UserId:     C.GoString(frame.user_id),
+		Volume:     int(frame.volume),
+		Vad:        int(frame.vad),
+		VoicePitch: float64(frame.voicePitch),
+	}
+	return ret
+}
+
+//export goOnAudioVolumeIndication
+func goOnAudioVolumeIndication(cLocalUser unsafe.Pointer, Volumes *C.struct__audio_volume_info, speakerNumber C.uint, totalVolume C.int) {
+	agoraService.connectionRWMutex.RLock()
+	con := agoraService.consByCLocalUser[cLocalUser]
+	agoraService.connectionRWMutex.RUnlock()
+	if con == nil || con.localUserObserver == nil || con.localUserObserver.OnAudioVolumeIndication == nil {
+		return
+	}
+	// item := C.GoBytes(unsafe.Pointer(Volumes), C.int(unsafe.Sizeof(Volumes))) and assign to a list
+	//todo??
+	frames := make([]*AudioVolumeInfo, int(speakerNumber))
+	c_elementSize := C.sizeof_struct__audio_volume_info
+	for i := 0; i < int(speakerNumber); i++ {
+		c_element := (*C.struct__audio_volume_info)(unsafe.Pointer(uintptr(unsafe.Pointer(Volumes)) + uintptr(c_elementSize)*uintptr(i)))
+		//element := (*C._audio_volume_info)(unsafe.Pointer(uintptr(unsafe.Pointer(volumes)) + uintptr(C.sizeof__audio_volume_info)*uintptr(i)))
+
+		volume := GoAudioVolumeInfo(&*c_element)
+
+		frames[i] = volume
+
+	}
+	con.localUserObserver.OnAudioVolumeIndication(con.GetLocalUser(), frames, int(speakerNumber), int(totalVolume))
 }
 
 //export goOnUserAudioTrackSubscribed

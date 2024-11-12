@@ -19,7 +19,7 @@ do
   if [ -d $example_path ]; then
     echo "building example: $file"
     go mod tidy -C $example_path
-    go build -C $example_path -o "${PACKAGE_HOME}/bin/${file}"
+    GOARCH=arm64 go build -C $example_path -o "${PACKAGE_HOME}/bin/${file}"
   else
     echo "File not found: $file"
   fi

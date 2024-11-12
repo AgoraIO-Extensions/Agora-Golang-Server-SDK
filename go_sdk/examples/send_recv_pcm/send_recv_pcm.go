@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 	"os/signal"
 	"time"
@@ -14,6 +15,10 @@ import (
 func main() {
 	bStop := new(bool)
 	*bStop = false
+	// start pprof
+	go func() {
+		http.ListenAndServe("localhost:6060", nil)
+	}()
 	// catch ternimal signal
 	go func() {
 		c := make(chan os.Signal, 1)
@@ -23,10 +28,28 @@ func main() {
 		fmt.Println("Application terminated")
 	}()
 
+	println("Start to send and receive PCM data\nusage:\n	./send_recv_pcm <appid> <channel_name>\n	press ctrl+c to exit\n")
+
+	// get parameter from arguments： appid, channel_name
+	/*
+		argus := os.Args
+		if len(argus) < 3 {
+			fmt.Println("Please input appid, channel name")
+			return
+		}
+		appid := argus[1]
+		channelName := argus[2]
+	*/
+	appid := "aab8b8f5a8cd4469a63042fcfafe7063"
+	channelName := "wei129"
+
 	// get environment variable
-	appid := os.Getenv("AGORA_APP_ID")
+	if appid == "" {
+		appid = os.Getenv("AGORA_APP_ID")
+	}
+
 	cert := os.Getenv("AGORA_APP_CERTIFICATE")
-	channelName := "gosdktest"
+
 	userId := "0"
 	if appid == "" {
 		fmt.Println("Please set AGORA_APP_ID environment variable, and AGORA_APP_CERTIFICATE if needed")
@@ -59,6 +82,7 @@ func main() {
 		ChannelProfile:     agoraservice.ChannelProfileLiveBroadcasting,
 	}
 	conSignal := make(chan struct{})
+	OnDisconnectedSign := make(chan struct{})
 	conHandler := &agoraservice.RtcConnectionObserver{
 		OnConnected: func(con *agoraservice.RtcConnection, info *agoraservice.RtcConnectionInfo, reason int) {
 			// do something
@@ -68,6 +92,7 @@ func main() {
 		OnDisconnected: func(con *agoraservice.RtcConnection, info *agoraservice.RtcConnectionInfo, reason int) {
 			// do something
 			fmt.Printf("Disconnected, reason %d\n", reason)
+			OnDisconnectedSign <- struct{}{}
 		},
 		OnConnecting: func(con *agoraservice.RtcConnection, conInfo *agoraservice.RtcConnectionInfo, reason int) {
 			fmt.Printf("Connecting, reason %d\n", reason)
@@ -98,6 +123,7 @@ func main() {
 			return true
 		},
 	}
+
 	con := agoraservice.NewRtcConnection(&conCfg)
 	defer con.Release()
 
@@ -105,6 +131,21 @@ func main() {
 	localUser.SetPlaybackAudioFrameBeforeMixingParameters(1, 16000)
 	con.RegisterObserver(conHandler)
 	localUser.RegisterAudioFrameObserver(audioObserver)
+
+	//added by wei for localuser observer
+	localUserObserver := &agoraservice.LocalUserObserver{
+		OnStreamMessage: func(localUser *agoraservice.LocalUser, uid string, streamId int, data []byte) {
+			// do something
+			fmt.Printf("*****Stream message, from userId %s\n", uid)
+		},
+		OnAudioVolumeIndication: func(localUser *agoraservice.LocalUser, audioVolumeInfo []*agoraservice.AudioVolumeInfo, speakerNumber int, totalVolume int) {
+			// do something
+			fmt.Printf("*****Audio volume indication, speaker number %d\n", speakerNumber)
+		},
+	}
+	con.GetLocalUser().RegisterLocalUserObserver(localUserObserver)
+
+	//end
 
 	// sender := con.NewPcmSender()
 	// defer sender.Release()
@@ -120,7 +161,7 @@ func main() {
 	track.SetEnabled(true)
 	localUser.PublishAudio(track)
 
-	frame := agoraservice.AudioFrame{
+	frame := &agoraservice.AudioFrame{
 		Type:              agoraservice.AudioFrameTypePCM16,
 		SamplesPerChannel: 160,
 		BytesPerSample:    2,
@@ -148,7 +189,7 @@ func main() {
 			break
 		}
 		sendCount++
-		ret := sender.SendAudioPcmData(&frame)
+		ret := sender.SendAudioPcmData(frame)
 		fmt.Printf("SendAudioPcmData %d ret: %d\n", sendCount, ret)
 	}
 
@@ -165,7 +206,7 @@ func main() {
 			}
 
 			sendCount++
-			ret := sender.SendAudioPcmData(&frame)
+			ret := sender.SendAudioPcmData(frame)
 			fmt.Printf("SendAudioPcmData %d ret: %d\n", sendCount, ret)
 		}
 		fmt.Printf("Sent %d frames this time\n", shouldSendCount)
@@ -173,5 +214,8 @@ func main() {
 	}
 	localUser.UnpublishAudio(track)
 	track.SetEnabled(false)
+	start_disconnect := time.Now().UnixMilli()
 	con.Disconnect()
+	<-OnDisconnectedSign
+	fmt.Printf("Disconnected, cost %d ms\n", time.Now().UnixMilli()-start_disconnect)
 }

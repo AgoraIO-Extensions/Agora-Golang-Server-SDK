@@ -68,6 +68,7 @@ type LocalUserObserver struct {
 	OnUserVideoTrackSubscribed   func(localUser *LocalUser, uid string, info *VideoTrackInfo, remoteVideoTrack *RemoteVideoTrack)
 	OnUserAudioTrackStateChanged func(localUser *LocalUser, uid string, remoteAudioTrack *RemoteAudioTrack, state int, reason int, elapsed int)
 	OnUserVideoTrackStateChanged func(localUser *LocalUser, uid string, remoteAudioTrack *RemoteVideoTrack, state int, reason int, elapsed int)
+	OnAudioVolumeIndication      func(localUser *LocalUser, audioVolumeInfo []*AudioVolumeInfo, speakerNumber  int, totalVolume int)
 }
 
 type AudioFrameObserver struct {

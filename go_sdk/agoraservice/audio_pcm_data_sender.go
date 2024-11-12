@@ -26,6 +26,12 @@ type AudioFrame struct {
 type AudioPcmDataSender struct {
 	cSender unsafe.Pointer
 }
+type AudioVolumeInfo struct {
+	UserId     string
+	Volume     int
+	Vad        int
+	VoicePitch float64
+}
 
 func (mediaNodeFactory *MediaNodeFactory) NewAudioPcmDataSender() *AudioPcmDataSender {
 	sender := C.agora_media_node_factory_create_audio_pcm_data_sender(mediaNodeFactory.cFactory)
