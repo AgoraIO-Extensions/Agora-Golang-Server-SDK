@@ -207,41 +207,6 @@ func goOnUserInfoUpdated(cLocalUser unsafe.Pointer, uid *C.char, msg C.int, val 
 	con.localUserObserver.OnUserInfoUpdated(con.GetLocalUser(), C.GoString(uid), int(msg), int(val))
 }
 
-func GoAudioVolumeInfo(frame *C.struct__audio_volume_info) *AudioVolumeInfo {
-
-	ret := &AudioVolumeInfo{
-		UserId:     C.GoString(frame.user_id),
-		Volume:     int(frame.volume),
-		Vad:        int(frame.vad),
-		VoicePitch: float64(frame.voicePitch),
-	}
-	return ret
-}
-
-//export goOnAudioVolumeIndication
-func goOnAudioVolumeIndication(cLocalUser unsafe.Pointer, Volumes *C.struct__audio_volume_info, speakerNumber C.uint, totalVolume C.int) {
-	agoraService.connectionRWMutex.RLock()
-	con := agoraService.consByCLocalUser[cLocalUser]
-	agoraService.connectionRWMutex.RUnlock()
-	if con == nil || con.localUserObserver == nil || con.localUserObserver.OnAudioVolumeIndication == nil {
-		return
-	}
-	// item := C.GoBytes(unsafe.Pointer(Volumes), C.int(unsafe.Sizeof(Volumes))) and assign to a list
-	//todo??
-	frames := make([]*AudioVolumeInfo, int(speakerNumber))
-	c_elementSize := C.sizeof_struct__audio_volume_info
-	for i := 0; i < int(speakerNumber); i++ {
-		c_element := (*C.struct__audio_volume_info)(unsafe.Pointer(uintptr(unsafe.Pointer(Volumes)) + uintptr(c_elementSize)*uintptr(i)))
-		//element := (*C._audio_volume_info)(unsafe.Pointer(uintptr(unsafe.Pointer(volumes)) + uintptr(C.sizeof__audio_volume_info)*uintptr(i)))
-
-		volume := GoAudioVolumeInfo(&*c_element)
-
-		frames[i] = volume
-
-	}
-	con.localUserObserver.OnAudioVolumeIndication(con.GetLocalUser(), frames, int(speakerNumber), int(totalVolume))
-}
-
 //export goOnUserAudioTrackSubscribed
 func goOnUserAudioTrackSubscribed(cLocalUser unsafe.Pointer, uid *C.char, cRemoteAudioTrack unsafe.Pointer) {
 	agoraService.connectionRWMutex.RLock()
@@ -288,4 +253,38 @@ func goOnUserVideoTrackStateChanged(cLocalUser unsafe.Pointer, uid *C.char, cRem
 	}
 	// note： best practise is never reelase handler until app is exiting
 	con.localUserObserver.OnUserVideoTrackStateChanged(con.GetLocalUser(), C.GoString(uid), con.NewRemoteVideoTrack(cRemoteVideoTrack), int(state), int(reason), int(elapsed))
+}
+func GoAudioVolumeInfo(frame *C.struct__audio_volume_info) *AudioVolumeInfo {
+
+	ret := &AudioVolumeInfo{
+		UserId:     C.GoString(frame.user_id),
+		Volume:     int(frame.volume),
+		Vad:        int(frame.vad),
+		VoicePitch: float64(frame.voicePitch),
+	}
+	return ret
+}
+
+//export goOnAudioVolumeIndication
+func goOnAudioVolumeIndication(cLocalUser unsafe.Pointer, Volumes *C.struct__audio_volume_info, speakerNumber C.uint, totalVolume C.int) {
+	agoraService.connectionRWMutex.RLock()
+	con := agoraService.consByCLocalUser[cLocalUser]
+	agoraService.connectionRWMutex.RUnlock()
+	if con == nil || con.localUserObserver == nil || con.localUserObserver.OnAudioVolumeIndication == nil {
+		return
+	}
+	// item := C.GoBytes(unsafe.Pointer(Volumes), C.int(unsafe.Sizeof(Volumes))) and assign to a list
+	//todo??
+	frames := make([]*AudioVolumeInfo, int(speakerNumber))
+	c_elementSize := C.sizeof_struct__audio_volume_info
+	for i := 0; i < int(speakerNumber); i++ {
+		c_element := (*C.struct__audio_volume_info)(unsafe.Pointer(uintptr(unsafe.Pointer(Volumes)) + uintptr(c_elementSize)*uintptr(i)))
+		//element := (*C._audio_volume_info)(unsafe.Pointer(uintptr(unsafe.Pointer(volumes)) + uintptr(C.sizeof__audio_volume_info)*uintptr(i)))
+
+		volume := GoAudioVolumeInfo(&*c_element)
+
+		frames[i] = volume
+
+	}
+	con.localUserObserver.OnAudioVolumeIndication(con.GetLocalUser(), frames, int(speakerNumber), int(totalVolume))
 }
