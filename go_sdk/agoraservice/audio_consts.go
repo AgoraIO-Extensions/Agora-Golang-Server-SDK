@@ -49,11 +49,11 @@ type VadState int
 
 const (
 	// VadStateWaitSpeeking represents the state when waiting for speaking.
-	VadStateWaitSpeeking VadState = 0
+	VadStateNoSpeeking VadState = 0
 	// VadStateStartSpeeking represents the state when speaking starts.
 	VadStateStartSpeeking VadState = 1
 	// VadStateIsSpeeking represents the state when currently speaking.
-	VadStateIsSpeeking VadState = 2
+	VadStateSpeeking VadState = 2
 	// VadStateStopSpeeking represents the state when speaking stops.
 	VadStateStopSpeeking VadState = 3
 )

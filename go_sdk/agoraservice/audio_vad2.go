@@ -171,7 +171,7 @@ func (vad *AudioVadV2) Process(frame *AudioFrame) (*AudioFrame, VadState) {
 		if vad.expectFormat.BytesPerSample != frame.BytesPerSample ||
 			vad.expectFormat.Channels != frame.Channels ||
 			vad.expectFormat.SamplesPerSec != frame.SamplesPerSec {
-			return nil, VadStateWaitSpeeking
+			return nil, VadStateNoSpeeking
 		}
 	}
 	// if vad.isSpeaking {
@@ -192,7 +192,7 @@ func (vad *AudioVadV2) Process(frame *AudioFrame) (*AudioFrame, VadState) {
 				return ret, VadStateStartSpeeking
 			}
 		}
-		return nil, VadStateWaitSpeeking
+		return nil, VadStateNoSpeeking
 	} else {
 		full := vad.stopBuffer.pushBack(vadFrame)
 		// fmt.Printf("[vad] isSpeaking: true, stopBuffer: %d\n", vad.stopBuffer.queue.Len())
@@ -201,9 +201,9 @@ func (vad *AudioVadV2) Process(frame *AudioFrame) (*AudioFrame, VadState) {
 			if (1.0 - activePercent) >= vad.config.InactivePercent {
 				vad.isSpeaking = false
 				vad.stopBuffer.clear()
-				return nil, VadStateStopSpeeking
+				return frame, VadStateStopSpeeking
 			}
 		}
-		return frame, VadStateIsSpeeking
+		return frame, VadStateSpeeking
 	}
 }
