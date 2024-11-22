@@ -160,6 +160,10 @@ func Release() int {
 	if !agoraService.inited {
 		return 0
 	}
+	// cleanup go layer resources
+	agoraService.cleanup()
+
+	// and release c layer resources
 	if agoraService.service != nil {
 		ret := int(C.agora_service_release(agoraService.service))
 		if ret != 0 {
@@ -210,4 +214,16 @@ func GetAgoraParameter() *AgoraParameter {
 	return &AgoraParameter{
 		cParameter: C.agora_service_get_agora_parameter(agoraService.service),
 	}
+}
+
+// 添加清理方法
+func (s *AgoraService) cleanup() {
+	s.connectionRWMutex.Lock()
+	defer s.connectionRWMutex.Unlock()
+
+	// 清理所有 map
+	s.consByCCon = nil
+	s.consByCLocalUser = nil
+	s.consByCVideoObserver = nil
+	s.consByCEncodedVideoObserver = nil
 }
