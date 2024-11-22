@@ -254,17 +254,8 @@ func goOnUserVideoTrackStateChanged(cLocalUser unsafe.Pointer, uid *C.char, cRem
 	// note： best practise is never reelase handler until app is exiting
 	con.localUserObserver.OnUserVideoTrackStateChanged(con.GetLocalUser(), C.GoString(uid), con.NewRemoteVideoTrack(cRemoteVideoTrack), int(state), int(reason), int(elapsed))
 }
-func GoAudioVolumeInfo(frame *C.struct__audio_volume_info) *AudioVolumeInfo {
 
-	ret := &AudioVolumeInfo{
-		UserId:     C.GoString(frame.user_id),
-		Volume:     int(frame.volume),
-		Vad:        int(frame.vad),
-		VoicePitch: float64(frame.voicePitch),
-	}
-	return ret
-}
-
+/*
 //export goOnAudioVolumeIndication
 func goOnAudioVolumeIndication(cLocalUser unsafe.Pointer, Volumes *C.struct__audio_volume_info, speakerNumber C.uint, totalVolume C.int) {
 	agoraService.connectionRWMutex.RLock()
@@ -273,6 +264,8 @@ func goOnAudioVolumeIndication(cLocalUser unsafe.Pointer, Volumes *C.struct__aud
 	if con == nil || con.localUserObserver == nil || con.localUserObserver.OnAudioVolumeIndication == nil {
 		return
 	}
+
+
 	// item := C.GoBytes(unsafe.Pointer(Volumes), C.int(unsafe.Sizeof(Volumes))) and assign to a list
 	//todo?? move to file end
 	frames := make([]*AudioVolumeInfo, int(speakerNumber))
@@ -281,10 +274,29 @@ func goOnAudioVolumeIndication(cLocalUser unsafe.Pointer, Volumes *C.struct__aud
 		c_element := (*C.struct__audio_volume_info)(unsafe.Pointer(uintptr(unsafe.Pointer(Volumes)) + uintptr(c_elementSize)*uintptr(i)))
 		//element := (*C._audio_volume_info)(unsafe.Pointer(uintptr(unsafe.Pointer(volumes)) + uintptr(C.sizeof__audio_volume_info)*uintptr(i)))
 
-		volume := GoAudioVolumeInfo(&*c_element)
+		volume := GoAudioVolumeInfo(c_element)
 
 		frames[i] = volume
 
 	}
+
 	con.localUserObserver.OnAudioVolumeIndication(con.GetLocalUser(), frames, int(speakerNumber), int(totalVolume))
+}
+*/
+
+//export goOnAudioPublishStateChanged
+func goOnAudioPublishStateChanged(cLocalUser unsafe.Pointer, channel *C.char, oldState C.int, newState C.int, elapseSinceLastState C.int) {
+	agoraService.connectionRWMutex.RLock()
+	con := agoraService.consByCLocalUser[cLocalUser]
+	agoraService.connectionRWMutex.RUnlock()
+	if con == nil || con.localUserObserver == nil || con.localUserObserver.OnAudioPublishStateChanged == nil {
+		return
+	}
+	con.localUserObserver.OnAudioPublishStateChanged(con.GetLocalUser(), C.GoString(channel), int(oldState), int(newState), int(elapseSinceLastState))
+}
+
+//export goOnAudioVolumeIndication
+func goOnAudioVolumeIndication(cLocalUser unsafe.Pointer, speakers *C.struct__audio_volume_info, speakerNumber C.uint, totalVolume C.int) {
+	println("xxxxx now in goOnAudioVolumeIndication\n")
+	return
 }
