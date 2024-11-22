@@ -9,7 +9,7 @@ GOGET=$(GOCMD) get
 CURRENT_PATH=$(shell pwd)
 UNAME_S := $(shell uname -s)
 OS := unknown
-BASIC_EXAMPLES := send_recv_pcm send_recv_yuv recv_h264
+BASIC_EXAMPLES := send_recv_pcm send_recv_yuv recv_h264 recv_pcm_loopback
 ADVANCED_EXAMPLES := multi_cons_rtx send_encoded_audio send_h264 send_mp4
 
 ifeq ($(UNAME_S),Linux)
