@@ -103,12 +103,15 @@ func CLocalUserObserver() *C.struct__local_user_observer {
 	ret := (*C.struct__local_user_observer)(C.malloc(C.sizeof_struct__local_user_observer))
 	C.memset(unsafe.Pointer(ret), 0, C.sizeof_struct__local_user_observer)
 	ret.on_stream_message = (*[0]byte)(C.cgo_on_stream_message)
+
 	ret.on_user_info_updated = (*[0]byte)(C.cgo_on_user_info_updated)
 	ret.on_user_audio_track_subscribed = (*[0]byte)(C.cgo_on_user_audio_track_subscribed)
 	ret.on_user_video_track_subscribed = (*[0]byte)(C.cgo_on_user_video_track_subscribed)
 	ret.on_user_audio_track_state_changed = (*[0]byte)(C.cgo_on_user_audio_track_state_changed)
 	ret.on_user_video_track_state_changed = (*[0]byte)(C.cgo_on_user_video_track_state_changed)
-	ret.on_audio_volume_indication = (*[0]byte)(C.cgo_on_audio_volume_indication)
+	ret.on_audio_publish_state_changed = (*[0]byte)(C.cgo_on_audio_publish_state_changed)
+	// todo: check if need to use this, still can not work now,should check why can not work
+	//ret.on_audio_volume_indication = (*[0]byte)(C.cgo_on_audio_volume_indication)
 	return ret
 }
 
@@ -252,4 +255,18 @@ func unsafeCBytes(data []byte) (unsafe.Pointer, runtime.Pinner) {
 	pinner.Pin(ptr)
 
 	return ptr, pinner
+}
+
+func GoAudioVolumeInfo(frame *C.struct__audio_volume_info) *AudioVolumeInfo {
+	if frame == nil {
+		return nil
+	}
+
+	ret := &AudioVolumeInfo{
+		UserId:     C.GoString(frame.user_id),
+		Volume:     uint32(frame.volume),
+		VAD:        uint32(frame.vad),
+		VoicePitch: float64(frame.voicePitch),
+	}
+	return ret
 }
