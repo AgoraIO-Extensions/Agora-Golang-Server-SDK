@@ -3,7 +3,10 @@ package agoraservice
 // #cgo CFLAGS: -I${SRCDIR}/../../agora_sdk/include/c/api2 -I${SRCDIR}/../../agora_sdk/include/c/base
 // #include "agora_media_node_factory.h"
 import "C"
-import "unsafe"
+import (
+	"sync"
+	"unsafe"
+)
 
 type AudioFrame struct {
 	Type              AudioFrameType
@@ -25,25 +28,37 @@ type AudioFrame struct {
 
 type AudioPcmDataSender struct {
 	cSender unsafe.Pointer
+	mu      sync.RWMutex
+	closed  bool
 }
 type AudioVolumeInfo struct {
 	UserId     string
-	Volume     int
-	Vad        int
+	Volume     uint32
+	VAD        uint32
 	VoicePitch float64
 }
 
 func (mediaNodeFactory *MediaNodeFactory) NewAudioPcmDataSender() *AudioPcmDataSender {
+	if mediaNodeFactory == nil || mediaNodeFactory.cFactory == nil {
+		return nil
+	}
 	sender := C.agora_media_node_factory_create_audio_pcm_data_sender(mediaNodeFactory.cFactory)
 	if sender == nil {
 		return nil
 	}
 	return &AudioPcmDataSender{
 		cSender: sender,
+		closed:  false,
 	}
 }
 
 func (sender *AudioPcmDataSender) Release() {
+	if sender.closed {
+		return
+	}
+	sender.mu.Lock()
+	defer sender.mu.Unlock()
+	sender.closed = true
 	if sender.cSender == nil {
 		return
 	}
@@ -52,6 +67,14 @@ func (sender *AudioPcmDataSender) Release() {
 }
 
 func (sender *AudioPcmDataSender) SendAudioPcmData(frame *AudioFrame) int {
+	if sender.closed || sender.cSender == nil || frame == nil  {
+		return -1
+	}
+	sender.mu.RLock()
+	defer sender.mu.RUnlock()
+	if sender.closed || sender.cSender == nil || frame == nil || len(frame.Buffer) == 0 {
+		return -1
+	}
 	cData, pinner := unsafeCBytes(frame.Buffer)
 	defer pinner.Unpin()
 	return int(C.agora_audio_pcm_data_sender_send(sender.cSender, cData,
