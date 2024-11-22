@@ -127,23 +127,38 @@ func main() {
 	con := agoraservice.NewRtcConnection(&conCfg)
 	defer con.Release()
 
-	localUser := con.GetLocalUser()
-	localUser.SetPlaybackAudioFrameBeforeMixingParameters(1, 16000)
-	con.RegisterObserver(conHandler)
-	localUser.RegisterAudioFrameObserver(audioObserver)
-
 	//added by wei for localuser observer
 	localUserObserver := &agoraservice.LocalUserObserver{
 		OnStreamMessage: func(localUser *agoraservice.LocalUser, uid string, streamId int, data []byte) {
 			// do something
 			fmt.Printf("*****Stream message, from userId %s\n", uid)
 		},
+
 		OnAudioVolumeIndication: func(localUser *agoraservice.LocalUser, audioVolumeInfo []*agoraservice.AudioVolumeInfo, speakerNumber int, totalVolume int) {
 			// do something
 			fmt.Printf("*****Audio volume indication, speaker number %d\n", speakerNumber)
 		},
+		OnAudioPublishStateChanged: func(localUser *agoraservice.LocalUser, channelId string, oldState int, newState int, elapse_since_last_state int) {
+			fmt.Printf("*****Audio publish state changed, old state %d, new state %d\n", oldState, newState)
+		},
+		OnUserInfoUpdated: func(localUser *agoraservice.LocalUser, uid string, userMediaInfo int, val int) {
+			fmt.Printf("*****User info updated, uid %s\n", uid)
+		},
+		OnUserAudioTrackSubscribed: func(localUser *agoraservice.LocalUser, uid string, remoteAudioTrack *agoraservice.RemoteAudioTrack) {
+			fmt.Printf("*****User audio track subscribed, uid %s\n", uid)
+		},
+		OnUserVideoTrackSubscribed: func(localUser *agoraservice.LocalUser, uid string, info *agoraservice.VideoTrackInfo, remoteVideoTrack *agoraservice.RemoteVideoTrack) {
+
+		},
+		OnUserAudioTrackStateChanged: func(localUser *agoraservice.LocalUser, uid string, remoteAudioTrack *agoraservice.RemoteAudioTrack, state int, reason int, elapsed int) {
+			fmt.Printf("*****User audio track state changed, uid %s\n", uid)
+		},
+		OnUserVideoTrackStateChanged: func(localUser *agoraservice.LocalUser, uid string, remoteAudioTrack *agoraservice.RemoteVideoTrack, state int, reason int, elapsed int) {
+			fmt.Printf("*****User video track state changed, uid %s\n", uid)
+		},
 	}
-	con.GetLocalUser().RegisterLocalUserObserver(localUserObserver)
+
+	con.RegisterObserver(conHandler)
 
 	//end
 
@@ -154,9 +169,17 @@ func main() {
 	track := agoraservice.NewCustomAudioTrackPcm(sender)
 	defer track.Release()
 
+	localUser := con.GetLocalUser()
 	localUser.SetAudioScenario(agoraservice.AudioScenarioChorus)
 	con.Connect(token, channelName, userId)
 	<-conSignal
+
+	localUser = con.GetLocalUser()
+	localUser.SetPlaybackAudioFrameBeforeMixingParameters(1, 16000)
+	localUser.SetAudioVolumeIndicationParameters(300, 1, true)
+	localUser.RegisterLocalUserObserver(localUserObserver)
+
+	localUser.RegisterAudioFrameObserver(audioObserver)
 
 	track.SetEnabled(true)
 	localUser.PublishAudio(track)
@@ -212,10 +235,33 @@ func main() {
 		fmt.Printf("Sent %d frames this time\n", shouldSendCount)
 		time.Sleep(50 * time.Millisecond)
 	}
+
+	//release operation:cancel defer release,try manual release
+
 	localUser.UnpublishAudio(track)
 	track.SetEnabled(false)
+	localUser.UnregisterAudioFrameObserver()
+	localUser.UnregisterAudioFrameObserver()
+	localUser.UnregisterLocalUserObserver()
+
 	start_disconnect := time.Now().UnixMilli()
 	con.Disconnect()
-	<-OnDisconnectedSign
+	//<-OnDisconnectedSign
+	con.UnregisterObserver()
+
+	con.Release()
+
+	track.Release()
+	sender.Release()
+	mediaNodeFactory.Release()
+	agoraservice.Release()
+
+	track = nil
+	audioObserver = nil
+	localUserObserver = nil
+	localUser = nil
+	conHandler = nil
+	con = nil
+
 	fmt.Printf("Disconnected, cost %d ms\n", time.Now().UnixMilli()-start_disconnect)
 }

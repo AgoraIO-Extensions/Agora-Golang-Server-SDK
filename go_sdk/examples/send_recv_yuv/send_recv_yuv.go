@@ -23,10 +23,19 @@ func main() {
 		fmt.Println("Application terminated")
 	}()
 
+	// get parameter from arguments： appid, channel_name
+	argus := os.Args
+	if len(argus) < 3 {
+		fmt.Println("Please input appid, channel name")
+		return
+	}
+	appid := argus[1]
+	channelName := argus[2]
+
 	// get environment variable
-	appid := os.Getenv("AGORA_APP_ID")
+	//appid := os.Getenv("AGORA_APP_ID")
 	cert := os.Getenv("AGORA_APP_CERTIFICATE")
-	channelName := "gosdktest"
+	//channelName := "gosdktest"
 	userId := "0"
 	if appid == "" {
 		fmt.Println("Please set AGORA_APP_ID environment variable, and AGORA_APP_CERTIFICATE if needed")
