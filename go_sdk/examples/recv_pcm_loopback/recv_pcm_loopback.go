@@ -284,12 +284,12 @@ func main() {
 	con.UnregisterObserver()
 
 	fmt.Printf("Disconnect, cost %d ms\n", time.Now().UnixMilli()-start_disconnect)
-	a, b, c, d := agoraservice.GetMapInfo()
-	fmt.Printf("mapinfo:: %d,%d,%d,%d\n", a, b, c, d)
+	//a, b, c, d := agoraservice.GetMapInfo()
+	//fmt.Printf("mapinfo:: %d,%d,%d,%d\n", a, b, c, d)
 
 	con.Release()
-	a, b, c, d = agoraservice.GetMapInfo()
-	fmt.Printf("mapinfo:: %d,%d,%d,%d\n", a, b, c, d)
+	//a, b, c, d = agoraservice.GetMapInfo()
+	//fmt.Printf("mapinfo:: %d,%d,%d,%d\n", a, b, c, d)
 
 	track.Release()
 	sender.Release()
