@@ -108,7 +108,8 @@ func CLocalUserObserver() *C.struct__local_user_observer {
 	ret.on_user_video_track_subscribed = (*[0]byte)(C.cgo_on_user_video_track_subscribed)
 	ret.on_user_audio_track_state_changed = (*[0]byte)(C.cgo_on_user_audio_track_state_changed)
 	ret.on_user_video_track_state_changed = (*[0]byte)(C.cgo_on_user_video_track_state_changed)
-	ret.on_audio_volume_indication = (*[0]byte)(C.cgo_on_audio_volume_indication)
+	// todo: check if need to use this, still can not work now,should check why can not work
+	//ret.on_audio_volume_indication = (*[0]byte)(C.cgo_on_audio_volume_indication)
 	return ret
 }
 
