@@ -17,9 +17,12 @@ import (
 
 //export goOnConnected
 func goOnConnected(cCon unsafe.Pointer, cConInfo *C.struct__rtc_conn_info, reason C.int) {
-	agoraService.connectionRWMutex.RLock()
-	con := agoraService.consByCCon[cCon]
-	agoraService.connectionRWMutex.RUnlock()
+	//validity check
+	if cCon == nil {
+		return
+	}
+	// get conn from handle
+	con := agoraService.getConFromHandle(cCon, ConTypeCCon)
 	if con == nil || con.handler == nil || con.handler.OnConnected == nil {
 		return
 	}
@@ -29,9 +32,12 @@ func goOnConnected(cCon unsafe.Pointer, cConInfo *C.struct__rtc_conn_info, reaso
 
 //export goOnDisconnected
 func goOnDisconnected(cCon unsafe.Pointer, cConInfo *C.struct__rtc_conn_info, reason C.int) {
-	agoraService.connectionRWMutex.RLock()
-	con := agoraService.consByCCon[cCon]
-	agoraService.connectionRWMutex.RUnlock()
+	//validity check
+	if cCon == nil {
+		return
+	}
+	// get conn from handle
+	con := agoraService.getConFromHandle(cCon, ConTypeCCon)
 	if con == nil || con.handler == nil || con.handler.OnDisconnected == nil {
 		return
 	}
@@ -43,9 +49,12 @@ func goOnDisconnected(cCon unsafe.Pointer, cConInfo *C.struct__rtc_conn_info, re
 
 //export goOnConnecting
 func goOnConnecting(cCon unsafe.Pointer, cConInfo *C.struct__rtc_conn_info, reason C.int) {
-	agoraService.connectionRWMutex.RLock()
-	con := agoraService.consByCCon[cCon]
-	agoraService.connectionRWMutex.RUnlock()
+	//validity check
+	if cCon == nil {
+		return
+	}
+	// get conn from handle
+	con := agoraService.getConFromHandle(cCon, ConTypeCCon)
 	if con == nil || con.handler == nil || con.handler.OnConnecting == nil {
 		return
 	}
@@ -56,9 +65,12 @@ func goOnConnecting(cCon unsafe.Pointer, cConInfo *C.struct__rtc_conn_info, reas
 
 //export goOnReconnecting
 func goOnReconnecting(cCon unsafe.Pointer, cConInfo *C.struct__rtc_conn_info, reason C.int) {
-	agoraService.connectionRWMutex.RLock()
-	con := agoraService.consByCCon[cCon]
-	agoraService.connectionRWMutex.RUnlock()
+	//validity check
+	if cCon == nil {
+		return
+	}
+	// get conn from handle
+	con := agoraService.getConFromHandle(cCon, ConTypeCCon)
 	if con == nil || con.handler == nil || con.handler.OnReconnecting == nil {
 		return
 	}
@@ -70,9 +82,12 @@ func goOnReconnecting(cCon unsafe.Pointer, cConInfo *C.struct__rtc_conn_info, re
 //export goOnReconnected
 func goOnReconnected(cCon unsafe.Pointer, cConInfo *C.struct__rtc_conn_info, reason C.int) {
 
-	agoraService.connectionRWMutex.RLock()
-	con := agoraService.consByCCon[cCon]
-	agoraService.connectionRWMutex.RUnlock()
+	//validity check
+	if cCon == nil {
+		return
+	}
+	// get conn from handle
+	con := agoraService.getConFromHandle(cCon, ConTypeCCon)
 	if con == nil || con.handler == nil || con.handler.OnReconnected == nil {
 		return
 	}
@@ -83,9 +98,12 @@ func goOnReconnected(cCon unsafe.Pointer, cConInfo *C.struct__rtc_conn_info, rea
 
 //export goOnConnectionLost
 func goOnConnectionLost(cCon unsafe.Pointer, cConInfo *C.struct__rtc_conn_info) {
-	agoraService.connectionRWMutex.RLock()
-	con := agoraService.consByCCon[cCon]
-	agoraService.connectionRWMutex.RUnlock()
+	//validity check
+	if cCon == nil {
+		return
+	}
+	// get conn from handle
+	con := agoraService.getConFromHandle(cCon, ConTypeCCon)
 	if con == nil || con.handler == nil || con.handler.OnConnectionLost == nil {
 		return
 	}
@@ -96,10 +114,12 @@ func goOnConnectionLost(cCon unsafe.Pointer, cConInfo *C.struct__rtc_conn_info) 
 
 //export goOnConnectionFailure
 func goOnConnectionFailure(cCon unsafe.Pointer, cConInfo *C.struct__rtc_conn_info, reason C.int) {
-
-	agoraService.connectionRWMutex.RLock()
-	con := agoraService.consByCCon[cCon]
-	agoraService.connectionRWMutex.RUnlock()
+	//validity check
+	if cCon == nil {
+		return
+	}
+	// get conn from handle
+	con := agoraService.getConFromHandle(cCon, ConTypeCCon)
 	if con == nil || con.handler == nil || con.handler.OnConnectionFailure == nil {
 		return
 	}
@@ -110,9 +130,12 @@ func goOnConnectionFailure(cCon unsafe.Pointer, cConInfo *C.struct__rtc_conn_inf
 
 //export goOnTokenPrivilegeWillExpire
 func goOnTokenPrivilegeWillExpire(cCon unsafe.Pointer, ctoken *C.char) {
-	agoraService.connectionRWMutex.RLock()
-	con := agoraService.consByCCon[cCon]
-	agoraService.connectionRWMutex.RUnlock()
+	//validity check
+	if cCon == nil {
+		return
+	}
+	// get conn from handle
+	con := agoraService.getConFromHandle(cCon, ConTypeCCon)
 	if con == nil || con.handler == nil || con.handler.OnTokenPrivilegeWillExpire == nil {
 		return
 	}
@@ -122,10 +145,12 @@ func goOnTokenPrivilegeWillExpire(cCon unsafe.Pointer, ctoken *C.char) {
 
 //export goOnTokenPrivilegeDidExpire
 func goOnTokenPrivilegeDidExpire(cCon unsafe.Pointer) {
-
-	agoraService.connectionRWMutex.RLock()
-	con := agoraService.consByCCon[cCon]
-	agoraService.connectionRWMutex.RUnlock()
+	//validity check
+	if cCon == nil {
+		return
+	}
+	// get conn from handle
+	con := agoraService.getConFromHandle(cCon, ConTypeCCon)
 	if con == nil || con.handler == nil || con.handler.OnTokenPrivilegeDidExpire == nil {
 		return
 	}
@@ -135,10 +160,12 @@ func goOnTokenPrivilegeDidExpire(cCon unsafe.Pointer) {
 
 //export goOnUserJoined
 func goOnUserJoined(cCon unsafe.Pointer, uid *C.char) {
-
-	agoraService.connectionRWMutex.RLock()
-	con := agoraService.consByCCon[cCon]
-	agoraService.connectionRWMutex.RUnlock()
+	//validity check
+	if cCon == nil {
+		return
+	}
+	// get conn from handle
+	con := agoraService.getConFromHandle(cCon, ConTypeCCon)
 	if con == nil || con.handler == nil || con.handler.OnUserJoined == nil {
 		return
 	}
@@ -148,10 +175,12 @@ func goOnUserJoined(cCon unsafe.Pointer, uid *C.char) {
 
 //export goOnUserOffline
 func goOnUserOffline(cCon unsafe.Pointer, uid *C.char, reason C.int) {
-
-	agoraService.connectionRWMutex.RLock()
-	con := agoraService.consByCCon[cCon]
-	agoraService.connectionRWMutex.RUnlock()
+	//validity check
+	if cCon == nil {
+		return
+	}
+	// get conn from handle
+	con := agoraService.getConFromHandle(cCon, ConTypeCCon)
 	if con == nil || con.handler == nil || con.handler.OnUserLeft == nil {
 		return
 	}
@@ -161,9 +190,12 @@ func goOnUserOffline(cCon unsafe.Pointer, uid *C.char, reason C.int) {
 
 //export goOnError
 func goOnError(cCon unsafe.Pointer, err C.int, msg *C.char) {
-	agoraService.connectionRWMutex.RLock()
-	con := agoraService.consByCCon[cCon]
-	agoraService.connectionRWMutex.RUnlock()
+	//validity check
+	if cCon == nil {
+		return
+	}
+	// get conn from handle
+	con := agoraService.getConFromHandle(cCon, ConTypeCCon)
 	if con == nil || con.handler == nil || con.handler.OnError == nil {
 		return
 	}
@@ -173,9 +205,12 @@ func goOnError(cCon unsafe.Pointer, err C.int, msg *C.char) {
 
 //export goOnStreamMessageError
 func goOnStreamMessageError(cCon unsafe.Pointer, uid *C.char, streamId C.int, err C.int, missed C.int, cached C.int) {
-	agoraService.connectionRWMutex.RLock()
-	con := agoraService.consByCCon[cCon]
-	agoraService.connectionRWMutex.RUnlock()
+	//validity check
+	if cCon == nil {
+		return
+	}
+	// get conn from handle
+	con := agoraService.getConFromHandle(cCon, ConTypeCCon)
 	if con == nil || con.handler == nil || con.handler.OnStreamMessageError == nil {
 		return
 	}
@@ -185,9 +220,12 @@ func goOnStreamMessageError(cCon unsafe.Pointer, uid *C.char, streamId C.int, er
 
 //export goOnStreamMessage
 func goOnStreamMessage(cLocalUser unsafe.Pointer, uid *C.char, streamId C.int, data *C.char, length C.size_t) {
-	agoraService.connectionRWMutex.RLock()
-	con := agoraService.consByCLocalUser[cLocalUser]
-	agoraService.connectionRWMutex.RUnlock()
+	//validity check
+	if cLocalUser == nil {
+		return
+	}
+	// get conn from handle
+	con := agoraService.getConFromHandle(cLocalUser, ConTypeCLocalUser)
 	if con == nil || con.localUserObserver == nil || con.localUserObserver.OnStreamMessage == nil {
 		return
 	}
@@ -197,9 +235,12 @@ func goOnStreamMessage(cLocalUser unsafe.Pointer, uid *C.char, streamId C.int, d
 
 //export goOnUserInfoUpdated
 func goOnUserInfoUpdated(cLocalUser unsafe.Pointer, uid *C.char, msg C.int, val C.int) {
-	agoraService.connectionRWMutex.RLock()
-	con := agoraService.consByCLocalUser[cLocalUser]
-	agoraService.connectionRWMutex.RUnlock()
+	//validity check
+	if cLocalUser == nil {
+		return
+	}
+	// get conn from handle
+	con := agoraService.getConFromHandle(cLocalUser, ConTypeCLocalUser)
 	if con == nil || con.localUserObserver == nil || con.localUserObserver.OnUserInfoUpdated == nil {
 		return
 	}
@@ -209,9 +250,12 @@ func goOnUserInfoUpdated(cLocalUser unsafe.Pointer, uid *C.char, msg C.int, val 
 
 //export goOnUserAudioTrackSubscribed
 func goOnUserAudioTrackSubscribed(cLocalUser unsafe.Pointer, uid *C.char, cRemoteAudioTrack unsafe.Pointer) {
-	agoraService.connectionRWMutex.RLock()
-	con := agoraService.consByCLocalUser[cLocalUser]
-	agoraService.connectionRWMutex.RUnlock()
+	//validity check
+	if cLocalUser == nil {
+		return
+	}
+	// get conn from handle
+	con := agoraService.getConFromHandle(cLocalUser, ConTypeCLocalUser)
 	if con == nil || con.localUserObserver == nil || con.localUserObserver.OnUserAudioTrackSubscribed == nil {
 		return
 	}
@@ -221,9 +265,12 @@ func goOnUserAudioTrackSubscribed(cLocalUser unsafe.Pointer, uid *C.char, cRemot
 
 //export goOnUserVideoTrackSubscribed
 func goOnUserVideoTrackSubscribed(cLocalUser unsafe.Pointer, uid *C.char, info *C.struct__video_track_info, cRemoteVideoTrack unsafe.Pointer) {
-	agoraService.connectionRWMutex.RLock()
-	con := agoraService.consByCLocalUser[cLocalUser]
-	agoraService.connectionRWMutex.RUnlock()
+	//validity check
+	if cLocalUser == nil {
+		return
+	}
+	// get conn from handle
+	con := agoraService.getConFromHandle(cLocalUser, ConTypeCLocalUser)
 	if con == nil || con.localUserObserver == nil || con.localUserObserver.OnUserVideoTrackSubscribed == nil {
 		return
 	}
@@ -233,9 +280,12 @@ func goOnUserVideoTrackSubscribed(cLocalUser unsafe.Pointer, uid *C.char, info *
 
 //export goOnUserAudioTrackStateChanged
 func goOnUserAudioTrackStateChanged(cLocalUser unsafe.Pointer, uid *C.char, cRemoteAudioTrack unsafe.Pointer, state C.int, reason C.int, elapsed C.int) {
-	agoraService.connectionRWMutex.RLock()
-	con := agoraService.consByCLocalUser[cLocalUser]
-	agoraService.connectionRWMutex.RUnlock()
+	//validity check
+	if cLocalUser == nil {
+		return
+	}
+	// get conn from handle
+	con := agoraService.getConFromHandle(cLocalUser, ConTypeCLocalUser)
 	if con == nil || con.localUserObserver == nil || con.localUserObserver.OnUserAudioTrackStateChanged == nil {
 		return
 	}
@@ -245,9 +295,12 @@ func goOnUserAudioTrackStateChanged(cLocalUser unsafe.Pointer, uid *C.char, cRem
 
 //export goOnUserVideoTrackStateChanged
 func goOnUserVideoTrackStateChanged(cLocalUser unsafe.Pointer, uid *C.char, cRemoteVideoTrack unsafe.Pointer, state C.int, reason C.int, elapsed C.int) {
-	agoraService.connectionRWMutex.RLock()
-	con := agoraService.consByCLocalUser[cLocalUser]
-	agoraService.connectionRWMutex.RUnlock()
+	//validity check
+	if cLocalUser == nil {
+		return
+	}
+	// get conn from handle
+	con := agoraService.getConFromHandle(cLocalUser, ConTypeCLocalUser)
 	if con == nil || con.localUserObserver == nil || con.localUserObserver.OnUserVideoTrackStateChanged == nil {
 		return
 	}
@@ -255,12 +308,15 @@ func goOnUserVideoTrackStateChanged(cLocalUser unsafe.Pointer, uid *C.char, cRem
 	con.localUserObserver.OnUserVideoTrackStateChanged(con.GetLocalUser(), C.GoString(uid), con.NewRemoteVideoTrack(cRemoteVideoTrack), int(state), int(reason), int(elapsed))
 }
 
-/*
+
 //export goOnAudioVolumeIndication
 func goOnAudioVolumeIndication(cLocalUser unsafe.Pointer, Volumes *C.struct__audio_volume_info, speakerNumber C.uint, totalVolume C.int) {
-	agoraService.connectionRWMutex.RLock()
-	con := agoraService.consByCLocalUser[cLocalUser]
-	agoraService.connectionRWMutex.RUnlock()
+	//validity check
+	if cLocalUser == nil {
+		return
+	}
+	// get conn from handle
+	con := agoraService.getConFromHandle(cLocalUser, ConTypeCLocalUser)
 	if con == nil || con.localUserObserver == nil || con.localUserObserver.OnAudioVolumeIndication == nil {
 		return
 	}
@@ -282,21 +338,18 @@ func goOnAudioVolumeIndication(cLocalUser unsafe.Pointer, Volumes *C.struct__aud
 
 	con.localUserObserver.OnAudioVolumeIndication(con.GetLocalUser(), frames, int(speakerNumber), int(totalVolume))
 }
-*/
+
 
 //export goOnAudioPublishStateChanged
 func goOnAudioPublishStateChanged(cLocalUser unsafe.Pointer, channel *C.char, oldState C.int, newState C.int, elapseSinceLastState C.int) {
-	agoraService.connectionRWMutex.RLock()
-	con := agoraService.consByCLocalUser[cLocalUser]
-	agoraService.connectionRWMutex.RUnlock()
+	//validity check
+	if cLocalUser == nil {
+		return
+	}
+	// get conn from handle
+	con := agoraService.getConFromHandle(cLocalUser, ConTypeCLocalUser)
 	if con == nil || con.localUserObserver == nil || con.localUserObserver.OnAudioPublishStateChanged == nil {
 		return
 	}
 	con.localUserObserver.OnAudioPublishStateChanged(con.GetLocalUser(), C.GoString(channel), int(oldState), int(newState), int(elapseSinceLastState))
-}
-
-//export goOnAudioVolumeIndication
-func goOnAudioVolumeIndication(cLocalUser unsafe.Pointer, speakers *C.struct__audio_volume_info, speakerNumber C.uint, totalVolume C.int) {
-	println("xxxxx now in goOnAudioVolumeIndication\n")
-	return
 }

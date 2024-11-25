@@ -202,11 +202,10 @@ func NewRtcConnection(cfg *RtcConnectionConfig) *RtcConnection {
 	ret.parameter = &AgoraParameter{
 		cParameter: C.agora_rtc_conn_get_agora_parameter(ret.cConnection),
 	}
-	agoraService.connectionRWMutex.Lock()
-	// to avoid deadlock, defer unlock
-	defer agoraService.connectionRWMutex.Unlock()
-	agoraService.consByCCon[ret.cConnection] = ret
-	agoraService.consByCLocalUser[ret.localUser.cLocalUser] = ret
+
+	// save to sync map
+	agoraService.setConFromHandle(ret.cConnection, ret, ConTypeCCon)
+	agoraService.setConFromHandle(ret.localUser.cLocalUser, ret, ConTypeCLocalUser)
 
 	return ret
 }
@@ -215,16 +214,15 @@ func (conn *RtcConnection) Release() {
 	if conn.cConnection == nil {
 		return
 	}
-	agoraService.connectionRWMutex.Lock()
-	delete(agoraService.consByCCon, conn.cConnection)
-	delete(agoraService.consByCLocalUser, conn.localUser.cLocalUser)
+	// delete from sync map
+	agoraService.deleteConFromHandle(conn.cConnection, ConTypeCCon)
+	agoraService.deleteConFromHandle(conn.localUser.cLocalUser, ConTypeCLocalUser)
 	if conn.cVideoObserver != nil {
-		delete(agoraService.consByCVideoObserver, conn.cVideoObserver)
+		agoraService.deleteConFromHandle(conn.cVideoObserver, ConTypeCVideoObserver)
 	}
 	if conn.cEncodedVideoObserver != nil {
-		delete(agoraService.consByCEncodedVideoObserver, conn.cEncodedVideoObserver)
+		agoraService.deleteConFromHandle(conn.cEncodedVideoObserver, ConTypeCEncodedVideoObserver)
 	}
-	agoraService.connectionRWMutex.Unlock()
 
 	// get all receiverInners
 	// encodedVideoReceiversInners := make([]*videoEncodedImageReceiverInner, 0, 10)
@@ -427,8 +425,8 @@ func (conn *RtcConnection) unregisterLocalUserObserver() int {
 	if conn.cLocalUserObserver != nil {
 		C.agora_local_user_unregister_observer(conn.localUser.cLocalUser)
 		FreeCLocalUserObserver(conn.cLocalUserObserver)
-		conn.cLocalUserObserver = nil
 	}
+	conn.cLocalUserObserver = nil
 	conn.localUserObserver = nil
 	return 0
 }
@@ -480,9 +478,8 @@ func (conn *RtcConnection) registerVideoFrameObserver(observer *VideoFrameObserv
 	conn.videoObserver = observer
 	if conn.cVideoObserver == nil {
 		conn.cVideoObserver = CVideoFrameObserver()
-		agoraService.connectionRWMutex.Lock()
-		agoraService.consByCVideoObserver[conn.cVideoObserver] = conn
-		agoraService.connectionRWMutex.Unlock()
+		// store to sync map
+		agoraService.setConFromHandle(conn.cVideoObserver, conn, ConTypeCVideoObserver)
 		C.agora_local_user_register_video_frame_observer(conn.localUser.cLocalUser, conn.cVideoObserver)
 	}
 	return 0
@@ -495,12 +492,12 @@ func (conn *RtcConnection) unregisterVideoFrameObserver() int {
 	}
 	if conn.cVideoObserver != nil {
 		C.agora_local_user_unregister_video_frame_observer(conn.localUser.cLocalUser, conn.cVideoObserver)
-		agoraService.connectionRWMutex.Lock()
-		delete(agoraService.consByCVideoObserver, conn.cVideoObserver)
-		agoraService.connectionRWMutex.Unlock()
+		// delete from sync map
+		agoraService.deleteConFromHandle(conn.cVideoObserver, ConTypeCVideoObserver)
 		FreeCVideoFrameObserver(conn.cVideoObserver)
 		conn.cVideoObserver = nil
 	}
+	conn.cVideoObserver = nil
 	conn.videoObserver = nil
 	return 0
 }
@@ -519,9 +516,8 @@ func (conn *RtcConnection) registerVideoEncodedFrameObserver(observer *VideoEnco
 	conn.encodedVideoObserver = observer
 	if conn.cEncodedVideoObserver == nil {
 		conn.cEncodedVideoObserver = CVideoEncodedFrameObserver()
-		agoraService.connectionRWMutex.Lock()
-		agoraService.consByCEncodedVideoObserver[conn.cEncodedVideoObserver] = conn
-		agoraService.connectionRWMutex.Unlock()
+		// store to sync map
+		agoraService.setConFromHandle(conn.cEncodedVideoObserver, conn, ConTypeCEncodedVideoObserver)
 		C.agora_local_user_register_video_encoded_frame_observer(conn.localUser.cLocalUser, conn.cEncodedVideoObserver)
 	}
 	return 0
@@ -534,12 +530,12 @@ func (conn *RtcConnection) unregisterVideoEncodedFrameObserver() int {
 	}
 	if conn.cEncodedVideoObserver != nil {
 		C.agora_local_user_unregister_video_encoded_frame_observer(conn.localUser.cLocalUser, conn.cEncodedVideoObserver)
-		agoraService.connectionRWMutex.Lock()
-		delete(agoraService.consByCEncodedVideoObserver, conn.cEncodedVideoObserver)
-		agoraService.connectionRWMutex.Unlock()
+		// delete from sync map
+		agoraService.deleteConFromHandle(conn.cEncodedVideoObserver, ConTypeCEncodedVideoObserver)
 		FreeCEncodedVideoFrameObserver(conn.cEncodedVideoObserver)
 		conn.cEncodedVideoObserver = nil
 	}
+	conn.cEncodedVideoObserver = nil
 	conn.encodedVideoObserver = nil
 	return 0
 }

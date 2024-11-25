@@ -66,30 +66,32 @@ type AgoraServiceConfig struct {
 	LogSize int
 }
 
+// const def for map type
+const (
+	ConTypeCCon                  = 0
+	ConTypeCLocalUser            = 1
+	ConTypeCVideoObserver        = 2
+	ConTypeCEncodedVideoObserver = 3
+)
+
+// AgoraService is the core service of the Agora SDK.
+// It manages the lifecycle of the Agora SDK and provides methods to interact with the SDK.
+// It is a singleton, so you should not create multiple instances of it.
 type AgoraService struct {
 	inited  bool
 	service unsafe.Pointer
 	// mediaFactory         unsafe.Pointer
-	consByCCon                  map[unsafe.Pointer]*RtcConnection
-	consByCLocalUser            map[unsafe.Pointer]*RtcConnection
-	consByCVideoObserver        map[unsafe.Pointer]*RtcConnection
-	consByCEncodedVideoObserver map[unsafe.Pointer]*RtcConnection
-	connectionRWMutex           *sync.RWMutex
-
-	// remoteVideoRWMutex          *sync.RWMutex
-	// remoteEncodedVideoReceivers map[unsafe.Pointer]*videoEncodedImageReceiverInner
+	consByCCon                  sync.Map
+	consByCLocalUser            sync.Map
+	consByCVideoObserver        sync.Map
+	consByCEncodedVideoObserver sync.Map
 }
 
+// / newAgoraService creates a new instance of AgoraService
 func newAgoraService() *AgoraService {
 	return &AgoraService{
 		inited:  false,
 		service: nil,
-		// mediaFactory:         nil,
-		consByCCon:                  make(map[unsafe.Pointer]*RtcConnection),
-		consByCLocalUser:            make(map[unsafe.Pointer]*RtcConnection),
-		consByCVideoObserver:        make(map[unsafe.Pointer]*RtcConnection),
-		consByCEncodedVideoObserver: make(map[unsafe.Pointer]*RtcConnection),
-		connectionRWMutex:           &sync.RWMutex{},
 	}
 }
 
@@ -216,14 +218,105 @@ func GetAgoraParameter() *AgoraParameter {
 	}
 }
 
-// 添加清理方法
+// add cleanup method
 func (s *AgoraService) cleanup() {
-	s.connectionRWMutex.Lock()
-	defer s.connectionRWMutex.Unlock()
+    // Clean all connections and release associated resources
+    s.consByCCon.Range(func(key, value interface{}) bool {
+        if conn, ok := value.(*RtcConnection); ok && conn != nil {
+            // Perform any necessary cleanup for the connection
+            
+        }
+        s.consByCCon.Delete(key)
+        return true
+    })
 
-	// 清理所有 map
-	s.consByCCon = nil
-	s.consByCLocalUser = nil
-	s.consByCVideoObserver = nil
-	s.consByCEncodedVideoObserver = nil
+    s.consByCLocalUser.Range(func(key, value interface{}) bool {
+        if conn, ok := value.(*RtcConnection); ok && conn != nil {
+            //conn.Close()  // do not call this method, it should be called by user
+        }
+        s.consByCLocalUser.Delete(key)
+        return true
+    })
+
+    s.consByCVideoObserver.Range(func(key, value interface{}) bool {
+        if conn, ok := value.(*RtcConnection); ok && conn != nil {
+        }
+        s.consByCVideoObserver.Delete(key)
+        return true
+    })
+
+    s.consByCEncodedVideoObserver.Range(func(key, value interface{}) bool {
+        if conn, ok := value.(*RtcConnection); ok && conn != nil {
+        }
+        s.consByCEncodedVideoObserver.Delete(key)
+        return true
+    })
+
+    // After cleaning up all connections, set maps to nil
+    s.consByCCon = sync.Map{}
+    s.consByCLocalUser = sync.Map{}
+    s.consByCVideoObserver = sync.Map{}
+    s.consByCEncodedVideoObserver = sync.Map{}
+}
+
+// to get value from sync.Map, use Load method
+// to set value to sync.Map, use Store method
+// to delete value from sync.Map, use Delete method
+func (s *AgoraService) setConFromHandle(handle unsafe.Pointer, con *RtcConnection, conType int) int {
+	switch conType {
+	case ConTypeCCon:
+		s.consByCCon.Store(handle, con)
+	case ConTypeCLocalUser:
+		s.consByCLocalUser.Store(handle, con)
+	case ConTypeCVideoObserver:
+		s.consByCVideoObserver.Store(handle, con)
+	case ConTypeCEncodedVideoObserver:
+		s.consByCEncodedVideoObserver.Store(handle, con)
+	default:
+		return -1
+	}
+	return 0
+}
+
+func (s *AgoraService) getConFromHandle(handle unsafe.Pointer, conType int) *RtcConnection {
+	var value interface{}
+	var ok bool
+
+	if handle == nil {
+		return nil
+	}
+
+	switch conType {
+	case ConTypeCCon:
+		value, ok = s.consByCCon.Load(handle)
+	case ConTypeCLocalUser:
+		value, ok = s.consByCLocalUser.Load(handle)
+	case ConTypeCVideoObserver:
+		value, ok = s.consByCVideoObserver.Load(handle)
+	case ConTypeCEncodedVideoObserver:
+		value, ok = s.consByCEncodedVideoObserver.Load(handle)
+	default:
+		return nil
+	}
+	if !ok {
+		return nil
+	}
+	return value.(*RtcConnection)
+}
+
+func (s *AgoraService) deleteConFromHandle(handle unsafe.Pointer, conType int) bool {
+	if handle == nil {
+		return false
+	}
+	switch conType {
+	case ConTypeCCon:
+		s.consByCCon.Delete(handle)
+	case ConTypeCLocalUser:
+		s.consByCLocalUser.Delete(handle)
+	case ConTypeCVideoObserver:
+		s.consByCVideoObserver.Delete(handle)
+	case ConTypeCEncodedVideoObserver:
+		s.consByCEncodedVideoObserver.Delete(handle)
+	}
+	return true
 }
