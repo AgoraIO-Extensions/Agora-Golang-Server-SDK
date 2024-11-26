@@ -140,6 +140,8 @@ func Initialize(cfg *AgoraServiceConfig) int {
 	cParamStr := C.CString("rtc.set_app_type")
 	defer C.free(unsafe.Pointer(cParamStr))
 	C.agora_parameter_set_int(cParam, cParamStr, C.int(17))
+	// enable audio label generator
+	EnableExtension("agora.builtin", "agora_audio_label_generator", "", true)
 
 	if cfg.LogPath != "" {
 		logPath := C.CString(cfg.LogPath)
