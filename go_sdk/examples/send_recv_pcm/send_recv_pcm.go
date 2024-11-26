@@ -1,16 +1,62 @@
 package main
 
 import (
+	//"bytes"
+	//"bufio"
 	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
 	"time"
+	_ "net/http/pprof"
 
 	agoraservice "github.com/AgoraIO-Extensions/Agora-Golang-Server-SDK/v2/go_sdk/agoraservice"
 
 	rtctokenbuilder "github.com/AgoraIO/Tools/DynamicKey/AgoraDynamicKey/go/src/rtctokenbuilder2"
 )
+
+func PushFileToConsumer(file *os.File, audioConsumer *agoraservice.AudioConsumer) {
+	buffer := make([]byte, 320)
+	for  {
+		readLen, err := file.Read(buffer)
+		if err != nil || readLen < 320 {
+			fmt.Println("Error reading file:", err)
+			file.Seek(0, 0)
+			break
+		}
+		audioConsumer.PushPCMData(buffer)
+	}
+	buffer = nil
+}
+func ReadFileToConsumer(file *os.File, consumer *agoraservice.AudioConsumer, interval int, done chan bool) {
+	for {
+		select {
+		case <-done:
+			fmt.Println("ReadFileToConsumer done")
+			return
+		default:
+			len := consumer.Len()
+			if len < 320*interval {
+				PushFileToConsumer(file, consumer)
+			}
+			time.Sleep(time.Duration(interval) * time.Millisecond)
+		}
+	}
+}
+
+
+func ConsumeAudio(audioConsumer *agoraservice.AudioConsumer, interval int, done chan bool) {
+	for {
+		select {
+		case <-done:
+			fmt.Println("ConsumeAudio done")
+			return
+		default:
+			audioConsumer.Consume()
+			time.Sleep(time.Duration(interval) * time.Millisecond)
+		}
+	}
+}
 
 func main() {
 	bStop := new(bool)
@@ -31,17 +77,16 @@ func main() {
 	println("Start to send and receive PCM data\nusage:\n	./send_recv_pcm <appid> <channel_name>\n	press ctrl+c to exit\n")
 
 	// get parameter from arguments： appid, channel_name
-	/*
-		argus := os.Args
-		if len(argus) < 3 {
-			fmt.Println("Please input appid, channel name")
-			return
-		}
-		appid := argus[1]
-		channelName := argus[2]
-	*/
-	appid := "aab8b8f5a8cd4469a63042fcfafe7063"
-	channelName := "wei129"
+	
+	argus := os.Args
+	if len(argus) < 3 {
+		fmt.Println("Please input appid, channel name")
+		return
+	}
+	appid := argus[1]
+	channelName := argus[2]
+	
+	
 
 	// get environment variable
 	if appid == "" {
@@ -119,7 +164,7 @@ func main() {
 	audioObserver := &agoraservice.AudioFrameObserver{
 		OnPlaybackAudioFrameBeforeMixing: func(localUser *agoraservice.LocalUser, channelId string, userId string, frame *agoraservice.AudioFrame) bool {
 			// do something
-			fmt.Printf("Playback audio frame before mixing, from userId %s\n", userId)
+			//fmt.Printf("Playback audio frame before mixing, from userId %s\n", userId)
 			return true
 		},
 	}
@@ -184,16 +229,6 @@ func main() {
 	track.SetEnabled(true)
 	localUser.PublishAudio(track)
 
-	frame := &agoraservice.AudioFrame{
-		Type:              agoraservice.AudioFrameTypePCM16,
-		SamplesPerChannel: 160,
-		BytesPerSample:    2,
-		Channels:          1,
-		SamplesPerSec:     16000,
-		Buffer:            make([]byte, 320),
-		RenderTimeMs:      0,
-	}
-
 	file, err := os.Open("../test_data/send_audio_16k_1ch.pcm")
 	if err != nil {
 		fmt.Println("Error opening file:", err)
@@ -203,40 +238,36 @@ func main() {
 
 	track.AdjustPublishVolume(100)
 
-	sendCount := 0
-	// send 180ms audio data
-	for i := 0; i < 18; i++ {
-		dataLen, err := file.Read(frame.Buffer)
-		if err != nil || dataLen < 320 {
-			fmt.Println("Finished reading file:", err)
-			break
-		}
-		sendCount++
-		ret := sender.SendAudioPcmData(frame)
-		fmt.Printf("SendAudioPcmData %d ret: %d\n", sendCount, ret)
-	}
+	audioConsumer := agoraservice.NewAudioConsumer(sender, 16000, 1)
+	defer audioConsumer.Release()
 
-	firstSendTime := time.Now()
-	for !(*bStop) {
-		shouldSendCount := int(time.Since(firstSendTime).Milliseconds()/10) - (sendCount - 18)
-		for i := 0; i < shouldSendCount; i++ {
-			dataLen, err := file.Read(frame.Buffer)
-			if err != nil || dataLen < 320 {
-				fmt.Println("Finished reading file:", err)
-				file.Seek(0, 0)
-				i--
-				continue
-			}
+	done := make(chan bool)
+	// new method for push
+	/*
+	#下面的操作：只是模拟生产的数据。
+	# - 在sample中，为了确保生产产生的数据能够一直播放，需要生产足够多的数据，所以用这样的方式来模拟
+	# - 在实际使用中，数据是实时产生的，所以不需要这样的操作。只需要在TTS生产数据的时候，调用AudioConsumer.push_pcm_data()
+	 # 我们启动2个task
+    # 一个task，用来模拟从TTS接收到语音，然后将语音push到audio_consumer
+    # 另一个task，用来模拟播放语音：从audio_consumer中取出语音播放
+    # 在实际应用中，可以是TTS返回的时候，直接将语音push到audio_consumer
+    # 然后在另外一个“timer”的触发函数中，调用audio_consumer.consume()。
+    # 推荐：
+    # .Timer的模式；也可以和业务已有的timer结合在一起使用，都可以。只需要在timer 触发的函数中，调用audio_consumer.consume()即可
+    # “Timer”的触发间隔，可以和业务已有的timer间隔一致，也可以根据业务需求调整，推荐在40～80ms之间  
 
-			sendCount++
-			ret := sender.SendAudioPcmData(frame)
-			fmt.Printf("SendAudioPcmData %d ret: %d\n", sendCount, ret)
-		}
-		fmt.Printf("Sent %d frames this time\n", shouldSendCount)
-		time.Sleep(50 * time.Millisecond)
-	}
+	*/
+	go ReadFileToConsumer(file, audioConsumer, 50, done)
+	go ConsumeAudio(audioConsumer, 50, done)
+	
 
 	//release operation:cancel defer release,try manual release
+	for !(*bStop) {
+		time.Sleep(100 * time.Millisecond)
+	}
+	close(done)
+
+	audioConsumer.Release()
 
 	localUser.UnpublishAudio(track)
 	track.SetEnabled(false)
