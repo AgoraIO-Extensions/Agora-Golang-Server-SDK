@@ -32,17 +32,14 @@ func main() {
 	println("Start to send and receive PCM data\nusage:\n	./send_recv_pcm <appid> <channel_name>\n	press ctrl+c to exit\n")
 
 	// get parameter from arguments： appid, channel_name
-	/*
-		argus := os.Args
-		if len(argus) < 3 {
-			fmt.Println("Please input appid, channel name")
-			return
-		}
-		appid := argus[1]
-		channelName := argus[2]
-	*/
-	appid := "aab8b8f5a8cd4469a63042fcfafe7063"
-	channelName := "wei129"
+
+	argus := os.Args
+	if len(argus) < 3 {
+		fmt.Println("Please input appid, channel name")
+		return
+	}
+	appid := argus[1]
+	channelName := argus[2]
 
 	// get environment variable
 	if appid == "" {

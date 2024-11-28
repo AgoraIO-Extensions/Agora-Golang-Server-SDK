@@ -81,7 +81,7 @@ func main() {
 	mediaNodeFactory := agoraservice.NewMediaNodeFactory()
 	defer mediaNodeFactory.Release()
 
-	agoraservice.EnableExtension("agora.builtin", "agora_audio_label_generator", "", true)
+	//agoraservice.EnableExtension("agora.builtin", "agora_audio_label_generator", "", true)
 
 	// Recommended  configurations:
 	// For not-so-noisy environments, use this configuration: (16, 30, 20, 0.7, 0.5, 70, -50, 70, -50)
