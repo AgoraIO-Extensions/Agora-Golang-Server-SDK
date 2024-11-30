@@ -203,6 +203,10 @@ func NewRtcConnection(cfg *RtcConnectionConfig) *RtcConnection {
 		cParameter: C.agora_rtc_conn_get_agora_parameter(ret.cConnection),
 	}
 
+	if agoraService.isLowDelay {
+		ret.localUser.SetAudioScenario(AudioScenarioChorus)
+	}
+
 	// save to sync map
 	agoraService.setConFromHandle(ret.cConnection, ret, ConTypeCCon)
 	agoraService.setConFromHandle(ret.localUser.cLocalUser, ret, ConTypeCLocalUser)

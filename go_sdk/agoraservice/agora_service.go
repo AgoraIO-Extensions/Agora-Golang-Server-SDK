@@ -80,6 +80,7 @@ const (
 type AgoraService struct {
 	inited  bool
 	service unsafe.Pointer
+	isLowDelay bool
 	// mediaFactory         unsafe.Pointer
 	consByCCon                  sync.Map
 	consByCLocalUser            sync.Map
@@ -92,6 +93,7 @@ func newAgoraService() *AgoraService {
 	return &AgoraService{
 		inited:  false,
 		service: nil,
+		isLowDelay: false,
 	}
 }
 
@@ -142,6 +144,8 @@ func Initialize(cfg *AgoraServiceConfig) int {
 	C.agora_parameter_set_int(cParam, cParamStr, C.int(17))
 	// enable audio label generator
 	EnableExtension("agora.builtin", "agora_audio_label_generator", "", true)
+
+	agoraService.isLowDelay = cfg.AudioScenario == AudioScenarioChorus
 
 	if cfg.LogPath != "" {
 		logPath := C.CString(cfg.LogPath)
