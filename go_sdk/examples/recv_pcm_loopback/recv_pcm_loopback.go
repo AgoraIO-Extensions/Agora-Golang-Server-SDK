@@ -151,7 +151,6 @@ func main() {
 	}
 
 	con := agoraservice.NewRtcConnection(&conCfg)
-	defer con.Release()
 
 	//added by wei for localuser observer
 	localUserObserver := &agoraservice.LocalUserObserver{
@@ -191,12 +190,11 @@ func main() {
 	// sender := con.NewPcmSender()
 	// defer sender.Release()
 	sender = mediaNodeFactory.NewAudioPcmDataSender()
-	defer sender.Release()
+
 	track := agoraservice.NewCustomAudioTrackPcm(sender)
-	defer track.Release()
 
 	localUser := con.GetLocalUser()
-	localUser.SetAudioScenario(agoraservice.AudioScenarioChorus)
+	//localUser.SetAudioScenario(agoraservice.AudioScenarioChorus)
 	con.Connect(token, channelName, userId)
 	<-conSignal
 
@@ -242,30 +240,11 @@ func main() {
 		fmt.Printf("SendAudioPcmData %d ret: %d\n", sendCount, ret)
 	}
 
-	firstSendTime := time.Now()
 	//added by wei for loop back
 	for !(*bStop) {
 		time.Sleep(40 * time.Millisecond)
 	}
 	//end of added by wei for loop back
-	for !(*bStop) {
-		shouldSendCount := int(time.Since(firstSendTime).Milliseconds()/10) - (sendCount - 18)
-		for i := 0; i < shouldSendCount; i++ {
-			dataLen, err := file.Read(frame.Buffer)
-			if err != nil || dataLen < 320 {
-				fmt.Println("Finished reading file:", err)
-				file.Seek(0, 0)
-				i--
-				continue
-			}
-
-			sendCount++
-			ret := sender.SendAudioPcmData(frame)
-			fmt.Printf("SendAudioPcmData %d ret: %d\n", sendCount, ret)
-		}
-		fmt.Printf("Sent %d frames this time\n", shouldSendCount)
-		time.Sleep(50 * time.Millisecond)
-	}
 
 	//release operation:cancel defer release,try manual release
 

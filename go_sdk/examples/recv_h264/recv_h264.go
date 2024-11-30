@@ -28,11 +28,19 @@ func main() {
 		<-c
 		cancel()
 	}()
+	argus := os.Args
+	if len(argus) < 3 {
+		fmt.Println("Please input appid, channel name")
+		return
+	}
+	appid := argus[1]
+	channelName := argus[2]
 
 	// get environment variable
-	appid := os.Getenv("AGORA_APP_ID")
+	if appid == "" {
+		appid = os.Getenv("AGORA_APP_ID")
+	}
 	cert := os.Getenv("AGORA_APP_CERTIFICATE")
-	channelName := "gosdktest"
 	userId := "0"
 	if appid == "" {
 		fmt.Println("Please set AGORA_APP_ID environment variable, and AGORA_APP_CERTIFICATE if needed")
@@ -55,9 +63,9 @@ func main() {
 	svcCfg.AppId = appid
 
 	agoraservice.Initialize(svcCfg)
-	defer agoraservice.Release()
+	
 	mediaNodeFactory := agoraservice.NewMediaNodeFactory()
-	defer mediaNodeFactory.Release()
+	
 
 	conCfg := agoraservice.RtcConnectionConfig{
 		AutoSubscribeAudio: true,
@@ -117,7 +125,7 @@ func main() {
 		},
 	}
 	con := agoraservice.NewRtcConnection(&conCfg)
-	defer con.Release()
+	
 
 	localUser := con.GetLocalUser()
 	con.RegisterObserver(conHandler)
@@ -148,5 +156,30 @@ func main() {
 			stop = true
 		}
 	}
+
+	// release resource
+	
+	localUser.UnregisterAudioFrameObserver()
+	localUser.UnregisterAudioFrameObserver()
+	localUser.UnregisterLocalUserObserver()
+
+	
 	con.Disconnect()
+	//<-OnDisconnectedSign
+	con.UnregisterObserver()
+
+	con.Release()
+
+	
+	mediaNodeFactory.Release()
+	agoraservice.Release()
+
+
+	localUserObserver = nil
+	localUser = nil
+	conHandler = nil
+	con = nil
+
+	fmt.Printf("App exited\n")
+	
 }
