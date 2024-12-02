@@ -100,6 +100,19 @@ import (
   - if you don't use VAD, and your glibc version is between 2.16 and 2.27, you can disable VAD by rename **audio_vad.go** file in go_sdk/agoraserver/ to **audio_vad.go.bak**
 
 # Change log
+## Release 2.1.2 on December 2, 2024
+- The AudioConsumer has been added, which can be used to push audio data.
+- The VadDump method has been added, which can be used to debug VAD.
+- When the profile of the service is chorus:
+  - In localuser, setSenddelayinms will be automatically added.
+  - In audiotrack, the track will be automatically set to chorus mode.
+  - Developers no longer need to manually set setSenddelayinms and set the track to chorus mode in AI scenarios.
+- The global mutex in the service has been modified to the sync.map mode to split the granularity of the mutex.
+- The audioloopback sample has been added for audio loopback testing.
+- The sample has been modified to provide a mode of entering the appid and channelname via the command line.
+- Support for the AudioLable plugin has been added, and developers no longer need to call EableExtension at the app layer.
+- The onpublishstatechanged interface has been added.
+- The return status of VAD has been modified to be unified into three states: NoSpeakong, Speaking, StopSpeaking; moreover, when it is in the StopSpeaking state, the current frame data will also be returned.
 ## 2024.10.29 release 2.1.1
 - Add audio VAD interface of version 2 and corresponding example.
 ## 2024.10.24 release 2.1.0
@@ -117,3 +130,96 @@ import (
 - Reduce audio delay, by setting AudioScenario to AudioScenarioChorus, for details see UT case TestBaseCase in agoraservice/rtc_connection_test.go
 - Add interface for adjusting publish audio volume with examples in sample.go
 - Solve the problem of noise in the received audio on the receiver side, by setting the audio send buffer and ensuring that the audio data is sent earlier than the actual time it should be sent. For details, see sample.go
+
+
+### Common Usage Q&A
+## The relationship between service and process?
+- A process can only have one service, and the service can only be initialized once.
+- A service can only have one media_node_factory.
+- A service can have multiple connections.
+- Release media_node_factory.release() and service.release() when the process exits.
+## If using Docker with one user per Docker, when the user starts Docker and logs out, how should Docker be released?
+- In this case, create service/media_node_factory and connection when the process starts.
+- Release service/media_node_factory and connection when the process exits, ensuring that...
+## If Docker is used to support multiple users and Docker runs for a long time, what should be done?
+- In this case, we recommend using the concept of a connection pool.
+- Create service/media_node_factory and a connection pool (only new connections, without initialization) when the process starts.
+- When a user logs in, get a connection from the connection pool, initialize it, execute con.connect() and set up callbacks, and then join the channel.
+- Handle business operations.
+- When a user logs out, execute con.disconnect() and release the audio/video tracks and observers associated with the connection, but do not call con.release(); then put the connection back into the connection pool.
+- When the process exits, release the connection pool (release each con.release()), service/media_node_factory, and the connection pool (release each con.release()) to ensure resource release and optimal performance.
+## Use of VAD
+# Source code: voice_detection.py
+# Sample code: example_audio_vad.py
+# It is recommended to use VAD V2 version, and the class is: AudioVadV2; Reference: voice_detection.py.
+# Use of VAD:
+  1. Call _vad_instance.init(AudioVadConfigV2) to initialize the vad instance. Reference: voice_detection.py. Assume the instance is: _vad_instance
+  2. In audio_frame_observer::on_playback_audio_frame_before_mixing(audio_frame):
+
+  3. Call the process of the vad module: state, bytes = _vad_instance.process(audio_frame)
+Judge the value of state according to the returned state, and do corresponding processing.
+
+    A. If state is _vad_instance._vad_state_startspeaking, it indicates that the user is "starting to speak", and speech recognition (STT/ASR) operations can be started. Remember: be sure to pass the returned bytes to the recognition module instead of the original audio_frame, otherwise the recognition result will be incorrect.
+    B. If state is _vad_instance._vad_state_stopspeaking, it indicates that the user is "stopping speaking", and speech recognition (STT/ASR) operations can be stopped. Remember: be sure to pass the returned bytes to the recognition module instead of the original audio_frame, otherwise the recognition result will be incorrect.
+    C. If state is _vad_instance._vad_state_speaking, it indicates that the user is "speaking", and speech recognition (STT/ASR) operations can be continued. Remember: be sure to pass the returned bytes to the recognition module instead of the original audio_frame, otherwise the recognition result will be incorrect.
+# Note: 
+  If the vad module is used and it is expected to use the vad module for speech recognition (STT/ASR) and other operations, then be sure to pass the returned bytes to the recognition module instead of the original audio_frame, otherwise the recognition result will be incorrect.
+# How to better troubleshoot VAD issues: It includes two aspects, configuration and debugging.
+  1. Ensure that the initialization parameters of the vad module are correct. Reference: voice_detection.py.
+  2. In state, bytes = on_playback_audio_frame_before_mixing(audio_frame):
+
+    - A . Save the data of audio_frame to a local file, reference: example_audio_pcm_send.py. This is to record the original audio data. For example, it can be named: source_{time.time()*1000}.pcm
+    - B.Save the result of each vad processing:
+
+      - a When state == start_speaking: create a new binary file, for example, named: vad_{time.time()*1000}.pcm, and write bytes to the file.
+      - b When state == speaking: write bytes to the file.
+      - c When state == stop_speaking: write bytes to the file and close the file.
+    Note: In this way, problems can be troubleshot based on the original audio file and the audio file processed by vad. This function can be disabled in the production environment.
+
+## Debugging of VAD
+- Use the utility class VadDump. Refer to examples/sample_vad, which can help troubleshoot problems.
+- This method will generate three types of files:
+- sourec.pcm: The original information of the audio.
+- vad_{index}.pcm: The audio information after VAD processing, where index is an integer that increments from 0.
+- label.txt: The label information of the audio.
+Note: If there are any issues with VAD, please send these files to the Agora team for troubleshooting.
+## How to Push the Audio Generated by TTS into the Channel?
+    localuser.unpublish_audio(audio_track)
+    localuser.unpublish_video(video_track)
+    audio_track.set_enabled(0)
+    video_track.set_enabled(0)
+
+    localuser.unregister_audio_frame_observer()
+    localuser.unregister_video_frame_observer()
+    localuser.unregister_local_user_observer()
+
+    connection.disconnect()
+    connection.unregister_observer()
+
+    localuser.release()
+    connection.release()
+
+    
+    audio_track.release()
+    video_track.release()
+    pcm_data_sender.release()
+    video_data_sender.release()
+    audio_consumer.release()
+
+    media_node_factory.release()
+    agora_service.release()
+    
+    #set to None
+    audio_track = None
+    video_track = None
+    audio_observer = None
+    video_observer = None
+    local_observer = None
+    localuser = None
+    connection = None
+    agora_service = None
+
+### How to push the audio generated by TTS into the channel?
+  # Source code: audio_consumer.py
+  # Sample code: example_audio_consumer.py
+### How to release resources?

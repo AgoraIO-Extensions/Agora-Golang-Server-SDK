@@ -147,7 +147,7 @@ func main() {
 	globalCtx.tasks = make([]*TaskContext, *taskCount)
 
 	if *enableAudioLabel {
-		agoraservice.EnableExtension("agora.builtin", "agora_audio_label_generator", "", true)
+		//agoraservice.EnableExtension("agora.builtin", "agora_audio_label_generator", "", true)
 	}
 
 	taskCfg := TaskConfig{

@@ -1,48 +1,24 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"os/signal"
 	"time"
 
 	agoraservice "github.com/AgoraIO-Extensions/Agora-Golang-Server-SDK/v2/go_sdk/agoraservice"
+	//"google.golang.org/protobuf/types/known/sourcecontextpb"
 
 	rtctokenbuilder "github.com/AgoraIO/Tools/DynamicKey/AgoraDynamicKey/go/src/rtctokenbuilder2"
 )
 
-type AudioLabel struct {
-	BufferSize        int `json:"buffer_size"`
-	SamplesPerChannel int `json:"samples_per_channel"`
-	BytesPerSample    int `json:"bytes_per_sample"`
-	Channels          int `json:"channels"`
-	SampleRate        int `json:"sample_rate"`
-	FarFieldFlag      int `json:"far_field_flag"`
-	VoiceProb         int `json:"voice_prob"`
-	Rms               int `json:"rms"`
-	Pitch             int `json:"pitch"`
-}
-
-func AudioFrameToString(frame *agoraservice.AudioFrame) string {
-	al := AudioLabel{
-		BufferSize:        len(frame.Buffer),
-		SamplesPerChannel: frame.SamplesPerChannel,
-		BytesPerSample:    frame.BytesPerSample,
-		Channels:          frame.Channels,
-		SampleRate:        frame.SamplesPerSec,
-		FarFieldFlag:      frame.FarFieldFlag,
-		VoiceProb:         frame.VoiceProb,
-		Rms:               frame.Rms,
-		Pitch:             frame.Pitch,
-	}
-	alStr, _ := json.Marshal(al)
-	return string(alStr)
-}
-
 func main() {
 	bStop := new(bool)
 	*bStop = false
+
+	// only for debug
+	vadDump := agoraservice.NewVadDump("./agora_rtc_log/")
+	vadDump.Open()
 	// catch ternimal signal
 	go func() {
 		c := make(chan os.Signal, 1)
@@ -52,10 +28,21 @@ func main() {
 		fmt.Println("Application terminated")
 	}()
 
+	// get parameter from arguments： appid, channel_name
+
+	argus := os.Args
+	if len(argus) < 3 {
+		fmt.Println("Please input appid, channel name")
+		return
+	}
+	appid := argus[1]
+	channelName := argus[2]
+
 	// get environment variable
-	appid := os.Getenv("AGORA_APP_ID")
+	if appid == "" {
+		appid = os.Getenv("AGORA_APP_ID")
+	}
 	cert := os.Getenv("AGORA_APP_CERTIFICATE")
-	channelName := "gosdktest"
 	userId := "0"
 	if appid == "" {
 		fmt.Println("Please set AGORA_APP_ID environment variable, and AGORA_APP_CERTIFICATE if needed")
@@ -77,11 +64,10 @@ func main() {
 	svcCfg.AppId = appid
 
 	agoraservice.Initialize(svcCfg)
-	defer agoraservice.Release()
-	mediaNodeFactory := agoraservice.NewMediaNodeFactory()
-	defer mediaNodeFactory.Release()
 
-	agoraservice.EnableExtension("agora.builtin", "agora_audio_label_generator", "", true)
+	mediaNodeFactory := agoraservice.NewMediaNodeFactory()
+
+	//agoraservice.EnableExtension("agora.builtin", "agora_audio_label_generator", "", true)
 
 	// Recommended  configurations:
 	// For not-so-noisy environments, use this configuration: (16, 30, 20, 0.7, 0.5, 70, -50, 70, -50)
@@ -99,7 +85,6 @@ func main() {
 			StopVoiceProb:          70,
 			StopRms:                -50.0,
 		})
-	defer vad.Release()
 
 	conCfg := agoraservice.RtcConnectionConfig{
 		AutoSubscribeAudio: true,
@@ -107,12 +92,12 @@ func main() {
 		ClientRole:         agoraservice.ClientRoleBroadcaster,
 		ChannelProfile:     agoraservice.ChannelProfileLiveBroadcasting,
 	}
-	conSignal := make(chan struct{})
+	//conSignal := make(chan struct{})
 	conHandler := &agoraservice.RtcConnectionObserver{
 		OnConnected: func(con *agoraservice.RtcConnection, info *agoraservice.RtcConnectionInfo, reason int) {
 			// do something
 			fmt.Printf("Connected, reason %d\n", reason)
-			conSignal <- struct{}{}
+			//conSignal <- struct{}{}
 		},
 		OnDisconnected: func(con *agoraservice.RtcConnection, info *agoraservice.RtcConnectionInfo, reason int) {
 			// do something
@@ -140,79 +125,67 @@ func main() {
 			fmt.Println("user left, " + uid)
 		},
 	}
-	var preVadDump *os.File = nil
-	var vadDump *os.File = nil
-	defer func() {
-		if preVadDump != nil {
-			preVadDump.Close()
-		}
-		if vadDump != nil {
-			vadDump.Close()
-		}
-	}()
-	var vadCount *int = new(int)
-	*vadCount = 0
+	localUserObserver := &agoraservice.LocalUserObserver{
+		OnStreamMessage: func(localUser *agoraservice.LocalUser, uid string, streamId int, data []byte) {
+			// do something
+			fmt.Printf("*****Stream message, from userId %s\n", uid)
+		},
+
+		OnAudioVolumeIndication: func(localUser *agoraservice.LocalUser, audioVolumeInfo []*agoraservice.AudioVolumeInfo, speakerNumber int, totalVolume int) {
+			// do something
+			fmt.Printf("*****Audio volume indication, speaker number %d\n", speakerNumber)
+		},
+		OnAudioPublishStateChanged: func(localUser *agoraservice.LocalUser, channelId string, oldState int, newState int, elapse_since_last_state int) {
+			fmt.Printf("*****Audio publish state changed, old state %d, new state %d\n", oldState, newState)
+		},
+		OnUserInfoUpdated: func(localUser *agoraservice.LocalUser, uid string, userMediaInfo int, val int) {
+			fmt.Printf("*****User info updated, uid %s\n", uid)
+		},
+		OnUserAudioTrackSubscribed: func(localUser *agoraservice.LocalUser, uid string, remoteAudioTrack *agoraservice.RemoteAudioTrack) {
+			fmt.Printf("*****User audio track subscribed, uid %s\n", uid)
+		},
+		OnUserVideoTrackSubscribed: func(localUser *agoraservice.LocalUser, uid string, info *agoraservice.VideoTrackInfo, remoteVideoTrack *agoraservice.RemoteVideoTrack) {
+
+		},
+		OnUserAudioTrackStateChanged: func(localUser *agoraservice.LocalUser, uid string, remoteAudioTrack *agoraservice.RemoteAudioTrack, state int, reason int, elapsed int) {
+			fmt.Printf("*****User audio track state changed, uid %s\n", uid)
+		},
+		OnUserVideoTrackStateChanged: func(localUser *agoraservice.LocalUser, uid string, remoteAudioTrack *agoraservice.RemoteVideoTrack, state int, reason int, elapsed int) {
+			fmt.Printf("*****User video track state changed, uid %s\n", uid)
+		},
+	}
+
 	audioObserver := &agoraservice.AudioFrameObserver{
 		OnPlaybackAudioFrameBeforeMixing: func(localUser *agoraservice.LocalUser, channelId string, userId string, frame *agoraservice.AudioFrame) bool {
 			// do something
-			// fmt.Printf("Playback audio frame before mixing, from userId %s\n", userId)
-			if preVadDump == nil {
-				var err error
-				preVadDump, err = os.OpenFile(fmt.Sprintf("./pre_vad_%s_%v.pcm", userId, time.Now().Format("2006-01-02-15-04-05")), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
-				if err != nil {
-					fmt.Println("Failed to create dump file: ", err)
-				}
-			}
-			if preVadDump != nil {
-				fmt.Printf("PreVad: %s\n", AudioFrameToString(frame))
-				preVadDump.Write(frame.Buffer)
-			}
-			// vad
+			fmt.Printf("Playback from userId %s, far field flag %d, rms %d, pitch %d\n",
+				userId, frame.FarFieldFlag, frame.Rms, frame.Pitch)
+
+			// vad process here! and you can get the vad result, then send vadResult to ASR/STT service
 			vadResult, state := vad.Process(frame)
-			duration := 0
-			if vadResult != nil {
-				duration = vadResult.SamplesPerChannel / 16
-			}
-			if state == agoraservice.VadStateIsSpeeking || state == agoraservice.VadStateStartSpeeking {
-				fmt.Printf("Vad result: state: %v, duration: %v\n", state, duration)
-				if vadDump == nil {
-					*vadCount++
-					var err error
-					vadDump, err = os.OpenFile(fmt.Sprintf("./vad_%d_%s_%v.pcm", *vadCount, userId, time.Now().Format("2006-01-02-15-04-05")), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
-					if err != nil {
-						fmt.Println("Failed to create dump file: ", err)
-					}
-				}
-				if vadDump != nil {
-					vadDump.Write(vadResult.Buffer)
-				}
-			} else {
-				if vadDump != nil {
-					vadDump.Close()
-					vadDump = nil
-				}
-			}
+			// for debuging, can do vad dump but never recommended for production
+			vadDump.Write(frame, vadResult, state)
+
 			return true
 		},
 	}
 	con := agoraservice.NewRtcConnection(&conCfg)
-	defer con.Release()
 
 	localUser := con.GetLocalUser()
 	localUser.SetPlaybackAudioFrameBeforeMixingParameters(1, 16000)
 	con.RegisterObserver(conHandler)
 	localUser.RegisterAudioFrameObserver(audioObserver)
+	localUser.RegisterLocalUserObserver(localUserObserver)
 
 	// sender := con.NewPcmSender()
 	// defer sender.Release()
 	sender := mediaNodeFactory.NewAudioPcmDataSender()
-	defer sender.Release()
+
 	track := agoraservice.NewCustomAudioTrackPcm(sender)
-	defer track.Release()
 
 	localUser.SetAudioScenario(agoraservice.AudioScenarioChorus)
 	con.Connect(token, channelName, userId)
-	<-conSignal
+	//<-conSignal
 
 	track.SetEnabled(true)
 	localUser.PublishAudio(track)
@@ -220,9 +193,34 @@ func main() {
 	track.AdjustPublishVolume(100)
 
 	for !(*bStop) {
-		time.Sleep(1 * time.Second)
+		time.Sleep(50 * time.Millisecond)
 	}
+
+	// release ...
+
 	localUser.UnpublishAudio(track)
 	track.SetEnabled(false)
+	localUser.UnregisterAudioFrameObserver()
+	localUser.UnregisterLocalUserObserver()
+
 	con.Disconnect()
+
+	con.UnregisterObserver()
+
+	con.Release()
+	vad.Release()
+	vadDump.Close()
+
+	track.Release()
+	sender.Release()
+	mediaNodeFactory.Release()
+	agoraservice.Release()
+
+	track = nil
+	audioObserver = nil
+	localUserObserver = nil
+	localUser = nil
+	conHandler = nil
+	con = nil
+	fmt.Println("Application terminated")
 }

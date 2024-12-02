@@ -99,6 +99,19 @@ import (
   - 如果你不使用 VAD，并且你的 glibc 版本在 2.16 和 2.27 之间，你可以通过将 go_sdk/agoraserver/ 中的 **audio_vad.go** 文件重命名为 **audio_vad.go.bak** 来禁用 VAD
 
 # 更新日志
+## 2024.12.02 发布 2.1.2
+- 增加了AudioConsumer,可以用来对音频数据做push
+- 增加了VadDump方法，可以用来对vad做debug
+- 当service的profile是chorus的时候，
+  - 在localuser中，自动增加setSenddelayinms
+  - 在audiotrack中，自动设置track为chorus模式
+  - 开发者在Ai场景中，不在需要人工设置setsenddelayinms 和设置track为chorus模式
+- 修改service中的全局mutex 为sync.map模式，对mutex的粒度做拆分
+- 增加了audioloopback sample，用来做音频回环测试
+- 修改sample，提供命令行输入appid，channelname的模式
+- 增加对AudioLable 插件的支持，开发者不在需要在app层调用EableExtension
+- 增加了onpublishstatechanged 接口
+- 修改了VAD的返回状态，统一为：NoSpeakong, Speaking, StopSpeaking 3种状态；而且在StopSpeaking的时候，也会返回当前的frame 数据；
 ## 2024.10.29 发布 2.1.1
 - 添加V2版本的音频 VAD 接口及相应的示例。
 ## 2024.10.24 发布 2.1.0
@@ -116,3 +129,100 @@ import (
 - 通过将 AudioScenario 设置为 AudioScenarioChorus 来减少音频延迟，详情见 agoraservice/rtc_connection_test.go 中的 UT 案例 TestBaseCase
 - 添加调整发布音频音量的接口，示例见 sample.go
 - 通过设置音频发送缓冲区并确保音频数据比实际应发送的时间提前发送，解决接收端接收到的音频噪声问题。
+
+#### 常见用法Q&A
+## serveice和进程的关系？
+- 一个进程只能有一个service，只能对service做一次初始化；
+- 一个service，只能有一个media_node_factory；
+- 一个service，可以有多个connection；
+- 在进程退出去的时候，再释放：media_node_factory.release() 和 service.release()
+
+## 如果对docker的使用是一个docker一个用户，用户的时候，启动docker，用户退出去的时候，就释放docker，那么应该这么来做？
+- 这个时候就在进程启动的时候，创建service/media_node_factory 和 connection；
+- 在进程退出的时候，释放service/media_node_factory 和 connedtion，这样就可以保证
+
+## 如果docker的使用是一个docker支持多个用户的时候，docker会长时间运行，应该怎么做？
+- 这个情况下，我们推荐用connection pool的概念
+- 在进程启动的时候，创建service/media_node_factory 和 connection pool（只是new connection，并不初始化）；
+- 当有用户进来的时候，就从connection pool中获取一个connection，然后初始化，执行 con.connect()并且设置好回调，然后加入频道；
+- 处理业务
+- 当用户退出的时候，con.disconnect()并释放跟随该conn 的audio/video track，observer等，但不调用con.release();然后将该con 放回connection pool中；
+- 在进程退出的时候，释放和 connedtion pool（对每一个con.release()
+释放 service/media_node_factory 和 connedtion pool（对每一个con.release()），这样就可以保证资源的释放和性能最优
+
+
+
+
+## VAD的使用
+# source code: voice_detection.py
+# sample code: example_audio_vad.py
+- 推荐用VAD V2版本，类为： AudioVadV2； 参考：voice_detection.py；
+
+- VAD 的使用： 
+  - 1. 调用 _vad_instance.init(AudioVadConfigV2) 初始化vad实例.参考：voice_detection.py。 实例假如为： _vad_instance
+  - 2. 在audio_frame_observer::on_playback_audio_frame_before_mixing(audio_frame) 中:
+    - 1. 调用 vad模块的process:  state, bytes = _vad_instance.process(audio_frame)
+    - 2. 根据返回的state，判断state的值，并做相应的处理
+       - A. 如果state为 _vad_instance._vad_state_startspeaking，则表明当前“开始说话”，可以开始进行语音识别（STT/ASR）等操作。记住：一定要将返回的bytes 交给识别模块，而不是原始的audio_frame，否则会导致识别结果不正确。
+       - B. 如果state为 _vad_instance._vad_state_stopspeaking，则表明当前“停止说话”，可以停止语音识别（STT/ASR）等操作。记住：一定要将返回的bytes 交给识别模块，而不是原始的audio_frame，否则会导致识别结果不正确。
+       - C. 如果state为 _vad_instance._vad_state_speaking，则表明当前“说话中”，可以继续进行语音识别（STT/ASR）等操作。记住：一定要将返回的bytes 交给识别模块，而不是原始的audio_frame，否则会导致识别结果不正确。
+  备注：如果使用了vad模块，并且希望用vad模块进行语音识别（STT/ASR）等操作，那么一定要将返回的bytes 交给识别模块，而不是原始的audio_frame，否则会导致识别结果不正确。
+- 如何更好的排查VAD的问题：包含2个方面，配置和调试。
+  - 1. 确保vad模块的初始化参数正确，参考：voice_detection.py。
+  - 2. 在state,bytes = on_playback_audio_frame_before_mixing(audio_frame) 中，
+    - 1. 将audio_frame的data 的data 保存到本地文件，参考：example_audio_pcm_send.py。这个就是录制原始的音频数据。比如可以命名为：source_{time.time()*1000}.pcm
+    - 2. 保存每一次vad 处理的结果：
+      - A state==start_speaking的时候：新建一个二进制文件，比如命名为：vad_{time.time()*1000}.pcm，并将bytes 写入到文件中。
+      - B state==speaking的时候：将bytes 写入到文件中。
+      - C state==stop_speaking的时候：将bytes 写入到文件中。并关闭文件。
+  备注：这样就可以根据原始音频文件和vad处理后的音频文件，进行排查问题。生产环境的时候，可以关闭这个功能
+# VAD 的调试
+- 使用工具类 VadDump，参考：examples/sample_vad，可以帮助排查问题。
+- 该方法会生成3类文件：
+- sourec.pcm : 音频的原始信息
+- vad_{index}.pcm : vad处理后的音频信息,index 是从0开始递增的整数
+- label.txt : 音频的标签信息
+备注：如果VAD有问题，请将这些文件发送给Agora团队，以便排查问题。
+
+
+## 如何将TTS生成的音频推入到频道中？
+# source code: audio_consumer.py
+# sample code: example_audio_consumer.py
+
+## 如何释放资源？
+    localuser.unpublish_audio(audio_track)
+    localuser.unpublish_video(video_track)
+    audio_track.set_enabled(0)
+    video_track.set_enabled(0)
+
+    localuser.unregister_audio_frame_observer()
+    localuser.unregister_video_frame_observer()
+    localuser.unregister_local_user_observer()
+
+    connection.disconnect()
+    connection.unregister_observer()
+
+    localuser.release()
+    connection.release()
+
+    
+    audio_track.release()
+    video_track.release()
+    pcm_data_sender.release()
+    video_data_sender.release()
+    audio_consumer.release()
+
+    media_node_factory.release()
+    agora_service.release()
+    
+    #set to None
+    audio_track = None
+    video_track = None
+    audio_observer = None
+    video_observer = None
+    local_observer = None
+    localuser = None
+    connection = None
+    agora_service = None
+
+## 如何执行打断？

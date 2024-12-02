@@ -16,9 +16,12 @@ import (
 
 //export goOnRecordAudioFrame
 func goOnRecordAudioFrame(cLocalUser unsafe.Pointer, channelId *C.char, frame *C.struct__audio_frame) C.int {
-	agoraService.connectionRWMutex.RLock()
-	con := agoraService.consByCLocalUser[cLocalUser]
-	agoraService.connectionRWMutex.RUnlock()
+	//validity check
+	if cLocalUser == nil {
+		return C.int(0)
+	}
+	// get conn from handle
+	con := agoraService.getConFromHandle(cLocalUser, ConTypeCLocalUser)
 	if con == nil || con.audioObserver == nil || con.audioObserver.OnRecordAudioFrame == nil {
 		return C.int(0)
 	}
@@ -33,9 +36,13 @@ func goOnRecordAudioFrame(cLocalUser unsafe.Pointer, channelId *C.char, frame *C
 
 //export goOnPlaybackAudioFrame
 func goOnPlaybackAudioFrame(cLocalUser unsafe.Pointer, channelId *C.char, frame *C.struct__audio_frame) C.int {
-	agoraService.connectionRWMutex.RLock()
-	con := agoraService.consByCLocalUser[cLocalUser]
-	agoraService.connectionRWMutex.RUnlock()
+	//validity check
+	if cLocalUser == nil {
+		return C.int(0)
+	}
+	// get conn from handle
+	con := agoraService.getConFromHandle(cLocalUser, ConTypeCLocalUser)
+
 	if con == nil || con.audioObserver == nil || con.audioObserver.OnPlaybackAudioFrame == nil {
 		return C.int(0)
 	}
@@ -50,9 +57,13 @@ func goOnPlaybackAudioFrame(cLocalUser unsafe.Pointer, channelId *C.char, frame 
 
 //export goOnMixedAudioFrame
 func goOnMixedAudioFrame(cLocalUser unsafe.Pointer, channelId *C.char, frame *C.struct__audio_frame) C.int {
-	agoraService.connectionRWMutex.RLock()
-	con := agoraService.consByCLocalUser[cLocalUser]
-	agoraService.connectionRWMutex.RUnlock()
+	//validity check
+	if cLocalUser == nil {
+		return C.int(0)
+	}
+	// get conn from handle
+	con := agoraService.getConFromHandle(cLocalUser, ConTypeCLocalUser)
+
 	if con == nil || con.audioObserver == nil || con.audioObserver.OnMixedAudioFrame == nil {
 		return C.int(0)
 	}
@@ -67,9 +78,13 @@ func goOnMixedAudioFrame(cLocalUser unsafe.Pointer, channelId *C.char, frame *C.
 
 //export goOnEarMonitoringAudioFrame
 func goOnEarMonitoringAudioFrame(cLocalUser unsafe.Pointer, frame *C.struct__audio_frame) C.int {
-	agoraService.connectionRWMutex.RLock()
-	con := agoraService.consByCLocalUser[cLocalUser]
-	agoraService.connectionRWMutex.RUnlock()
+	//validity check
+	if cLocalUser == nil {
+		return C.int(0)
+	}
+	// get conn from handle
+	con := agoraService.getConFromHandle(cLocalUser, ConTypeCLocalUser)
+
 	if con == nil || con.audioObserver == nil || con.audioObserver.OnEarMonitoringAudioFrame == nil {
 		return C.int(0)
 	}
@@ -83,9 +98,12 @@ func goOnEarMonitoringAudioFrame(cLocalUser unsafe.Pointer, frame *C.struct__aud
 
 //export goOnPlaybackAudioFrameBeforeMixing
 func goOnPlaybackAudioFrameBeforeMixing(cLocalUser unsafe.Pointer, channelId *C.char, uid *C.char, frame *C.struct__audio_frame) C.int {
-	agoraService.connectionRWMutex.RLock()
-	con := agoraService.consByCLocalUser[cLocalUser]
-	agoraService.connectionRWMutex.RUnlock()
+	//validity check
+	if cLocalUser == nil {
+		return C.int(0)
+	}
+	// get conn from handle
+	con := agoraService.getConFromHandle(cLocalUser, ConTypeCLocalUser)
 	if con == nil || con.audioObserver == nil || con.audioObserver.OnPlaybackAudioFrameBeforeMixing == nil {
 		return C.int(0)
 	}
@@ -101,9 +119,13 @@ func goOnPlaybackAudioFrameBeforeMixing(cLocalUser unsafe.Pointer, channelId *C.
 
 //export goOnGetAudioFramePosition
 func goOnGetAudioFramePosition(cLocalUser unsafe.Pointer) C.int {
-	agoraService.connectionRWMutex.RLock()
-	con := agoraService.consByCLocalUser[cLocalUser]
-	agoraService.connectionRWMutex.RUnlock()
+	//validity check
+	if cLocalUser == nil {
+		return C.int(0)
+	}
+	// get conn from handle
+	con := agoraService.getConFromHandle(cLocalUser, ConTypeCLocalUser)
+
 	if con == nil || con.audioObserver == nil || con.audioObserver.OnGetAudioFramePosition == nil {
 		return C.int(0)
 	}
@@ -112,11 +134,16 @@ func goOnGetAudioFramePosition(cLocalUser unsafe.Pointer) C.int {
 
 //export goOnGetPlaybackAudioFrameParam
 func goOnGetPlaybackAudioFrameParam(cLocalUser unsafe.Pointer) C.struct__audio_params {
-	agoraService.connectionRWMutex.RLock()
-	con := agoraService.consByCLocalUser[cLocalUser]
-	agoraService.connectionRWMutex.RUnlock()
 	cAudioParam := C.struct__audio_params{}
 	C.memset(unsafe.Pointer(&cAudioParam), 0, C.sizeof_struct__audio_params)
+
+	//validity check
+	if cLocalUser == nil {
+		return cAudioParam
+	}
+	// get conn from handle
+	con := agoraService.getConFromHandle(cLocalUser, ConTypeCLocalUser)
+
 	if con == nil || con.audioObserver == nil || con.audioObserver.OnGetPlaybackAudioFrameParam == nil {
 		return cAudioParam
 	}
@@ -130,11 +157,16 @@ func goOnGetPlaybackAudioFrameParam(cLocalUser unsafe.Pointer) C.struct__audio_p
 
 //export goOnGetRecordAudioFrameParam
 func goOnGetRecordAudioFrameParam(cLocalUser unsafe.Pointer) C.struct__audio_params {
-	agoraService.connectionRWMutex.RLock()
-	con := agoraService.consByCLocalUser[cLocalUser]
-	agoraService.connectionRWMutex.RUnlock()
+
 	cAudioParam := C.struct__audio_params{}
 	C.memset(unsafe.Pointer(&cAudioParam), 0, C.sizeof_struct__audio_params)
+
+	//validity check
+	if cLocalUser == nil {
+		return cAudioParam
+	}
+	// get conn from handle
+	con := agoraService.getConFromHandle(cLocalUser, ConTypeCLocalUser)
 	if con == nil || con.audioObserver == nil || con.audioObserver.OnGetRecordAudioFrameParam == nil {
 		return cAudioParam
 	}
@@ -148,11 +180,16 @@ func goOnGetRecordAudioFrameParam(cLocalUser unsafe.Pointer) C.struct__audio_par
 
 //export goOnGetMixedAudioFrameParam
 func goOnGetMixedAudioFrameParam(cLocalUser unsafe.Pointer) C.struct__audio_params {
-	agoraService.connectionRWMutex.RLock()
-	con := agoraService.consByCLocalUser[cLocalUser]
-	agoraService.connectionRWMutex.RUnlock()
+
 	cAudioParam := C.struct__audio_params{}
 	C.memset(unsafe.Pointer(&cAudioParam), 0, C.sizeof_struct__audio_params)
+
+	//validity check
+	if cLocalUser == nil {
+		return cAudioParam
+	}
+	// get conn from handle
+	con := agoraService.getConFromHandle(cLocalUser, ConTypeCLocalUser)
 	if con == nil || con.audioObserver == nil || con.audioObserver.OnGetMixedAudioFrameParam == nil {
 		return cAudioParam
 	}
@@ -166,11 +203,15 @@ func goOnGetMixedAudioFrameParam(cLocalUser unsafe.Pointer) C.struct__audio_para
 
 //export goOnGetEarMonitoringAudioFrameParam
 func goOnGetEarMonitoringAudioFrameParam(cLocalUser unsafe.Pointer) C.struct__audio_params {
-	agoraService.connectionRWMutex.RLock()
-	con := agoraService.consByCLocalUser[cLocalUser]
-	agoraService.connectionRWMutex.RUnlock()
 	cAudioParam := C.struct__audio_params{}
 	C.memset(unsafe.Pointer(&cAudioParam), 0, C.sizeof_struct__audio_params)
+
+	//validity check
+	if cLocalUser == nil {
+		return cAudioParam
+	}
+	// get conn from handle
+	con := agoraService.getConFromHandle(cLocalUser, ConTypeCLocalUser)
 	if con == nil || con.audioObserver == nil || con.audioObserver.OnGetEarMonitoringAudioFrameParam == nil {
 		return cAudioParam
 	}

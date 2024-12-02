@@ -8,6 +8,8 @@ package agoraservice
 #include "agora_service.h"
 #include "agora_media_base.h"
 #include "agora_parameter.h"
+#include <stdio.h>
+#include <stdbool.h>
 */
 import "C"
 import "unsafe"
@@ -236,4 +238,12 @@ func (localUser *LocalUser) SetAudioScenario(audioScenario AudioScenario) int {
 		return -1
 	}
 	return int(C.agora_local_user_set_audio_scenario(localUser.cLocalUser, C.int(audioScenario)))
+}
+func (localUser *LocalUser) SetAudioVolumeIndicationParameters(intervalInMs int, smooth int, reportVad bool) int {
+	if localUser.cLocalUser == nil {
+		return -1
+	}
+	
+	ret := C.agora_local_user_set_audio_volume_indication_parameters(localUser.cLocalUser, C.int(intervalInMs), C.int(smooth), C.bool(reportVad))
+	return int(ret)
 }

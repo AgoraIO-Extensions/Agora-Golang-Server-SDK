@@ -23,10 +23,19 @@ func main() {
 		fmt.Println("Application terminated")
 	}()
 
+	// get parameter from arguments： appid, channel_name
+	argus := os.Args
+	if len(argus) < 3 {
+		fmt.Println("Please input appid, channel name")
+		return
+	}
+	appid := argus[1]
+	channelName := argus[2]
+
 	// get environment variable
-	appid := os.Getenv("AGORA_APP_ID")
+	//appid := os.Getenv("AGORA_APP_ID")
 	cert := os.Getenv("AGORA_APP_CERTIFICATE")
-	channelName := "gosdktest"
+	//channelName := "gosdktest"
 	userId := "0"
 	if appid == "" {
 		fmt.Println("Please set AGORA_APP_ID environment variable, and AGORA_APP_CERTIFICATE if needed")
@@ -49,9 +58,7 @@ func main() {
 	svcCfg.AppId = appid
 
 	agoraservice.Initialize(svcCfg)
-	defer agoraservice.Release()
 	mediaNodeFactory := agoraservice.NewMediaNodeFactory()
-	defer mediaNodeFactory.Release()
 
 	conCfg := agoraservice.RtcConnectionConfig{
 		AutoSubscribeAudio: true,
@@ -100,16 +107,15 @@ func main() {
 		},
 	}
 	con := agoraservice.NewRtcConnection(&conCfg)
-	defer con.Release()
 
 	localUser := con.GetLocalUser()
 	con.RegisterObserver(conHandler)
 	localUser.RegisterVideoFrameObserver(videoObserver)
 
 	sender := mediaNodeFactory.NewVideoFrameSender()
-	defer sender.Release()
+	
 	track := agoraservice.NewCustomVideoTrackFrame(sender)
-	defer track.Release()
+
 
 	con.Connect(token, channelName, userId)
 	<-conSignal
@@ -156,7 +162,34 @@ func main() {
 		})
 		time.Sleep(33 * time.Millisecond)
 	}
+
+	//release now
+	
+
 	localUser.UnpublishVideo(track)
 	track.SetEnabled(false)
+	localUser.UnregisterAudioFrameObserver()
+	localUser.UnregisterVideoFrameObserver()
+	localUser.UnregisterLocalUserObserver()
+
+	start_disconnect := time.Now().UnixMilli()
 	con.Disconnect()
+	//<-OnDisconnectedSign
+	con.UnregisterObserver()
+
+	con.Release()
+
+	track.Release()
+	sender.Release()
+	mediaNodeFactory.Release()
+	agoraservice.Release()
+
+	track = nil
+	videoObserver = nil
+	
+	localUser = nil
+	conHandler = nil
+	con = nil
+
+	fmt.Printf("Disconnected, cost %d ms\n", time.Now().UnixMilli()-start_disconnect)
 }

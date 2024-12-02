@@ -16,9 +16,11 @@ import (
 
 //export goOnVideoFrame
 func goOnVideoFrame(cObserver unsafe.Pointer, channelId *C.char, uid *C.char, frame *C.struct__video_frame) C.int {
-	agoraService.connectionRWMutex.RLock()
-	con := agoraService.consByCVideoObserver[cObserver]
-	agoraService.connectionRWMutex.RUnlock()
+	// validity check
+	if cObserver == nil {
+		return C.int(0)
+	}
+	con := agoraService.getConFromHandle(cObserver, ConTypeCVideoObserver)
 	if con == nil || con.videoObserver == nil || con.videoObserver.OnFrame == nil {
 		return C.int(0)
 	}
@@ -35,9 +37,11 @@ func goOnVideoFrame(cObserver unsafe.Pointer, channelId *C.char, uid *C.char, fr
 //export goOnEncodedVideoFrame
 func goOnEncodedVideoFrame(observer unsafe.Pointer, uid C.uint32_t, imageBuffer *C.uint8_t, length C.size_t,
 	video_encoded_frame_info *C.struct__encoded_video_frame_info) C.int {
-	agoraService.connectionRWMutex.RLock()
-	con := agoraService.consByCEncodedVideoObserver[observer]
-	agoraService.connectionRWMutex.RUnlock()
+	// validity check
+	if observer == nil {
+		return C.int(0)
+	}
+	con := agoraService.getConFromHandle(observer, ConTypeCEncodedVideoObserver)
 	if con == nil || con.encodedVideoObserver == nil || con.encodedVideoObserver.OnEncodedVideoFrame == nil {
 		return C.int(0)
 	}

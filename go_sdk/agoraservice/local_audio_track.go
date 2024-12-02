@@ -15,9 +15,15 @@ func NewCustomAudioTrackPcm(pcmSender *AudioPcmDataSender) *LocalAudioTrack {
 	if cTrack == nil {
 		return nil
 	}
-	return &LocalAudioTrack{
+	audioTrack := &LocalAudioTrack{
 		cTrack: cTrack,
 	}
+
+	// set send delay ms to 10ms, to avoid audio delay. NOTE: do not set it to 0, otherwise, it would set to default value: 260ms
+	if audioTrack.cTrack != nil {
+		audioTrack.SetSendDelayMs(10)
+	}
+	return audioTrack
 }
 
 func NewCustomAudioTrackEncoded(encodedAudioSender *AudioEncodedFrameSender, mixMode AudioTrackMixingState) *LocalAudioTrack {
