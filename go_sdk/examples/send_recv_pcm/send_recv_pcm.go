@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"time"
+	_ "net/http/pprof"
 
 	agoraservice "github.com/AgoraIO-Extensions/Agora-Golang-Server-SDK/v2/go_sdk/agoraservice"
 
@@ -43,6 +44,7 @@ func ReadFileToConsumer(file *os.File, consumer *agoraservice.AudioConsumer, int
 		}
 	}
 }
+
 
 func ConsumeAudio(audioConsumer *agoraservice.AudioConsumer, interval int, done chan bool) {
 	for {
@@ -84,6 +86,7 @@ func main() {
 	}
 	appid := argus[1]
 	channelName := argus[2]
+
 
 	// get environment variable
 	if appid == "" {
@@ -241,6 +244,7 @@ func main() {
 	done := make(chan bool)
 	// new method for push
 	/*
+
 			#下面的操作：只是模拟生产的数据。
 			# - 在sample中，为了确保生产产生的数据能够一直播放，需要生产足够多的数据，所以用这样的方式来模拟
 			# - 在实际使用中，数据是实时产生的，所以不需要这样的操作。只需要在TTS生产数据的时候，调用AudioConsumer.push_pcm_data()
@@ -256,6 +260,7 @@ func main() {
 	*/
 	go ReadFileToConsumer(file, audioConsumer, 50, done)
 	go ConsumeAudio(audioConsumer, 50, done)
+
 
 	//release operation:cancel defer release,try manual release
 	for !(*bStop) {
