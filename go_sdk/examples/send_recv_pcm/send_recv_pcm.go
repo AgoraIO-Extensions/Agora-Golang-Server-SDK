@@ -5,6 +5,7 @@ import (
 	//"bufio"
 	"fmt"
 	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"time"
@@ -17,10 +18,10 @@ import (
 
 func PushFileToConsumer(file *os.File, audioConsumer *agoraservice.AudioConsumer) {
 	buffer := make([]byte, 320)
-	for  {
+	for {
 		readLen, err := file.Read(buffer)
 		if err != nil || readLen < 320 {
-			fmt.Println("Error reading file:", err)
+			fmt.Printf("read up to EOF,cur read: %d", readLen)
 			file.Seek(0, 0)
 			break
 		}
@@ -77,7 +78,7 @@ func main() {
 	println("Start to send and receive PCM data\nusage:\n	./send_recv_pcm <appid> <channel_name>\n	press ctrl+c to exit\n")
 
 	// get parameter from arguments： appid, channel_name
-	
+
 	argus := os.Args
 	if len(argus) < 3 {
 		fmt.Println("Please input appid, channel name")
@@ -85,8 +86,7 @@ func main() {
 	}
 	appid := argus[1]
 	channelName := argus[2]
-	
-	
+
 
 	// get environment variable
 	if appid == "" {
@@ -231,7 +231,7 @@ func main() {
 
 	file, err := os.Open("../test_data/send_audio_16k_1ch.pcm")
 	if err != nil {
-		fmt.Println("Error opening file:", err)
+		fmt.Printf("NewError opening file: %v\n", err)
 		return
 	}
 	defer file.Close()
@@ -244,22 +244,23 @@ func main() {
 	done := make(chan bool)
 	// new method for push
 	/*
-	#下面的操作：只是模拟生产的数据。
-	# - 在sample中，为了确保生产产生的数据能够一直播放，需要生产足够多的数据，所以用这样的方式来模拟
-	# - 在实际使用中，数据是实时产生的，所以不需要这样的操作。只需要在TTS生产数据的时候，调用AudioConsumer.push_pcm_data()
-	 # 我们启动2个task
-    # 一个task，用来模拟从TTS接收到语音，然后将语音push到audio_consumer
-    # 另一个task，用来模拟播放语音：从audio_consumer中取出语音播放
-    # 在实际应用中，可以是TTS返回的时候，直接将语音push到audio_consumer
-    # 然后在另外一个“timer”的触发函数中，调用audio_consumer.consume()。
-    # 推荐：
-    # .Timer的模式；也可以和业务已有的timer结合在一起使用，都可以。只需要在timer 触发的函数中，调用audio_consumer.consume()即可
-    # “Timer”的触发间隔，可以和业务已有的timer间隔一致，也可以根据业务需求调整，推荐在40～80ms之间  
+
+			#下面的操作：只是模拟生产的数据。
+			# - 在sample中，为了确保生产产生的数据能够一直播放，需要生产足够多的数据，所以用这样的方式来模拟
+			# - 在实际使用中，数据是实时产生的，所以不需要这样的操作。只需要在TTS生产数据的时候，调用AudioConsumer.push_pcm_data()
+			 # 我们启动2个task
+		    # 一个task，用来模拟从TTS接收到语音，然后将语音push到audio_consumer
+		    # 另一个task，用来模拟播放语音：从audio_consumer中取出语音播放
+		    # 在实际应用中，可以是TTS返回的时候，直接将语音push到audio_consumer
+		    # 然后在另外一个“timer”的触发函数中，调用audio_consumer.consume()。
+		    # 推荐：
+		    # .Timer的模式；也可以和业务已有的timer结合在一起使用，都可以。只需要在timer 触发的函数中，调用audio_consumer.consume()即可
+		    # “Timer”的触发间隔，可以和业务已有的timer间隔一致，也可以根据业务需求调整，推荐在40～80ms之间
 
 	*/
 	go ReadFileToConsumer(file, audioConsumer, 50, done)
 	go ConsumeAudio(audioConsumer, 50, done)
-	
+
 
 	//release operation:cancel defer release,try manual release
 	for !(*bStop) {
