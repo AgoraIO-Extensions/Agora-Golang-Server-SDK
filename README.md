@@ -100,6 +100,19 @@ import (
   - if you don't use VAD, and your glibc version is between 2.16 and 2.27, you can disable VAD by rename **audio_vad.go** file in go_sdk/agoraserver/ to **audio_vad.go.bak**
 
 # Change log
+## Release 2.1.2 on December 2, 2024
+- The AudioConsumer has been added, which can be used to push audio data.
+- The VadDump method has been added, which can be used to debug VAD.
+- When the profile of the service is chorus:
+  - In localuser, setSenddelayinms will be automatically added.
+  - In audiotrack, the track will be automatically set to chorus mode.
+  - Developers no longer need to manually set setSenddelayinms and set the track to chorus mode in AI scenarios.
+- The global mutex in the service has been modified to the sync.map mode to split the granularity of the mutex.
+- The audioloopback sample has been added for audio loopback testing.
+- The sample has been modified to provide a mode of entering the appid and channelname via the command line.
+- Support for the AudioLable plugin has been added, and developers no longer need to call EableExtension at the app layer.
+- The onpublishstatechanged interface has been added.
+- The return status of VAD has been modified to be unified into three states: NoSpeakong, Speaking, StopSpeaking; moreover, when it is in the StopSpeaking state, the current frame data will also be returned.
 ## 2024.10.29 release 2.1.1
 - Add audio VAD interface of version 2 and corresponding example.
 ## 2024.10.24 release 2.1.0

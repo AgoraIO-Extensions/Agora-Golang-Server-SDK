@@ -99,6 +99,19 @@ import (
   - 如果你不使用 VAD，并且你的 glibc 版本在 2.16 和 2.27 之间，你可以通过将 go_sdk/agoraserver/ 中的 **audio_vad.go** 文件重命名为 **audio_vad.go.bak** 来禁用 VAD
 
 # 更新日志
+## 2024.12.02 发布 2.1.2
+- 增加了AudioConsumer,可以用来对音频数据做push
+- 增加了VadDump方法，可以用来对vad做debug
+- 当service的profile是chorus的时候，
+  - 在localuser中，自动增加setSenddelayinms
+  - 在audiotrack中，自动设置track为chorus模式
+  - 开发者在Ai场景中，不在需要人工设置setsenddelayinms 和设置track为chorus模式
+- 修改service中的全局mutex 为sync.map模式，对mutex的粒度做拆分
+- 增加了audioloopback sample，用来做音频回环测试
+- 修改sample，提供命令行输入appid，channelname的模式
+- 增加对AudioLable 插件的支持，开发者不在需要在app层调用EableExtension
+- 增加了onpublishstatechanged 接口
+- 修改了VAD的返回状态，统一为：NoSpeakong, Speaking, StopSpeaking 3种状态；而且在StopSpeaking的时候，也会返回当前的frame 数据；
 ## 2024.10.29 发布 2.1.1
 - 添加V2版本的音频 VAD 接口及相应的示例。
 ## 2024.10.24 发布 2.1.0
