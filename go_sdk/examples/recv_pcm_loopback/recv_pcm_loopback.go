@@ -135,7 +135,7 @@ func main() {
 		},
 	}
 	audioObserver := &agoraservice.AudioFrameObserver{
-		OnPlaybackAudioFrameBeforeMixing: func(localUser *agoraservice.LocalUser, channelId string, userId string, frame *agoraservice.AudioFrame) bool {
+		OnPlaybackAudioFrameBeforeMixing: func(localUser *agoraservice.LocalUser, channelId string, userId string, frame *agoraservice.AudioFrame, vadResultState agoraservice.VadState, vadResultFrame *agoraservice.AudioFrame) bool {
 			// do something
 			fmt.Printf("Playback audio frame before mixing, from userId %s\n", userId)
 			if audioModel == 1 {
@@ -203,7 +203,7 @@ func main() {
 	localUser.SetAudioVolumeIndicationParameters(300, 1, true)
 	localUser.RegisterLocalUserObserver(localUserObserver)
 
-	localUser.RegisterAudioFrameObserver(audioObserver)
+	localUser.RegisterAudioFrameObserver(audioObserver, 0, nil)
 
 	track.SetEnabled(true)
 	localUser.PublishAudio(track)
