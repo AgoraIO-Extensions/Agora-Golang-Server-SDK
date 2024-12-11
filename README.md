@@ -100,6 +100,40 @@ import (
   - if you don't use VAD, and your glibc version is between 2.16 and 2.27, you can disable VAD by rename **audio_vad.go** file in go_sdk/agoraserver/ to **audio_vad.go.bak**
 
 # Change log
+##2024.12.11 Release 2.1.3
+-- New Features:
+  -AudioVadManager: Introduced to manage VAD (Voice Activity Detection) for multiple audio sources. In practice, each audio source requires its own VAD instance. To simplify the developer experience, we provide a unified interface to manage these VAD instances.
+-- Changes:
+  - In AudioFrameObserver::OnPlaybackAudioFrameBeforeMixing, two new parameters have been added: vadResultState and vadResultFrame, which return the VAD detection results.
+  - In LocalUser::RegisterAudioFrameObserver, two new parameters have been added to control whether VAD recognition should be enabled. If VAD recognition is enabled, the recognition results will be returned in OnPlaybackAudioFrameBeforeMixing.
+-- VAD Usage from Version 2.1.3 onwards:
+To enable VAD recognition, pass the VAD configuration when calling LocalUser::RegisterAudioFrameObserver. Example:
+vadConfigure := &agoraservice.AudioVadConfigV2{
+  PreStartRecognizeCount: 16,
+  StartRecognizeCount:    30,
+  StopRecognizeCount:     20,
+  ActivePercent:          0.7,
+  InactivePercent:        0.5,
+  StartVoiceProb:         70,
+  StartRms:               -50.0,
+  StopVoiceProb:          70,
+  StopRms:                -50.0,
+}
+localUser.RegisterAudioFrameObserver(audioObserver, 1, vadConfigure)
+In the AudioFrameObserver::OnPlaybackAudioFrameBeforeMixing callback, you can retrieve the VAD recognition results and process them as follows:
+you_audio_frame_observer::OnPlaybackAudioFrameBeforeMixing(channelId string, uid uint64, frame *agoraservice.AudioFrame, vadResultState agoraservice.VadState, vadResultFrame *agoraservice.AudioFrame) {
+  if vadResultState == agoraservice.VadStateStartSpeaking {
+    // Start speaking: process vadResultFrame for ASR/STT
+  }
+  if vadResultState == agoraservice.VadStateSpeaking {
+    // Speaking: process vadResultFrame for ASR/STT
+  }
+  if vadResultState == agoraservice.VadStateStopSpeaking {
+    // Stop speaking: process vadResultFrame for ASR/STT and handle end of speech business logic
+  }
+}
+Notes:
+  If VAD is enabled, always use the vadResultFrame data instead of the frame data. Using the frame data will result in lost recognition results for ASR/STT.
 ## Release 2.1.2 on December 2, 2024
 - The AudioConsumer has been added, which can be used to push audio data.
 - The VadDump method has been added, which can be used to debug VAD.
@@ -113,6 +147,7 @@ import (
 - Support for the AudioLable plugin has been added, and developers no longer need to call EableExtension at the app layer.
 - The onpublishstatechanged interface has been added.
 - The return status of VAD has been modified to be unified into three states: NoSpeakong, Speaking, StopSpeaking; moreover, when it is in the StopSpeaking state, the current frame data will also be returned.
+
 ## 2024.10.29 release 2.1.1
 - Add audio VAD interface of version 2 and corresponding example.
 ## 2024.10.24 release 2.1.0
