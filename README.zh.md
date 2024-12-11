@@ -99,6 +99,33 @@ import (
   - 如果你不使用 VAD，并且你的 glibc 版本在 2.16 和 2.27 之间，你可以通过将 go_sdk/agoraserver/ 中的 **audio_vad.go** 文件重命名为 **audio_vad.go.bak** 来禁用 VAD
 
 # 更新日志
+## 2024.12.11 发布 2.1.3
+-- 增加：
+  - 增加了AuduioVadManager，用来管理多个音频源的VAD。在实际用的时候，一个音频源就需要一个Vad实例子，为了简化开发者的开发难度，提供一个统一的接口来管理这些Vad实例。
+-- 修改：
+  -- 在AudioFrameObserver::OnPlaybackAudioFrameBeforeMixing中增加了2个参数：vadResultState和vadResultFrame，用来返回VAD识别结果。
+  -- 在LocalUser::RegisterAudioFrameObserver中，增加2个参数，用来设置是否需要启动VAD识别。如果启动VAD识别，VAD识别后的结果会在OnPlaybackAudioFrameBeforeMixing中返回。
+2.1.3版本后VAD的用法：
+  1、在LocalUser::RegisterAudioFrameObserver中,启动vad。如：
+      vadConfigure := &agoraservice.AudioVadConfigV2{
+        PreStartRecognizeCount: 16,
+        StartRecognizeCount:    30,
+        StopRecognizeCount:     20,
+        ActivePercent:          0.7,
+        InactivePercent:        0.5,
+        StartVoiceProb:         70,
+        StartRms:               -50.0,
+        StopVoiceProb:          70,
+        StopRms:                -50.0,
+      }
+      localUser.RegisterAudioFrameObserver(audioObserver, 1, vadConfigure)
+  2、在AudioFrameObserver::OnPlaybackAudioFrameBeforeMixing中，可以获取到VAD识别结果，并对结果做处理
+  you_audio_frame_observer::OnPlaybackAudioFrameBeforeMixing(channelId string, uid uint64, frame *agoraservice.AudioFrame, vadResultState agoraservice.VadState, vadResultFraem *agoraservice.AudioFrame){
+    if vadResultState == agoraservice.VadStateStartSpeaking { // 开始说话，可以将vadResultFrame 的数据交给ASR/STT}
+    if vadResultState == agoraservice.VadStateSpeaking{ // 正在说话，可以将vadResultFrame 的数据交给ASR/STT}
+    if vadResultState == agoraservice.VadStateStopSpeaking{ // 停止说话，可以将vadResultFrame 的数据交给ASR/STT；//并且做结束说话的业务处理}
+  }
+  备注：如果启用了VAD，就一定要用到vadResultFrame的数据，而不用用frame的数据，否则stt/ars 做识别的时候，结果会丢失。
 ## 2024.12.02 发布 2.1.2
 - 增加了AudioConsumer,可以用来对音频数据做push
 - 增加了VadDump方法，可以用来对vad做debug

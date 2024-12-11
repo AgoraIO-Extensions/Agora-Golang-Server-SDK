@@ -48,6 +48,8 @@ const (
 type VadState int
 
 const (
+	// VadStateInvalid represents an invalid VAD state.
+	VadStateInvalid VadState = -1
 	// VadStateWaitSpeeking represents the state when waiting for speaking.
 	VadStateNoSpeeking VadState = 0
 	// VadStateStartSpeeking represents the state when speaking starts.

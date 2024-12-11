@@ -83,7 +83,7 @@ type AudioFrameObserver struct {
 	OnPlaybackAudioFrame              func(localUser *LocalUser, channelId string, frame *AudioFrame) bool
 	OnMixedAudioFrame                 func(localUser *LocalUser, channelId string, frame *AudioFrame) bool
 	OnEarMonitoringAudioFrame         func(localUser *LocalUser, frame *AudioFrame) bool
-	OnPlaybackAudioFrameBeforeMixing  func(localUser *LocalUser, channelId string, uid string, frame *AudioFrame) bool
+	OnPlaybackAudioFrameBeforeMixing  func(localUser *LocalUser, channelId string, uid string, frame *AudioFrame, vadResultStat VadState, vadResultFrame *AudioFrame) bool
 	OnGetAudioFramePosition           func(localUser *LocalUser) int
 	OnGetPlaybackAudioFrameParam      func(localUser *LocalUser) AudioFrameObserverAudioParams
 	OnGetRecordAudioFrameParam        func(localUser *LocalUser) AudioFrameObserverAudioParams
@@ -178,6 +178,9 @@ type RtcConnection struct {
 
 	// remoteVideoRWMutex          *sync.RWMutex
 	// remoteEncodedVideoReceivers map[*VideoEncodedImageReceiver]*videoEncodedImageReceiverInner
+	// vad related for the connection
+	enableVad         int
+	audioVadManager  *AudioVadManager
 }
 
 func NewRtcConnection(cfg *RtcConnectionConfig) *RtcConnection {
@@ -194,6 +197,8 @@ func NewRtcConnection(cfg *RtcConnectionConfig) *RtcConnection {
 		encodedVideoObserver: nil,
 		// remoteVideoRWMutex:          &sync.RWMutex{},
 		// remoteEncodedVideoReceivers: make(map[*VideoEncodedImageReceiver]*videoEncodedImageReceiverInner),
+		enableVad: 0,
+		audioVadManager: nil,
 	}
 	ret.localUser = &LocalUser{
 		connection: ret,
@@ -435,7 +440,7 @@ func (conn *RtcConnection) unregisterLocalUserObserver() int {
 	return 0
 }
 
-func (conn *RtcConnection) registerAudioFrameObserver(observer *AudioFrameObserver) int {
+func (conn *RtcConnection) registerAudioFrameObserver(observer *AudioFrameObserver, enableVad int, vadConfigure *AudioVadConfigV2) int {
 	if conn.cConnection == nil || observer == nil {
 		return -1
 	}
@@ -445,6 +450,12 @@ func (conn *RtcConnection) registerAudioFrameObserver(observer *AudioFrameObserv
 	}
 	// unregister old observer
 	conn.unregisterAudioFrameObserver()
+
+	// re-assign vad related
+	conn.enableVad = enableVad
+	if conn.enableVad > 0 && vadConfigure != nil {
+		conn.audioVadManager = NewAudioVadManager(vadConfigure)
+	} 
 
 	conn.audioObserver = observer
 	if conn.cAudioObserver == nil {
@@ -459,12 +470,19 @@ func (conn *RtcConnection) unregisterAudioFrameObserver() int {
 	if conn.cConnection == nil {
 		return 0
 	}
+	conn.enableVad = 0
 	if conn.cAudioObserver != nil {
 		C.agora_local_user_unregister_audio_frame_observer(conn.localUser.cLocalUser)
 		FreeCAudioFrameObserver(conn.cAudioObserver)
 	}
 	conn.cAudioObserver = nil
 	conn.audioObserver = nil
+	if conn.audioVadManager != nil {
+		conn.audioVadManager.Release()
+		conn.audioVadManager = nil
+	}
+	
+	conn.enableVad = 0
 	return 0
 }
 

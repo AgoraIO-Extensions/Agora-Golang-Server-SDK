@@ -47,8 +47,8 @@ func (localUser *LocalUser) UnregisterLocalUserObserver() int {
 	return localUser.connection.unregisterLocalUserObserver()
 }
 
-func (localUser *LocalUser) RegisterAudioFrameObserver(observer *AudioFrameObserver) int {
-	return localUser.connection.registerAudioFrameObserver(observer)
+func (localUser *LocalUser) RegisterAudioFrameObserver(observer *AudioFrameObserver,enableVad int, vadConfigure *AudioVadConfigV2) int {
+	return localUser.connection.registerAudioFrameObserver(observer, enableVad, vadConfigure)
 }
 
 func (localUser *LocalUser) UnregisterAudioFrameObserver() int {

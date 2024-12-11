@@ -156,15 +156,19 @@ func main() {
 	}
 
 	audioObserver := &agoraservice.AudioFrameObserver{
-		OnPlaybackAudioFrameBeforeMixing: func(localUser *agoraservice.LocalUser, channelId string, userId string, frame *agoraservice.AudioFrame) bool {
+		OnPlaybackAudioFrameBeforeMixing: func(localUser *agoraservice.LocalUser, channelId string, userId string, frame *agoraservice.AudioFrame, vadResultState agoraservice.VadState, vadResultFraem *agoraservice.AudioFrame) bool {
 			// do something
-			fmt.Printf("Playback from userId %s, far field flag %d, rms %d, pitch %d\n",
-				userId, frame.FarFieldFlag, frame.Rms, frame.Pitch)
 
 			// vad process here! and you can get the vad result, then send vadResult to ASR/STT service
-			vadResult, state := vad.Process(frame)
+			//vadResult, state := vad.Process(frame)
 			// for debuging, can do vad dump but never recommended for production
-			vadDump.Write(frame, vadResult, state)
+			//NOTE：if enable VAD in LocalUser::RegisterAudioFrameObserver, the vad result will be returned by this callback
+			// and never use frame for ARS/STT service, you better to use vadResultFraem for ASR/STT service
+
+			vadDump.Write(frame, vadResultFraem, vadResultState)
+
+			fmt.Printf("Playback from userId %s, far field flag %d, rms %d, pitch %d, state=%d-%d\n",
+				userId, frame.FarFieldFlag, frame.Rms, frame.Pitch, int(vadResultState))
 
 			return true
 		},
@@ -174,7 +178,18 @@ func main() {
 	localUser := con.GetLocalUser()
 	localUser.SetPlaybackAudioFrameBeforeMixingParameters(1, 16000)
 	con.RegisterObserver(conHandler)
-	localUser.RegisterAudioFrameObserver(audioObserver)
+	vadConfigure := &agoraservice.AudioVadConfigV2{
+		PreStartRecognizeCount: 16,
+		StartRecognizeCount:    30,
+		StopRecognizeCount:     20,
+		ActivePercent:          0.7,
+		InactivePercent:        0.5,
+		StartVoiceProb:         70,
+		StartRms:               -50.0,
+		StopVoiceProb:          70,
+		StopRms:                -50.0,
+	}
+	localUser.RegisterAudioFrameObserver(audioObserver, 1, vadConfigure)
 	localUser.RegisterLocalUserObserver(localUserObserver)
 
 	// sender := con.NewPcmSender()

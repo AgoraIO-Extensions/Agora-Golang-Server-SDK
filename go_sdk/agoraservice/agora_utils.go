@@ -123,6 +123,9 @@ func (ac *AudioConsumer) Consume() int {
 		ac.consumedPackets += actualPackets
 
 		ret := ac.pcmSender.SendAudioPcmData(ac.frame)
+		if ret == 0 {
+			ret = ac.consumedPackets // return the actual consumed packets in this round
+		}
 		return ret
 	}
 

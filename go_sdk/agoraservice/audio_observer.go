@@ -110,8 +110,18 @@ func goOnPlaybackAudioFrameBeforeMixing(cLocalUser unsafe.Pointer, channelId *C.
 	goChannelId := C.GoString(channelId)
 	goUid := C.GoString(uid)
 	goFrame := GoPcmAudioFrame(frame)
-	ret := con.audioObserver.OnPlaybackAudioFrameBeforeMixing(con.GetLocalUser(), goChannelId, goUid, goFrame)
-	if ret {
+	// add vad manager here
+	var ret bool = false
+	var vadResultFrame *AudioFrame = nil
+	var vadResultStat VadState = VadStateInvalid
+	
+	if con.audioVadManager != nil {
+		vadResultFrame, vadResultStat = con.audioVadManager.Process(goChannelId, goUid, goFrame)
+	}
+	ret = con.audioObserver.OnPlaybackAudioFrameBeforeMixing(con.GetLocalUser(), goChannelId, goUid, goFrame, vadResultStat, vadResultFrame)
+
+	
+	if ret  {
 		return C.int(1)
 	}
 	return C.int(0)
