@@ -139,6 +139,8 @@ func NewAudioVadV2(cfg *AudioVadConfigV2) *AudioVadV2 {
 }
 
 func (vad *AudioVadV2) Release() {
+	vad.startBuffer.clear()
+	vad.stopBuffer.clear()
 	vad.startBuffer = nil
 	vad.stopBuffer = nil
 }
