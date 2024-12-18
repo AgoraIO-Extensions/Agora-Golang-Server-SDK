@@ -145,6 +145,10 @@ func Initialize(cfg *AgoraServiceConfig) int {
 	// enable audio label generator
 	EnableExtension("agora.builtin", "agora_audio_label_generator", "", true)
 
+	// enable vad v2 model
+	agoraParam := GetAgoraParameter()
+	agoraParam.SetParameters("{\"che.audio.label.enable\": true}")
+
 	agoraService.isLowDelay = cfg.AudioScenario == AudioScenarioChorus
 
 	if cfg.LogPath != "" {

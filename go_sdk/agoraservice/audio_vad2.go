@@ -7,7 +7,7 @@ import (
 type AudioVadConfigV2 struct {
 	PreStartRecognizeCount int     // pre start recognize count, buffer size for 10ms 16KHz 16bit 1channel PCM, default value is 16
 	StartRecognizeCount    int     // start recognize count, buffer size for 10ms 16KHz 16bit 1channel PCM, default value is 30
-	StopRecognizeCount     int     // max recognize count, buffer size for 10ms 16KHz 16bit 1channel PCM, default value is 20
+	StopRecognizeCount     int     // max recognize count, buffer size for 10ms 16KHz 16bit 1channel PCM, default value is 50
 	ActivePercent          float32 // active percent, if over this percent, will be recognized as speaking, default value is 0.7
 	InactivePercent        float32 // inactive percent, if below this percent, will be recognized as non-speaking, default value is 0.5
 	StartVoiceProb         int     // start voice prob, default value is 70
@@ -112,7 +112,7 @@ func NewAudioVadV2(cfg *AudioVadConfigV2) *AudioVadV2 {
 		cfg = &AudioVadConfigV2{
 			PreStartRecognizeCount: 16,
 			StartRecognizeCount:    30,
-			StopRecognizeCount:     20,
+			StopRecognizeCount:     50,
 			ActivePercent:          0.7,
 			InactivePercent:        0.5,
 			StartVoiceProb:         70,

@@ -1,6 +1,7 @@
 # Required OS and go version
 - 支持的 Linux 版本:
   - Ubuntu 18.04 LTS 及以上版本
+- macOS 支持(仅仅用于开发测试，不能用于线上环境)
 - Go 版本:
   - Go 1.21 及以上版本
   - Go 1.20 及以下版本不支持
@@ -62,7 +63,9 @@ export LD_LIBRARY_PATH=../agora_sdk
 ```
 
 # 集成到你的项目
-- 克隆此仓库并切换到目标分支，然后安装
+- 克隆此仓库并切换到目标分支，然后安装.推荐用最新的分支
+```下面用release/2.1.0为例，你可以根据需要选择其他分支
+对应每一分支，有相关的tag存在，比如‘release/2.1.0’ 对应的tag为：V2.1.0
 ```
 git clone git@github.com:AgoraIO-Extensions/Agora-Golang-Server-SDK.git
 cd Agora-Golang-Server-SDK
@@ -99,6 +102,11 @@ import (
   - 如果你不使用 VAD，并且你的 glibc 版本在 2.16 和 2.27 之间，你可以通过将 go_sdk/agoraserver/ 中的 **audio_vad.go** 文件重命名为 **audio_vad.go.bak** 来禁用 VAD
 
 # 更新日志
+## 2024.12.18 发布 2.1.4
+-- 修改：
+  -- 默认支持VAD v2模块
+  -- VAD的参数默认从20，修改到50
+  -- 添加了VAD识别的参数配置说明。参考下面。
 ## 2024.12.11 发布 2.1.3
 -- 增加：
   - 增加了AuduioVadManager，用来管理多个音频源的VAD。在实际用的时候，一个音频源就需要一个Vad实例子，为了简化开发者的开发难度，提供一个统一的接口来管理这些Vad实例。
@@ -110,7 +118,7 @@ import (
       vadConfigure := &agoraservice.AudioVadConfigV2{
         PreStartRecognizeCount: 16,
         StartRecognizeCount:    30,
-        StopRecognizeCount:     20,
+        StopRecognizeCount:     50,
         ActivePercent:          0.7,
         InactivePercent:        0.5,
         StartVoiceProb:         70,
@@ -252,4 +260,85 @@ import (
     connection = None
     agora_service = None
 
-## 如何执行打断？
+## 在AI场景下，如何做打断？
+- 打断的定义
+  在人机对话中，打断是指用户在对话过程中突然打断机器人的回答，要求机器人立即停止当前回答并转而回答用户的新问题。这个行为就叫打断
+- 打断触发的条件
+  打断根据不同的产品定义，一般有两种方式：
+  - 模式1：语音激励模式. 当检测到有用户说话，就执行打断策略，比如用户说话时，识别到用户说话，就执行打断策略。
+  - 模式2：ASR激励模式. 当检测到有用户说话、并且asr/STT的识别返回有结果的时候，就执行打断策略。
+- 不同打断策略的优点
+  - 1. 语音激励打断：
+    - 优点：
+    - 1. 减少用户等待时间，减少用户打断的概率。因为用户说话时，机器人会立即停止回答，用户不需要等待机器人回答完成。
+    - 缺点：
+    - 1. 因为是语音激励模式，有可能会被无意义的语音信号给打断，依赖于VAD判断的准确性。比如AI在回答的时候，如果有人敲击键盘，就可能触发语音激励，将AI打断。
+  -2 . ASR激励打断：
+    - 优点：
+    - 1. 降低用户打断的概率。因为用户说话时，asr/STT识别到用户说话，才会触发打断策略。
+    - 缺点：
+    - 1. 因为是asr/STT激励模式，需要将语音信号转换成文本，会增加打断的延迟。
+
+- 推荐模式
+  如果VAD能过滤掉非人声，只是在有人声的时候，才触发VAD判断，建议用语音激励模式；或者是对打断要求延迟敏感的时候，用改模式
+  如果对打断延迟不敏感，建议用ASR激励模式，因为ASR激励模式，可以过滤掉非人声，降低用户打断的概率。
+- 如何实现打断？打断需要做哪些操作？
+  定义：人机对话，通常可以理解为对话轮的方式来进行。比如用户问一个问题，机器人回答一个问题；然后用户再问一个问题，机器人再回答一个问题。这样的模式就是对话轮。我们假设给对话轮一个roundId,每轮对话，roundId+1。 一个对话轮包含了这样的3个阶段/组成部分：vad、asr、LLM、TTS、rtc推流。
+  1. vad： 是指人机对话的开始，通过vad识别出用户说话的开始和结束，然后根据用户说话的开始和结束，交给后续的ASR。
+  2. asr： 是指人机对话的识别阶段，通过asr识别出用户说的话，然后交给LLM。
+  3. LLM： 是指人机对话的生成阶段，LLM根据用户说的话，生成一个回答。
+  4. TTS： 是指人机对话的合成阶段，LLM根据生成的回答，合成一个音频。
+  5. rtc推流： 是指人机对话的推流阶段，将合成后的音频推流到rtc，然后机器人播放音频。
+
+  因此，所谓的打断，就是在（roundid+1）轮的时候，无论是用语音激励（VAD阶段触发）还是用ASR激励（就是在ASR识别出用户说的话）打断，都需要做如下的操作：
+  1. 停止当前轮roundID轮的LLM生成。
+  2. 停止当前轮roundID轮的TTS合成。
+  3. 停止当前轮roundID轮的RTC推流。
+   API调用参考：
+    a 调用:AudioConsumer.clear()；
+    b 调用:LocalAudioTrack.clear_sender_buffer()；
+    c 业务层：清除TTS返回来保留的数据（如果有）
+## LLM的结果什么时候交给TTS做合成？
+  LLM的结果是异步返回的，而且都是流式返回的。应该按照什么时机将LLM的结果交给TTS做合成呢？
+  需要考虑2个因素：
+  1. 无歧义、连续、流畅：确保TTS合成的语音是没有歧义、而且是完整、连续的。比如LLM返回的文本是："中间的首都是北京吗？"如果我们给TTS的是：中  然后是：国首  然后是：是北   然后是：京吗？  这样合成会有歧义，因为"中"和"国"之间没有空格，"首"和"是"之间没有空格，"京"和"吗"之间没有空格。
+  2. 确保整个流程延迟最低。LLM 生成完成后，在交给TTS，这样的处理方式，合成的语音一定是没有歧义，而且是连续的。但延迟会很大，对用户体验不友好。
+  推荐的方案：
+    将有LLM返回数据的时候：
+    a LLM返回的结果存放在缓存中
+    b 对缓存中的数据做逆序扫描，找到最近的一个标点符号
+    c 将缓存中的数据，从头开始到最尾的一个标点符号截断，然后交给TTS做合成。
+    d 将截断后的数据，从缓存中删除。剩余的数据，移动到缓存头位置，继续等待LLM返回数据。
+
+## VAD配置参数的含义
+AgoraAudioVadConfigV2 属性
+属性名	                 类型	    描述	                         默认值	     取值范围
+preStartRecognizeCount	int	    开始说话状态前保存的音频帧数	      16	       [0, ]  
+startRecognizeCount	    int   	判断是否开始说话状态的音频帧总数     30	    [1, max]
+stopRecognizeCount	    int	    判断停止说话状态的音频帧数	        50	    [1, max]
+activePercent	          float	  在 startRecognizeCount 
+                                  帧中活跃帧的百分比	            0.7	    0.0, 1.0]
+inactivePercent       	float	  在 stopRecognizeCount
+                                 帧中非活跃帧的百分比	             0.5     [0.0, 1.0]
+startVoiceProb	        int	    音频帧是人声的概率	              70	    [0, 100]
+stopVoiceProb	          int	     音频帧是人声的概率	               70	    [0, 100]
+startRmsThreshold	      int	     音频帧的能量分贝阈值	            -50	     [-100, 0]
+stopRmsThreshold	      int	    音频帧的能量分贝阈值            	-50	    [-100, 0]
+注意事项
+
+startRmsThreshold 和 stopRmsThreshold:
+值越高，就需要说话人的声音相比周围环境的环境音的音量越大
+在安静环境中推荐使用默认值 -50。
+在嘈杂环境中可以调高到 -40 到 -30 之间，以减少误检。
+根据实际使用场景和音频特征进行微调可获得最佳效果。
+
+stopReecognizeCount: 反映在识别到非人声的情况下，需要等待多长时间才认为用户已经停止说话。可以用来控制说话人相邻语句的间隔，在该间隔内，VAD会将相邻的语句当作一段话。如果该值短，相邻语句就越容易被识别为2段话。通常推荐50～80。
+比如：下午好，[interval_between_sentences]北京有哪些好玩的地方？
+如果说话人语气之间的间隔interval_between_sentences 大于stopReecognizeCount，那么VAD就会将上述识别为2个vad：
+vad1: 下午好
+vad2: 北京有哪些好玩的地方？
+如果interval_between_sentences 小于 stopReecognizeCount，那么VAD就会将上述识别为1个vad：
+vad： 下午好，北京有哪些好玩的地方？
+
+如果对延迟敏感，可以调低该值，或者咨询研发，在降低该值的情况下，应该如何在应用层做处理，在保障延迟的情况下，还能确保语意的连续性，不会产生AI被敏感的打断的感觉。
+
