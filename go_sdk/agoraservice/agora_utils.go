@@ -126,6 +126,9 @@ func (ac *AudioConsumer) Consume() int {
 		if ret == 0 {
 			ret = ac.consumedPackets // return the actual consumed packets in this round
 		}
+		// for quickly release buffer
+		ac.frame.Buffer = nil
+		frameData	= nil
 		return ret
 	}
 
