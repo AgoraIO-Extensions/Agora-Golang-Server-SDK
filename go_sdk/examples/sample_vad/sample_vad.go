@@ -5,6 +5,8 @@ import (
 	"os"
 	"os/signal"
 	"time"
+	"net/http"
+	_ "net/http/pprof"
 
 	agoraservice "github.com/AgoraIO-Extensions/Agora-Golang-Server-SDK/v2/go_sdk/agoraservice"
 	//"google.golang.org/protobuf/types/known/sourcecontextpb"
@@ -15,6 +17,11 @@ import (
 func main() {
 	bStop := new(bool)
 	*bStop = false
+
+	// start pprof
+	go func() {
+		http.ListenAndServe("localhost:6060", nil)
+	}()
 
 	// only for debug
 	vadDump := agoraservice.NewVadDump("./agora_rtc_log/")
@@ -70,14 +77,14 @@ func main() {
 	//agoraservice.EnableExtension("agora.builtin", "agora_audio_label_generator", "", true)
 
 	// Recommended  configurations:
-	// For not-so-noisy environments, use this configuration: (16, 30, 20, 0.7, 0.5, 70, -50, 70, -50)
-	// For noisy environments, use this configuration: (16, 30, 20, 0.7, 0.5, 70, -40, 70, -40)
-	// For high-noise environments, use this configuration: (16, 30, 20, 0.7, 0.5, 70, -30, 70, -30)
+	// For not-so-noisy environments, use this configuration: (16, 30, 50, 0.7, 0.5, 70, -50, 70, -50)
+	// For noisy environments, use this configuration: (16, 30, 50, 0.7, 0.5, 70, -40, 70, -40)
+	// For high-noise environments, use this configuration: (16, 30, 50, 0.7, 0.5, 70, -30, 70, -30)
 	vad := agoraservice.NewAudioVadV2(
 		&agoraservice.AudioVadConfigV2{
 			PreStartRecognizeCount: 16,
 			StartRecognizeCount:    30,
-			StopRecognizeCount:     20,
+			StopRecognizeCount:     50,
 			ActivePercent:          0.7,
 			InactivePercent:        0.5,
 			StartVoiceProb:         70,
@@ -167,7 +174,7 @@ func main() {
 
 			vadDump.Write(frame, vadResultFraem, vadResultState)
 
-			fmt.Printf("Playback from userId %s, far field flag %d, rms %d, pitch %d, state=%d-%d\n",
+			fmt.Printf("Playback from userId %s, far field flag %d, rms %d, pitch %d, state=%d\n",
 				userId, frame.FarFieldFlag, frame.Rms, frame.Pitch, int(vadResultState))
 
 			return true
@@ -181,7 +188,7 @@ func main() {
 	vadConfigure := &agoraservice.AudioVadConfigV2{
 		PreStartRecognizeCount: 16,
 		StartRecognizeCount:    30,
-		StopRecognizeCount:     20,
+		StopRecognizeCount:     50,
 		ActivePercent:          0.7,
 		InactivePercent:        0.5,
 		StartVoiceProb:         70,
