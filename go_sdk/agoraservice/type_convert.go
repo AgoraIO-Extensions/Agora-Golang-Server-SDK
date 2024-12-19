@@ -112,6 +112,8 @@ func CLocalUserObserver() *C.struct__local_user_observer {
 	ret.on_audio_publish_state_changed = (*[0]byte)(C.cgo_on_audio_publish_state_changed)
 	// todo: check if need to use this, still can not work now,should check why can not work
 	//ret.on_audio_volume_indication = (*[0]byte)(C.cgo_on_audio_volume_indication)
+	// not finished ,only a title
+	ret.on_audio_meta_data_received = (*[0]byte)(C.cgo_on_audio_meta_data_received)
 	return ret
 }
 

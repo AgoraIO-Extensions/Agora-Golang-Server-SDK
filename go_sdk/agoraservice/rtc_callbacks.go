@@ -353,3 +353,17 @@ func goOnAudioPublishStateChanged(cLocalUser unsafe.Pointer, channel *C.char, ol
 	}
 	con.localUserObserver.OnAudioPublishStateChanged(con.GetLocalUser(), C.GoString(channel), int(oldState), int(newState), int(elapseSinceLastState))
 }
+//export goOnAudioMetadataReceived
+func goOnAudioMetadataReceived(cLocalUser unsafe.Pointer, uid *C.char, metaData *C.char, length C.size_t) {
+	//validity check
+	if cLocalUser == nil {
+		return
+	}
+	// get conn from handle
+	con := agoraService.getConFromHandle(cLocalUser, ConTypeCLocalUser)
+	if con == nil || con.localUserObserver == nil || con.localUserObserver.onAudioMetaDataReceived == nil {
+		return
+	}
+	// note： best practise is never reelase handler until app is exiting
+	con.localUserObserver.onAudioMetaDataReceived(con.GetLocalUser(), C.GoString(uid), C.GoBytes(unsafe.Pointer(metaData),C.int(length)))
+}
