@@ -76,7 +76,7 @@ type LocalUserObserver struct {
 	//  void (*on_audio_publish_state_changed)(AGORA_HANDLE agora_local_user, const char* channel, int old_state, int new_state, int elapse_since_last_state);
 	OnAudioPublishStateChanged func(localUser *LocalUser, channelId string, oldState int, newState int, elapsed int)
 	OnAudioVolumeIndication    func(localUser *LocalUser, audioVolumeInfo []*AudioVolumeInfo, speakerNumber int, totalVolume int)
-	onAudioMetaDataReceived	func(localUser *LocalUser, uid string, metaData []byte)	
+	OnAudioMetaDataReceived    func(localUser *LocalUser, uid string, metaData []byte)	
 }
 
 type AudioFrameObserver struct {

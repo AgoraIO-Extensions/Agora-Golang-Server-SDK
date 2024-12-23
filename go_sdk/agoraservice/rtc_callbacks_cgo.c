@@ -109,7 +109,7 @@ void cgo_on_audio_volume_indication(AGORA_HANDLE agora_local_user, const audio_v
   goOnAudioVolumeIndication(agora_local_user, (struct _audio_volume_info*)speakers, speaker_number, total_volume);
 }
 extern void goOnAudioMetadataReceived(void* agora_local_user, user_id_t userId, const char* meta_data, size_t length);
-void cgo_on_audio_metadata_received(AGORA_HANDLE agora_local_user, user_id_t userId, const char* meta_data, size_t length)
+void cgo_on_audio_meta_data_received(AGORA_HANDLE agora_local_user, user_id_t userId, const char* meta_data, size_t length)
 {
   goOnAudioMetadataReceived(agora_local_user, userId, meta_data, length);
 }

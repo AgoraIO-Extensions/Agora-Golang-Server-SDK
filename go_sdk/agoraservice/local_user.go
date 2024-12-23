@@ -254,6 +254,6 @@ func (localUser *LocalUser) SendAudioMetaData(metaData []byte) int {
 	cMetaData := C.CBytes(metaData)
 	defer C.free(cMetaData)
 	
-	ret := int(C.agora_local_user_send_audio_meta_data(localUser.cLocalUser, (*C.char)(cMetaData), C.uint32_t(len(metaData))))
-	return ret
+	ret := C.agora_local_user_send_audio_meta_data(localUser.cLocalUser, (*C.char)(cMetaData), (C.size_t)(len(metaData)))
+	return int(ret)
 }

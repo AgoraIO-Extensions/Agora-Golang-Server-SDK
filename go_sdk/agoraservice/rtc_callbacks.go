@@ -361,9 +361,9 @@ func goOnAudioMetadataReceived(cLocalUser unsafe.Pointer, uid *C.char, metaData 
 	}
 	// get conn from handle
 	con := agoraService.getConFromHandle(cLocalUser, ConTypeCLocalUser)
-	if con == nil || con.localUserObserver == nil || con.localUserObserver.onAudioMetaDataReceived == nil {
+	if con == nil || con.localUserObserver == nil || con.localUserObserver.OnAudioMetaDataReceived == nil {
 		return
 	}
 	// note： best practise is never reelase handler until app is exiting
-	con.localUserObserver.onAudioMetaDataReceived(con.GetLocalUser(), C.GoString(uid), C.GoBytes(unsafe.Pointer(metaData),C.int(length)))
+	con.localUserObserver.OnAudioMetaDataReceived(con.GetLocalUser(), C.GoString(uid), C.GoBytes(unsafe.Pointer(metaData),C.int(length)))
 }

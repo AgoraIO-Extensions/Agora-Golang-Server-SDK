@@ -32,6 +32,7 @@ func CAgoraServiceConfig(cfg *AgoraServiceConfig) *C.struct__agora_service_confi
 	ret.channel_profile = C.int(cfg.ChannelProfile)
 	ret.audio_scenario = C.int(cfg.AudioScenario)
 	ret.use_string_uid = CIntFromBool(cfg.UseStringUid)
+	ret.domain_limit = C.int(cfg.DomainLimit)
 	return ret
 }
 
@@ -113,6 +114,7 @@ func CLocalUserObserver() *C.struct__local_user_observer {
 	// todo: check if need to use this, still can not work now,should check why can not work
 	//ret.on_audio_volume_indication = (*[0]byte)(C.cgo_on_audio_volume_indication)
 	// not finished ,only a title
+	// void (*on_audio_meta_data_received)(AGORA_HANDLE agora_local_user, user_id_t userId, const char* meta_data, size_t length);
 	ret.on_audio_meta_data_received = (*[0]byte)(C.cgo_on_audio_meta_data_received)
 	return ret
 }
