@@ -102,6 +102,18 @@ import (
   - 如果你不使用 VAD，并且你的 glibc 版本在 2.16 和 2.27 之间，你可以通过将 go_sdk/agoraserver/ 中的 **audio_vad.go** 文件重命名为 **audio_vad.go.bak** 来禁用 VAD
 
 # 更新日志
+## 2024.12.23 发布 2.2.0
+-- 更新：
+  -- 更新sdk 版本到4.4.31
+-- 增加：
+  -- 在LocalUser中增加SendAudioMetaData接口
+    -- 用法是：直接调用，频率限制在100内；每一次的数据长度在64 bytes以内
+    -- 测试数据？？？
+  -- 在LocauUserObserver中增加onAudioMetaDataResult接口
+  -- serviceconfigure中增加domainLimit成员，用在是否限制在Domain的为url的情况。默认是0，表示不限制
+-- 修改：
+  -- ExternalVideoFrame增加对额外yuv colorspace的支持，从而可以编码纯色的背景图。通常用在数字人场景
+  考虑如果方便的做audio meta的输入？？释放在pcm数据里面加入？？？但如果这样加入，又如何做audioconsumer？？除非内部设置audioconsumer是10ms的timer？？
 ## 2024.12.18 发布 2.1.4
 -- 修改：
   -- 默认支持VAD v2模块
