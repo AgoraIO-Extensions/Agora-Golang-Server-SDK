@@ -132,10 +132,35 @@ func main() {
 			fmt.Println("user left, " + uid)
 		},
 	}
+	
+
+	audioObserver := &agoraservice.AudioFrameObserver{
+		OnPlaybackAudioFrameBeforeMixing: func(localUser *agoraservice.LocalUser, channelId string, userId string, frame *agoraservice.AudioFrame, vadResultState agoraservice.VadState, vadResultFraem *agoraservice.AudioFrame) bool {
+			// do something
+
+			// vad process here! and you can get the vad result, then send vadResult to ASR/STT service
+			//vadResult, state := vad.Process(frame)
+			// for debuging, can do vad dump but never recommended for production
+			//NOTE：if enable VAD in LocalUser::RegisterAudioFrameObserver, the vad result will be returned by this callback
+			// and never use frame for ARS/STT service, you better to use vadResultFraem for ASR/STT service
+
+			vadDump.Write(frame, vadResultFraem, vadResultState)
+
+			//fmt.Printf("Playback from userId %s, far field flag %d, rms %d, pitch %d, state=%d\n", userId, frame.FarFieldFlag, frame.Rms, frame.Pitch, int(vadResultState))
+
+			return true
+		},
+	}
+	con := agoraservice.NewRtcConnection(&conCfg)
+
+	localUser := con.GetLocalUser()
+	
+
 	localUserObserver := &agoraservice.LocalUserObserver{
 		OnStreamMessage: func(localUser *agoraservice.LocalUser, uid string, streamId int, data []byte) {
 			// do something
 			fmt.Printf("*****Stream message, from userId %s\n", uid)
+			//con.SendStreamMessage()
 		},
 
 		OnAudioVolumeIndication: func(localUser *agoraservice.LocalUser, audioVolumeInfo []*agoraservice.AudioVolumeInfo, speakerNumber int, totalVolume int) {
@@ -160,29 +185,11 @@ func main() {
 		OnUserVideoTrackStateChanged: func(localUser *agoraservice.LocalUser, uid string, remoteAudioTrack *agoraservice.RemoteVideoTrack, state int, reason int, elapsed int) {
 			fmt.Printf("*****User video track state changed, uid %s\n", uid)
 		},
-	}
-
-	audioObserver := &agoraservice.AudioFrameObserver{
-		OnPlaybackAudioFrameBeforeMixing: func(localUser *agoraservice.LocalUser, channelId string, userId string, frame *agoraservice.AudioFrame, vadResultState agoraservice.VadState, vadResultFraem *agoraservice.AudioFrame) bool {
-			// do something
-
-			// vad process here! and you can get the vad result, then send vadResult to ASR/STT service
-			//vadResult, state := vad.Process(frame)
-			// for debuging, can do vad dump but never recommended for production
-			//NOTE：if enable VAD in LocalUser::RegisterAudioFrameObserver, the vad result will be returned by this callback
-			// and never use frame for ARS/STT service, you better to use vadResultFraem for ASR/STT service
-
-			vadDump.Write(frame, vadResultFraem, vadResultState)
-
-			fmt.Printf("Playback from userId %s, far field flag %d, rms %d, pitch %d, state=%d\n",
-				userId, frame.FarFieldFlag, frame.Rms, frame.Pitch, int(vadResultState))
-
-			return true
+		OnAudioMetaDataReceived: func(localUser *agoraservice.LocalUser, uid string, metaData []byte) {
+			fmt.Printf("*****User audio meta data received, uid %s, meta: %s\n", uid, string(metaData))
+			localUser.SendAudioMetaData(metaData)
 		},
 	}
-	con := agoraservice.NewRtcConnection(&conCfg)
-
-	localUser := con.GetLocalUser()
 	localUser.SetPlaybackAudioFrameBeforeMixingParameters(1, 16000)
 	con.RegisterObserver(conHandler)
 	vadConfigure := &agoraservice.AudioVadConfigV2{
@@ -216,6 +223,9 @@ func main() {
 
 	for !(*bStop) {
 		time.Sleep(50 * time.Millisecond)
+		//curTime := time.Now()
+		//timeStr := curTime.Format("2006-01-02 15:04:05.000")
+		//localUser.SendAudioMetaData([]byte(timeStr))
 	}
 
 	// release ...
