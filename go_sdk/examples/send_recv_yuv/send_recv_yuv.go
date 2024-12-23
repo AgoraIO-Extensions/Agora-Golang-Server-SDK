@@ -133,6 +133,8 @@ func main() {
 	track.SetEnabled(true)
 	localUser.PublishVideo(track)
 
+	// for yuv test
+	/*
 	w := 352
 	h := 288
 	dataSize := w * h * 3 / 2
@@ -159,6 +161,46 @@ func main() {
 			Stride:    w,
 			Height:    h,
 			Timestamp: 0,
+		})
+		time.Sleep(33 * time.Millisecond)
+	}
+	*/
+	// rgag colos space type test
+	w := 360
+	h := 720
+	// for rgba
+	dataSize := w * h * 4
+	data := make([]byte, dataSize)
+	// read yuv from file 103_RaceHorses_416x240p30_300.yuv
+	file, err := os.Open("../test_data/rgba_360_720.data")
+	if err != nil {
+		fmt.Println("Error opening file:", err)
+		return
+	}
+	defer file.Close()
+
+	for !*bStop {
+		dataLen, err := file.Read(data)
+		if err != nil || dataLen < dataSize {
+			file.Seek(0, 0)
+			continue
+		}
+		// senderCon.SendStreamMessage(streamId, data)
+		sender.SendVideoFrame(&agoraservice.ExternalVideoFrame{
+			Type:      agoraservice.VideoBufferRawData,
+			Format:    agoraservice.VideoPixelRGBA,
+			Buffer:    data,
+			Stride:    w,
+			Height:    h,
+			Timestamp: 0,
+			/*
+			// for rgba with pure background color test
+			ColorSpace: agoraservice.ColorSpaceType{
+				MatrixId:    1,
+				PrimariesId: 1,
+				RangeId:     2, //or 2,
+				TransferId:  1,
+			},*/
 		})
 		time.Sleep(33 * time.Millisecond)
 	}

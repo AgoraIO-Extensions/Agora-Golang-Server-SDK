@@ -64,6 +64,8 @@ type AgoraServiceConfig struct {
 	LogPath string
 	// LogSize is the rtc log file size in Byte.
 	LogSize int
+	// version 2.1.6
+	DomainLimit int
 }
 
 // const def for map type
@@ -111,6 +113,7 @@ func NewAgoraServiceConfig() *AgoraServiceConfig {
 		UseStringUid:         false,
 		LogPath:              "./agora_rtc_log/agorasdk.log",
 		LogSize:              1024 * 1024,
+		DomainLimit: 0, // default to 0
 	}
 }
 

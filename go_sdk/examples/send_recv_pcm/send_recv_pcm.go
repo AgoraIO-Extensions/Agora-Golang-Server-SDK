@@ -164,7 +164,7 @@ func main() {
 	audioObserver := &agoraservice.AudioFrameObserver{
 		OnPlaybackAudioFrameBeforeMixing: func(localUser *agoraservice.LocalUser, channelId string, userId string, frame *agoraservice.AudioFrame, vadResulatState agoraservice.VadState, vadResultFrame *agoraservice.AudioFrame) bool {
 			// do something
-			fmt.Printf("Playback audio frame before mixing, from userId %s, far :%d,rms:%d, pitch: %d\n", userId, frame.FarFieldFlag, frame.Rms, frame.Pitch)
+			//fmt.Printf("Playback audio frame before mixing, from userId %s, far :%d,rms:%d, pitch: %d\n", userId, frame.FarFieldFlag, frame.Rms, frame.Pitch)
 			return true
 		},
 	}
@@ -172,11 +172,15 @@ func main() {
 	con := agoraservice.NewRtcConnection(&conCfg)
 	defer con.Release()
 
+	streamId := con.CreateDataStream(false, false)
+
 	//added by wei for localuser observer
 	localUserObserver := &agoraservice.LocalUserObserver{
 		OnStreamMessage: func(localUser *agoraservice.LocalUser, uid string, streamId int, data []byte) {
 			// do something
 			fmt.Printf("*****Stream message, from userId %s\n", uid)
+			//con.SendStreamMessage(streamId, data)
+			con.SendStreamMessage(streamId, data)
 		},
 
 		OnAudioVolumeIndication: func(localUser *agoraservice.LocalUser, audioVolumeInfo []*agoraservice.AudioVolumeInfo, speakerNumber int, totalVolume int) {
@@ -200,6 +204,13 @@ func main() {
 		},
 		OnUserVideoTrackStateChanged: func(localUser *agoraservice.LocalUser, uid string, remoteAudioTrack *agoraservice.RemoteVideoTrack, state int, reason int, elapsed int) {
 			fmt.Printf("*****User video track state changed, uid %s\n", uid)
+		},
+		OnAudioMetaDataReceived: func(localUser *agoraservice.LocalUser, uid string, metaData []byte) {
+			fmt.Printf("*****User audio meta data received, uid %s, meta: %s\n", uid, string(metaData))
+			//ret := "abc"
+			//retbytes := []byte(ret)	
+			
+			localUser.SendAudioMetaData(metaData)
 		},
 	}
 

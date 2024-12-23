@@ -104,6 +104,17 @@ import (
   - if you don't use VAD, and your glibc version is between 2.16 and 2.27, you can disable VAD by rename **audio_vad.go** file in go_sdk/agoraserver/ to **audio_vad.go.bak**
 
 # Change log
+## 2024.12.23 Release 2.2.0
+-- Update:
+  - Update the sdk version to 4.4.31.
+-- Add:
+  - Add the SendAudioMetaData interface in LocalUser.
+  - Usage: Call it directly, with a frequency limit within 100; the length of each data is within 64 bytes.
+
+  - Add the onAudioMetaDataResult interface in LocauUserObserver.
+  - Add the domainLimit member in serviceconfigure, which is used to determine whether to limit to the case where the Domain is a url. The default is 0, indicating no limit.
+-- Modify:
+  - ExternalVideoFrame adds support for additional yuv colorspace, enabling the encoding of solid - color background images. It is usually used in digital human scenarios.
 ## 2024.12.18 Release 2.1.4
 -- Change: 
   - default to support vad v2 mode
