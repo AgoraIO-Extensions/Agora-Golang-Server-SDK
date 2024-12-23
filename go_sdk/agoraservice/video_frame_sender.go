@@ -7,6 +7,19 @@ package agoraservice
 import "C"
 import "unsafe"
 
+
+  type ColorSpaceType struct {
+	// The indices are equal to the values specified in T-REC H.273 Table 2.
+	PrimariesId int
+	// The indices are equal to the values specified in T-REC H.273 Table 3.
+	TransferId  int
+	// The indices are equal to the values specified in T-REC H.273 Table 4.
+	MatrixId    int
+	// The indices are equal to the values specified at
+	// https://www.webmproject.org/docs/container/#colour for the element Range.
+	RangeId     int
+}
+
 // ExternalVideoFrame represents an external video frame.
 type ExternalVideoFrame struct {
 	// Type is the buffer type.
@@ -58,6 +71,10 @@ type ExternalVideoFrame struct {
 	// 4: Alphabuffer is on the right of frame;
 	// The default value is 0.
 	AlphaMode int
+	/*
+  *  The color_space_type
+  */
+  ColorSpace ColorSpaceType;
 }
 
 // VideoFrame represents a video frame.
@@ -142,5 +159,10 @@ func (sender *VideoFrameSender) SendVideoFrame(frame *ExternalVideoFrame) int {
 		cFrame.fill_alpha_buffer = C.uint8_t(1)
 	}
 	cFrame.alpha_mode = C.int(frame.AlphaMode)
+	// fill color space: for go,the default value of struct 's member is zero value!
+	cFrame.color_space.matrix_id = C.int(frame.ColorSpace.MatrixId)
+	cFrame.color_space.primaries_id = C.int(frame.ColorSpace.PrimariesId)
+	cFrame.color_space.transfer_id = C.int(frame.ColorSpace.TransferId)
+	cFrame.color_space.range_id = C.int(frame.ColorSpace.RangeId)
 	return int(C.agora_video_frame_sender_send(sender.cSender, &cFrame))
 }
