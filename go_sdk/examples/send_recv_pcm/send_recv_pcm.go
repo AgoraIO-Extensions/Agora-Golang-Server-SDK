@@ -172,7 +172,7 @@ func main() {
 	con := agoraservice.NewRtcConnection(&conCfg)
 	defer con.Release()
 
-	streamId := con.CreateDataStream(false, false)
+	localStreamId, _ := con.CreateDataStream(false, false)
 
 	//added by wei for localuser observer
 	localUserObserver := &agoraservice.LocalUserObserver{
@@ -180,7 +180,7 @@ func main() {
 			// do something
 			fmt.Printf("*****Stream message, from userId %s\n", uid)
 			//con.SendStreamMessage(streamId, data)
-			con.SendStreamMessage(streamId, data)
+			con.SendStreamMessage(localStreamId, data)
 		},
 
 		OnAudioVolumeIndication: func(localUser *agoraservice.LocalUser, audioVolumeInfo []*agoraservice.AudioVolumeInfo, speakerNumber int, totalVolume int) {
