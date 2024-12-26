@@ -66,6 +66,11 @@ type AgoraServiceConfig struct {
 	LogSize int
 	// version 2.1.6
 	DomainLimit int
+	// version 2.2.1
+	// if >0, when remote user muted itself, the onplaybackbeforemixing will be still called badk with active pacakage
+	// if <=0, when remote user muted itself, the onplaybackbeforemixing will be no longer called back
+	// default to 0, i.e when muted, no callback will be triggered
+	ShouldCallbackWhenMuted int
 }
 
 // const def for map type
@@ -114,6 +119,7 @@ func NewAgoraServiceConfig() *AgoraServiceConfig {
 		LogPath:              "./agora_rtc_log/agorasdk.log",
 		LogSize:              1024 * 1024,
 		DomainLimit: 0, // default to 0
+		ShouldCallbackWhenMuted: 0, // default to 0, no callback when muted
 	}
 }
 
@@ -151,6 +157,11 @@ func Initialize(cfg *AgoraServiceConfig) int {
 	// enable vad v2 model
 	agoraParam := GetAgoraParameter()
 	agoraParam.SetParameters("{\"che.audio.label.enable\": true}")
+
+	// from version 2.2.1
+	if cfg.ShouldCallbackWhenMuted > 0 {
+		agoraParam.SetParameters("{\"rtc.audio.enable_user_silence_packet\": true}")
+	}
 
 	agoraService.isLowDelay = cfg.AudioScenario == AudioScenarioChorus
 
