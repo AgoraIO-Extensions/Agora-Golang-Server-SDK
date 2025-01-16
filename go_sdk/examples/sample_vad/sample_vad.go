@@ -2,17 +2,26 @@ package main
 
 import (
 	"fmt"
+	//"go/printer"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"time"
-	"net/http"
-	_ "net/http/pprof"
+	"unsafe"
 
 	agoraservice "github.com/AgoraIO-Extensions/Agora-Golang-Server-SDK/v2/go_sdk/agoraservice"
 	//"google.golang.org/protobuf/types/known/sourcecontextpb"
 
 	rtctokenbuilder "github.com/AgoraIO/Tools/DynamicKey/AgoraDynamicKey/go/src/rtctokenbuilder2"
 )
+
+// use unsafe to conver byte array to uint16 array
+func bytesToUInt16Array(data []byte) []uint16 {
+	// 通过 unsafe 包将 []byte 转换为 []int16
+	//return *(*[]int16)(unsafe.Pointer(&data))
+	return *(*[]uint16)(unsafe.Pointer(&data))
+}
 
 func main() {
 	bStop := new(bool)
@@ -69,6 +78,8 @@ func main() {
 	}
 	svcCfg := agoraservice.NewAgoraServiceConfig()
 	svcCfg.AppId = appid
+	// change audio senario
+	svcCfg.AudioScenario = agoraservice.AudioScenarioGameStreaming
 
 	agoraservice.Initialize(svcCfg)
 
@@ -84,18 +95,7 @@ func main() {
 	// For not-so-noisy environments, use this configuration: (16, 30, 50, 0.7, 0.5, 70, -50, 70, -50)
 	// For noisy environments, use this configuration: (16, 30, 50, 0.7, 0.5, 70, -40, 70, -40)
 	// For high-noise environments, use this configuration: (16, 30, 50, 0.7, 0.5, 70, -30, 70, -30)
-	vad := agoraservice.NewAudioVadV2(
-		&agoraservice.AudioVadConfigV2{
-			PreStartRecognizeCount: 16,
-			StartRecognizeCount:    30,
-			StopRecognizeCount:     50,
-			ActivePercent:          0.7,
-			InactivePercent:        0.5,
-			StartVoiceProb:         70,
-			StartRms:               -50.0,
-			StopVoiceProb:          70,
-			StopRms:                -50.0,
-		})
+	
 
 	conCfg := agoraservice.RtcConnectionConfig{
 		AutoSubscribeAudio: true,
@@ -136,15 +136,56 @@ func main() {
 			fmt.Println("user left, " + uid)
 		},
 	}
-	
+	// for debuging, can do vad dump but never recommended for production
+	dumpFile, err := os.OpenFile("./source_dump.pcm", os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
+	if err != nil {
+	    fmt.Println("Failed to create dump file: ", err)
+		
+	}
+	exceptFile, _ := os.OpenFile("./except_dump.pcm", os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
 
 	audioObserver := &agoraservice.AudioFrameObserver{
 		OnPlaybackAudioFrameBeforeMixing: func(localUser *agoraservice.LocalUser, channelId string, userId string, frame *agoraservice.AudioFrame, vadResultState agoraservice.VadState, vadResultFraem *agoraservice.AudioFrame) bool {
 			// do something
+			dumpFile.Write(frame.Buffer)
 
 			// do loop test
 			
+			
+
+			// a simple energy check for vad
+			var leftValue uint64 = 0
+			var rightValue uint64 = 0
+			var curValue uint16 = 0
+			uint16Array := bytesToUInt16Array(frame.Buffer)
+			len := len(uint16Array) 
+			for i := 0; i < len; i++ {
+				// calc left & right channel energy
+				curValue = uint16Array[i]
+
+
+				if curValue == 0xFFFF {
+				    curValue = 0
+				}
+				if i%2 == 0 {
+				    leftValue += (uint64(curValue))
+				} else {
+				    rightValue += (uint64(curValue))
+				}
+			}
+
+			len /= 2
+			leftValue = leftValue / uint64(len)
+			rightValue = rightValue / uint64(len)
+			fmt.Printf("left: = %d, right: = %d\n", leftValue, rightValue)
+
+			if leftValue > 100 {
+				exceptFile.Write(frame.Buffer)
+			    
+			}
+
 			sender.SendAudioPcmData(frame)
+
 
 			// vad process here! and you can get the vad result, then send vadResult to ASR/STT service
 			//vadResult, state := vad.Process(frame)
@@ -162,6 +203,19 @@ func main() {
 	con := agoraservice.NewRtcConnection(&conCfg)
 
 	localUser := con.GetLocalUser()
+
+	// change audio senario, by wei for stero encodeing
+	localUser.SetAudioScenario(agoraservice.AudioScenarioGameStreaming)
+	localUser.SetAudioEncoderConfiguration(&agoraservice.AudioEncoderConfiguration{AudioProfile: int(agoraservice.AudioProfileMusicHighQualityStereo)})
+
+	// fill pirvate parameter
+	agoraParameterHandler := agoraservice.GetAgoraParameter()
+	agoraParameterHandler.SetParameters("{\"che.audio.aec.enable\":false}")
+	agoraParameterHandler.SetParameters("{\"che.audio.ans.enable\":false}")
+	agoraParameterHandler.SetParameters("{\"che.audio.agc.enable\":false}")
+	agoraParameterHandler.SetParameters("{\"che.audio.custom_payload_type\":78}")
+	agoraParameterHandler.SetParameters("{\"che.audio.custom_bitrate\":128000}")
+	
 	
 
 	localUserObserver := &agoraservice.LocalUserObserver{
@@ -198,7 +252,7 @@ func main() {
 			localUser.SendAudioMetaData(metaData)
 		},
 	}
-	localUser.SetPlaybackAudioFrameBeforeMixingParameters(1, 16000)
+	localUser.SetPlaybackAudioFrameBeforeMixingParameters(2, 16000)
 	con.RegisterObserver(conHandler)
 	vadConfigure := &agoraservice.AudioVadConfigV2{
 		PreStartRecognizeCount: 16,
@@ -211,7 +265,7 @@ func main() {
 		StopVoiceProb:          70,
 		StopRms:                -50.0,
 	}
-	localUser.RegisterAudioFrameObserver(audioObserver, 1, vadConfigure)
+	localUser.RegisterAudioFrameObserver(audioObserver, 0, vadConfigure)
 	localUser.RegisterLocalUserObserver(localUserObserver)
 
 	// sender := con.NewPcmSender()
@@ -239,6 +293,7 @@ func main() {
 	}
 
 	// release ...
+	dumpFile.Close()
 
 	localUser.UnpublishAudio(track)
 	track.SetEnabled(false)
@@ -250,7 +305,7 @@ func main() {
 	con.UnregisterObserver()
 
 	con.Release()
-	vad.Release()
+
 	vadDump.Close()
 
 	track.Release()
