@@ -308,7 +308,7 @@ import (
   3. 停止当前轮roundID轮的RTC推流。
    API调用参考：
     a 调用:AudioConsumer.clear()；
-    b 调用:LocalAudioTrack.clear_sender_buffer()；
+    b 调用:LocalAudioTrack.ClearSenderBuffer()；
     c 业务层：清除TTS返回来保留的数据（如果有）
 ## LLM的结果什么时候交给TTS做合成？
   LLM的结果是异步返回的，而且都是流式返回的。应该按照什么时机将LLM的结果交给TTS做合成呢？
