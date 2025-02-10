@@ -102,6 +102,14 @@ import (
   - 如果你不使用 VAD，并且你的 glibc 版本在 2.16 和 2.27 之间，你可以通过将 go_sdk/agoraserver/ 中的 **audio_vad.go** 文件重命名为 **audio_vad.go.bak** 来禁用 VAD
 
 # 更新日志
+## 2025.02.23 发布 2.2.1(on development)
+-- 增加：
+  -- onVolumeIndication的接口？？
+  -- 接收编码音频的接口？
+  -- 支持rtm？
+  -- 增加一个对kit的封装，方便使用。管理
+    -- {service/factory,connection的创建等}等， 
+    -- 然后client，管理{connection, localuser, track,pcm_sender,audio_consumer, vad_manager}
 ## 2024.12.23 发布 2.2.0
 -- 更新：
   -- 更新sdk 版本到4.4.31
