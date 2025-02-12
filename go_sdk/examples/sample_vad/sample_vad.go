@@ -23,6 +23,42 @@ func bytesToUInt16Array(data []byte) []uint16 {
 	return *(*[]uint16)(unsafe.Pointer(&data))
 }
 
+// dump vad result for debug
+var LeftVadFile *os.File = nil
+var RightVadFile *os.File = nil
+var leftCount int = 0
+var rightCount int = 0
+func dumpSteroVadResult(isleft int, frame *agoraservice.AudioFrame, result int) {
+	if (result == 1 || result == 2 || result == 3) {
+		// open the file for dump
+		if (isleft == 1) {
+			if (LeftVadFile == nil) {
+				LeftVadFile, _ = os.Create(fmt.Sprintf("./left_vad_dump_%d.pcm", leftCount))
+			}
+			LeftVadFile.Write(frame.Buffer)
+		} else {
+			if (RightVadFile == nil) {
+				RightVadFile, _ = os.Create(fmt.Sprintf("./right_vad_dump_%d.pcm", rightCount))
+			}
+			RightVadFile.Write(frame.Buffer)
+		}
+
+		if result == 3 {
+		    if (isleft == 1) {
+				leftCount++
+				LeftVadFile.Close()
+				LeftVadFile = nil
+		    } else {
+				rightCount++
+				RightVadFile.Close()
+				RightVadFile = nil
+		    }
+		}
+	}
+	
+    
+}
+
 func main() {
 	bStop := new(bool)
 	*bStop = false
@@ -88,6 +124,17 @@ func main() {
 	sender := mediaNodeFactory.NewAudioPcmDataSender()
 
 	track := agoraservice.NewCustomAudioTrackPcm(sender)
+	
+	//vad v1 for stero 
+	vadConfigV1 := &agoraservice.AudioVadConfig{
+		StartRecognizeCount:    10,
+		StopRecognizeCount:     6,
+		PreStartRecognizeCount: 10,
+		ActivePercent:          0.6,
+		InactivePercent:        0.2,
+	}
+	// generate stero vad
+	steroVadInst := agoraservice.NewSteroVad(vadConfigV1, vadConfigV1)
 
 	//agoraservice.EnableExtension("agora.builtin", "agora_audio_label_generator", "", true)
 
@@ -142,48 +189,31 @@ func main() {
 	    fmt.Println("Failed to create dump file: ", err)
 		
 	}
-	exceptFile, _ := os.OpenFile("./except_dump.pcm", os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
+	//exceptFile, _ := os.OpenFile("./except_dump.pcm", os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
 
 	audioObserver := &agoraservice.AudioFrameObserver{
 		OnPlaybackAudioFrameBeforeMixing: func(localUser *agoraservice.LocalUser, channelId string, userId string, frame *agoraservice.AudioFrame, vadResultState agoraservice.VadState, vadResultFraem *agoraservice.AudioFrame) bool {
 			// do something
 			dumpFile.Write(frame.Buffer)
-
-			// do loop test
-			
 			
 
-			// a simple energy check for vad
-			var leftValue uint64 = 0
-			var rightValue uint64 = 0
-			var curValue uint16 = 0
-			uint16Array := bytesToUInt16Array(frame.Buffer)
-			len := len(uint16Array) 
-			for i := 0; i < len; i++ {
-				// calc left & right channel energy
-				curValue = uint16Array[i]
-
-
-				if curValue == 0xFFFF {
-				    curValue = 0
-				}
-				if i%2 == 0 {
-				    leftValue += (uint64(curValue))
-				} else {
-				    rightValue += (uint64(curValue))
-				}
+			// do stero vad process
+			start := time.Now().Local().UnixMilli()
+			leftFrame, leftState, rightFrame, rightState := steroVadInst.ProcessAudioFrame(frame)
+			end := time.Now().UnixMilli()
+			leftLen := 0
+			if leftFrame != nil {
+				leftLen = len(leftFrame.Buffer)
 			}
-
-			len /= 2
-			leftValue = leftValue / uint64(len)
-			rightValue = rightValue / uint64(len)
-			fmt.Printf("left: = %d, right: = %d\n", leftValue, rightValue)
-
-			if leftValue > 100 {
-				exceptFile.Write(frame.Buffer)
-			    
+			rightLen := 0
+			if rightFrame != nil {
+				rightLen = len(rightFrame.Buffer)
 			}
-
+			fmt.Printf("left vad state %d, left len %d, right vad state %d, right len: %d,diff = %d\n", leftState, leftLen, rightState, rightLen, end-start)
+			// dump vad frame for debug
+			dumpSteroVadResult(1, leftFrame, leftState)
+			dumpSteroVadResult(0, rightFrame, rightState)
+		
 			sender.SendAudioPcmData(frame)
 
 
@@ -205,16 +235,21 @@ func main() {
 	localUser := con.GetLocalUser()
 
 	// change audio senario, by wei for stero encodeing
-	localUser.SetAudioScenario(agoraservice.AudioScenarioGameStreaming)
-	localUser.SetAudioEncoderConfiguration(&agoraservice.AudioEncoderConfiguration{AudioProfile: int(agoraservice.AudioProfileMusicHighQualityStereo)})
+	builtInFunc := 1
+	if builtInFunc == 0 {
+		localUser.SetAudioScenario(agoraservice.AudioScenarioGameStreaming)
+		localUser.SetAudioEncoderConfiguration(&agoraservice.AudioEncoderConfiguration{AudioProfile: int(agoraservice.AudioProfileMusicHighQualityStereo)})
 
-	// fill pirvate parameter
-	agoraParameterHandler := agoraservice.GetAgoraParameter()
-	agoraParameterHandler.SetParameters("{\"che.audio.aec.enable\":false}")
-	agoraParameterHandler.SetParameters("{\"che.audio.ans.enable\":false}")
-	agoraParameterHandler.SetParameters("{\"che.audio.agc.enable\":false}")
-	agoraParameterHandler.SetParameters("{\"che.audio.custom_payload_type\":78}")
-	agoraParameterHandler.SetParameters("{\"che.audio.custom_bitrate\":128000}")
+		// fill pirvate parameter
+		agoraParameterHandler := agoraservice.GetAgoraParameter()
+		agoraParameterHandler.SetParameters("{\"che.audio.aec.enable\":false}")
+		agoraParameterHandler.SetParameters("{\"che.audio.ans.enable\":false}")
+		agoraParameterHandler.SetParameters("{\"che.audio.agc.enable\":false}")
+		agoraParameterHandler.SetParameters("{\"che.audio.custom_payload_type\":78}")
+		agoraParameterHandler.SetParameters("{\"che.audio.custom_bitrate\":128000}")
+	} else {
+	    con.EnableSteroEncodeMode()
+	}
 	
 	
 
@@ -312,6 +347,8 @@ func main() {
 	sender.Release()
 	mediaNodeFactory.Release()
 	agoraservice.Release()
+
+	steroVadInst.Release()
 
 	track = nil
 	audioObserver = nil
