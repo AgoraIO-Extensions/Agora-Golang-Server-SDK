@@ -8,7 +8,11 @@ package agoraservice
 #include "vad.h"
 */
 import "C"
-import "unsafe"
+import (
+	"fmt"
+	"unsafe"
+	"os"
+)
 
 type AudioVadConfig struct {
 	StartRecognizeCount    int     // start recognize count, buffer size for 10ms 16KHz 16bit 1channel PCM, default value is 10
@@ -136,10 +140,22 @@ func bytesToInt16Array(data []byte) []int16 {
 	return *(*[]int16)(unsafe.Pointer(&data))
 }
 // return value: 1. left vad state, 2. right vad state
+// test for dump stereo pcm to mono
+var (
+	LeftFile  *os.File = nil
+	RightFile *os.File = nil
+	DebugMonoPcm int = 0
+)
 func (vad *SteroAudioVad) ProcessAudioFrame(inFrame *AudioFrame) (*AudioFrame, int, *AudioFrame, int) {
 	// 0.validity check: only support 16k 2 channel 16 bit pcm
-	if inFrame == nil  || inFrame.Buffer == nil || inFrame.SamplesPerSec != 16000 || inFrame.Channels != 2 || inFrame.BytesPerSample != 16 {
+	if inFrame == nil  || inFrame.Buffer == nil || inFrame.SamplesPerSec != 16000 || inFrame.Channels != 2 || inFrame.BytesPerSample != 2 {
+		fmt.Printf("invalid: samplesPerSec: %d, channels: %d, bytesPerSample: %d\n", inFrame.SamplesPerSec, inFrame.Channels, inFrame.BytesPerSample)
 		return nil, 0, nil, 0
+	}
+	if DebugMonoPcm > 0 && ( nil == LeftFile || nil == RightFile) {
+	    LeftFile, _ = os.OpenFile("./left.pcm", os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0666)
+		RightFile, _ = os.OpenFile("./right.pcm", os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0666)
+
 	}
 	// split stero pcm to 2 mono pcm
 	// process vad for each mono pcm, and return the vad state
@@ -149,6 +165,11 @@ func (vad *SteroAudioVad) ProcessAudioFrame(inFrame *AudioFrame) (*AudioFrame, i
 	channelDataLen := inLength/2
     leftBuffer := make([]byte, channelDataLen)
 	rightBuffer := make([]byte, channelDataLen)
+	dataLen := channelDataLen/2
+
+	fmt.Printf("info: samplesPerSec: %d, channels: %d, bytesPerSample: %d, len: %d\n", 
+	inFrame.SamplesPerSec, inFrame.Channels, inFrame.BytesPerSample, inLength)
+
 
 	lefeFrame := &AudioFrame{
 		Type: inFrame.Type,
@@ -175,19 +196,30 @@ func (vad *SteroAudioVad) ProcessAudioFrame(inFrame *AudioFrame) (*AudioFrame, i
 	ptrRightFrame := bytesToInt16Array(rightFrame.Buffer)
 
 	//2.2 assign stereo pcm to mono pcm
-	for i := 0; i < channelDataLen;  {
-		ptrLeftFrame[i] = ptrInframe[i]
-		ptrRightFrame[i] = ptrInframe[i+1]
+	
+	i := 0
+	for j := 0; j < dataLen; j++ {
+		ptrLeftFrame[j] = ptrInframe[i]
+		ptrRightFrame[j] = ptrInframe[i+1]
 		i += 2
 	}
+
+	//2.3 for debug mono pcm
+	if DebugMonoPcm > 0 && LeftFile != nil && RightFile != nil {
+		LeftFile.Write(lefeFrame.Buffer)
+		RightFile.Write(rightFrame.Buffer)
+	}
+	
+	
 
 	// 3. do vad test for each mono pcm
 	leftVadResultFrame, leftVadState := vad.LeftVadInstance.ProcessPcmFrame(lefeFrame)
 	rightVadResultFrame, rightVadStat := vad.RightVadInstance.ProcessPcmFrame(rightFrame)
+	//fmt.Printf("left vad result: %v, left vad state: %v, right vad result: %v, right vad state: %v\n",leftVadResultFrame, leftVadState, rightVadResultFrame, rightVadStat)
 	// 4. do vad test for each mono pcm
 	return leftVadResultFrame, leftVadState, rightVadResultFrame, rightVadStat
 }
-func (vad *SteroAudioVad) Release(inFrame *AudioFrame) {
+func (vad *SteroAudioVad) Release() {
 	if vad.LeftVadInstance != nil {
 		vad.LeftVadInstance.Release()
 	}
