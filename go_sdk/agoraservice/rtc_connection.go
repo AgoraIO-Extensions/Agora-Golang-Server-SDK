@@ -562,3 +562,28 @@ func (conn *RtcConnection) unregisterVideoEncodedFrameObserver() int {
 	conn.encodedVideoObserver = nil
 	return 0
 }
+/*
+* for stero encoded audio mode
+* Must be called before con.connect
+*/
+func (conn *RtcConnection) EnableSteroEncodeMode() int {
+	if conn.cConnection == nil {
+		return -1
+	}
+	//set private parameter
+	localUser := conn.localUser
+
+	// change audio senario, by wei for stero encodeing
+	localUser.SetAudioScenario(AudioScenarioGameStreaming)
+	localUser.SetAudioEncoderConfiguration(&AudioEncoderConfiguration{AudioProfile: int(AudioProfileMusicHighQualityStereo)})
+
+	// fill pirvate parameter
+	agoraParameterHandler := conn.parameter
+	agoraParameterHandler.SetParameters("{\"che.audio.aec.enable\":false}")
+	agoraParameterHandler.SetParameters("{\"che.audio.ans.enable\":false}")
+	agoraParameterHandler.SetParameters("{\"che.audio.agc.enable\":false}")
+	agoraParameterHandler.SetParameters("{\"che.audio.custom_payload_type\":78}")
+	agoraParameterHandler.SetParameters("{\"che.audio.custom_bitrate\":128000}")
+	return 0
+    
+}
