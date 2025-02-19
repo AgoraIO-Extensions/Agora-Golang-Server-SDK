@@ -107,6 +107,7 @@ import (
   -- onVolumeIndication的接口？？
   -- 接收编码音频的接口？
   -- 支持rtm？
+  -- 增加对push audio结束的api？python已经ok
   -- 增加一个对kit的封装，方便使用。管理
     -- {service/factory,connection的创建等}等， 
     -- 然后client，管理{connection, localuser, track,pcm_sender,audio_consumer, vad_manager}
