@@ -90,6 +90,8 @@ func main() {
 	appid := argus[1]
 	channelName := argus[2]
 
+	echoBack := 0
+
 	// get environment variable
 	if appid == "" {
 		appid = os.Getenv("AGORA_APP_ID")
@@ -118,6 +120,9 @@ func main() {
 	svcCfg.AudioScenario = agoraservice.AudioScenarioGameStreaming
 
 	agoraservice.Initialize(svcCfg)
+
+	
+	
 
 	mediaNodeFactory := agoraservice.NewMediaNodeFactory()
 
@@ -196,6 +201,7 @@ func main() {
 			// do something
 			dumpFile.Write(frame.Buffer)
 			
+			
 
 			// do stero vad process
 			start := time.Now().Local().UnixMilli()
@@ -214,7 +220,10 @@ func main() {
 			dumpSteroVadResult(1, leftFrame, leftState)
 			dumpSteroVadResult(0, rightFrame, rightState)
 		
-			sender.SendAudioPcmData(frame)
+			if echoBack == 1 {
+				sender.SendAudioPcmData(frame)
+			}
+	
 
 
 			// vad process here! and you can get the vad result, then send vadResult to ASR/STT service
@@ -235,13 +244,14 @@ func main() {
 	localUser := con.GetLocalUser()
 
 	// change audio senario, by wei for stero encodeing
+	agoraParameterHandler := agoraservice.GetAgoraParameter()
 	builtInFunc := 1
 	if builtInFunc == 0 {
 		localUser.SetAudioScenario(agoraservice.AudioScenarioGameStreaming)
 		localUser.SetAudioEncoderConfiguration(&agoraservice.AudioEncoderConfiguration{AudioProfile: int(agoraservice.AudioProfileMusicHighQualityStereo)})
 
 		// fill pirvate parameter
-		agoraParameterHandler := agoraservice.GetAgoraParameter()
+		
 		agoraParameterHandler.SetParameters("{\"che.audio.aec.enable\":false}")
 		agoraParameterHandler.SetParameters("{\"che.audio.ans.enable\":false}")
 		agoraParameterHandler.SetParameters("{\"che.audio.agc.enable\":false}")
@@ -250,6 +260,13 @@ func main() {
 	} else {
 	    con.EnableSteroEncodeMode()
 	}
+
+	// dump audio
+	// set to dump 
+	agoraParameterHandler.SetParameters("{\"che.audio.frame_dump\":{\"location\":\"all\",\"action\":\"start\",\"max_size_bytes\":\"100000000\",\"uuid\":\"123456789\", \"duration\": \"150000\"}}")
+	// end 
+	
+
 	
 	
 
@@ -311,9 +328,19 @@ func main() {
 	con.Connect(token, channelName, userId)
 	//<-conSignal
 
-	// for test
-	track.SetSendDelayMs(10)
-	localUser.SetAudioScenario(agoraservice.AudioScenarioChorus)
+	// for test AudioConsumer
+	audioConsumer := agoraservice.NewAudioConsumer(sender, 16000, 2)
+	defer audioConsumer.Release()
+	// read pcm data from file and push to audioConsumer
+	sourceFile, err := os.Open("/Users/weihognqin/Downloads/329524492combine.pcm")
+	defer sourceFile.Close()
+	if err != nil {
+		fmt.Println("open file error")
+	} 
+	fileData := make([]byte, 640*100)  // 100ms 
+	
+
+	
 
 	track.SetEnabled(true)
 	localUser.PublishAudio(track)
@@ -325,6 +352,38 @@ func main() {
 		//curTime := time.Now()
 		//timeStr := curTime.Format("2006-01-02 15:04:05.000")
 		//localUser.SendAudioMetaData([]byte(timeStr))
+
+		// check file ' length
+		
+		if echoBack == 0 && audioConsumer.Len() < 640*100 {
+			
+			for {
+				n, _ := sourceFile.Read(fileData)
+				if n < 640 {
+					sourceFile.Seek(0, 0)
+					break
+				}
+				audioConsumer.PushPCMData(fileData[:n])
+			}
+		}
+			
+		audioConsumer.Consume()
+		
+		/*
+		n, _ := sourceFile.Read(fileData)
+		if n < 640 {
+			sourceFile.Seek(0, 0)
+			continue
+		}
+		frame := &agoraservice.AudioFrame{}
+		frame.Channels = 2
+		frame.SamplesPerSec = 16000
+		frame.SamplesPerChannel = 160*10
+		frame.BytesPerSample = 2
+		frame.Buffer = fileData[:n]
+
+		sender.SendAudioPcmData(frame)
+		*/
 	}
 
 	// release ...
