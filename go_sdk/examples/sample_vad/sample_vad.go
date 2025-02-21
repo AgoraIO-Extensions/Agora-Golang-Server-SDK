@@ -332,7 +332,7 @@ func main() {
 	audioConsumer := agoraservice.NewAudioConsumer(sender, 16000, 2)
 	defer audioConsumer.Release()
 	// read pcm data from file and push to audioConsumer
-	sourceFile, err := os.Open("/Users/weihognqin/Downloads/329524492combine.pcm")
+	sourceFile, err := os.Open("../test-data/1.pcm")
 	defer sourceFile.Close()
 	if err != nil {
 		fmt.Println("open file error")
