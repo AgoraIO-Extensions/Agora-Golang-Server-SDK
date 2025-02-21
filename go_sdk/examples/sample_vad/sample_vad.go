@@ -204,6 +204,7 @@ func main() {
 			
 
 			// do stero vad process
+			/*
 			start := time.Now().Local().UnixMilli()
 			leftFrame, leftState, rightFrame, rightState := steroVadInst.ProcessAudioFrame(frame)
 			end := time.Now().UnixMilli()
@@ -216,9 +217,11 @@ func main() {
 				rightLen = len(rightFrame.Buffer)
 			}
 			fmt.Printf("left vad state %d, left len %d, right vad state %d, right len: %d,diff = %d\n", leftState, leftLen, rightState, rightLen, end-start)
+			
 			// dump vad frame for debug
 			dumpSteroVadResult(1, leftFrame, leftState)
 			dumpSteroVadResult(0, rightFrame, rightState)
+			*/
 		
 			if echoBack == 1 {
 				sender.SendAudioPcmData(frame)
@@ -332,10 +335,12 @@ func main() {
 	audioConsumer := agoraservice.NewAudioConsumer(sender, 16000, 2)
 	defer audioConsumer.Release()
 	// read pcm data from file and push to audioConsumer
-	sourceFile, err := os.Open("../test-data/1.pcm")
+	sourceFilePath := "../test_data/1.pcm"
+	sourceFile, err := os.Open(sourceFilePath)
 	defer sourceFile.Close()
 	if err != nil {
-		fmt.Println("open file error")
+		cwd, _ := os.Getwd()
+		fmt.Printf("open file error: %s, cwd = %s\n", err, cwd)
 	} 
 	fileData := make([]byte, 640*100)  // 100ms 
 	
