@@ -12,6 +12,12 @@ import (
 )
 
 // AudioConsumer provides utility functions for the Agora SDK.
+// const def 
+const (
+	MinPacketsToSend = 10 // change min packets to send from 18 to 10
+	RtcE2EDelay = 200 //e2e delay 90ms for iphone, 120ms for android;150ms for web. so we use 200ms here
+)
+
 
 // AudioConsumer handles PCM data consumption and sending
 type AudioConsumer struct {
@@ -28,6 +34,7 @@ type AudioConsumer struct {
 
 	// State
 	isInitialized bool
+	lastConsumeedTime int64 // in ms
 }
 
 // NewAudioConsumer creates a new AudioConsumer instance
@@ -48,8 +55,9 @@ func NewAudioConsumer(pcmSender *AudioPcmDataSender, sampleRate int, channels in
 			Buffer:         make([]byte, 0, bytesPerFrame), // Pre-allocate frame buffer
 		},
 		bytesPerFrame:     bytesPerFrame,
-		samplesPerChannel: sampleRate / 100 * channels,
+		samplesPerChannel: sampleRate / 100 ,
 		isInitialized:     true,
+		lastConsumeedTime: 0,
 	}
 
 	return consumer
@@ -74,6 +82,7 @@ func (ac *AudioConsumer) reset() {
 
 	ac.startTime = (time.Now().UnixMilli())
 	ac.consumedPackets = 0
+	ac.lastConsumeedTime = ac.startTime
 }
 
 // Consume processes and sends audio data
@@ -88,16 +97,19 @@ func (ac *AudioConsumer) Consume() int {
 	toBeSentPackets := expectedTotalPackets - ac.consumedPackets
 
 	dataLen := ac.buffer.Len()
+	if dataLen > 0 {
+	    ac.lastConsumeedTime = now
+	}
 
 	// Handle underflow
-	if toBeSentPackets > 18 && dataLen/ac.bytesPerFrame < 18 {
+	if toBeSentPackets > MinPacketsToSend && dataLen/ac.bytesPerFrame < MinPacketsToSend {
 		return -2 // should wait for more data
 	}
 
 	// Reset state if necessary
-	if toBeSentPackets > 18 {
+	if toBeSentPackets > MinPacketsToSend {
 		ac.reset()
-		toBeSentPackets = min(18, dataLen/ac.bytesPerFrame)
+		toBeSentPackets = min(MinPacketsToSend, dataLen/ac.bytesPerFrame)
 		ac.consumedPackets = (-toBeSentPackets)
 	}
 
@@ -146,6 +158,28 @@ func (ac *AudioConsumer) Clear() {
 	defer ac.mu.Unlock()
 	ac.buffer.Reset()
 }
+/*判断AudioConsumer中的数据是否已经完全推送给了RTC 频道
+//因为audioconsumer内部有一定的缓存机制，所以当get_remaining_data_size 返回是0的时候，还有数据没有推送给
+rtc 频道。如果要判断数据是否完全推送给了rtc 频道，需要调用这个api来做判断。
+return value：1--push to rtc completed, 0--push to rtc not completed   -1--error
+*/
+func (ac *AudioConsumer) IsPushToRtcCompleted() int {
+	if !ac.isInitialized {
+		return -1
+	}
+	// no need to lock, because this function is only called in the main thread
+	
+	remain_size := ac.buffer.Len()
+	if remain_size == 0 {
+		now := time.Now().UnixMilli()
+		diff := now - ac.lastConsumeedTime
+		if diff > MinPacketsToSend*10 + RtcE2EDelay {
+			return 1
+		}
+	}
+	return 0
+}
+
 
 // Release frees resources
 func (ac *AudioConsumer) Release() {
