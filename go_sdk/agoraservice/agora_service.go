@@ -151,12 +151,17 @@ func Initialize(cfg *AgoraServiceConfig) int {
 	cParamStr := C.CString("rtc.set_app_type")
 	defer C.free(unsafe.Pointer(cParamStr))
 	C.agora_parameter_set_int(cParam, cParamStr, C.int(17))
-	// enable audio label generator
-	EnableExtension("agora.builtin", "agora_audio_label_generator", "", true)
 
-	// enable vad v2 model
 	agoraParam := GetAgoraParameter()
-	agoraParam.SetParameters("{\"che.audio.label.enable\": true}")
+	var enableAudioLabel int = 1
+	enableAudioLabel = 0
+	if (enableAudioLabel == 1) {
+		// enable audio label generator
+		EnableExtension("agora.builtin", "agora_audio_label_generator", "", true)
+
+		// enable vad v2 model
+		agoraParam.SetParameters("{\"che.audio.label.enable\": true}")
+	}
 
 	// from version 2.2.1
 	if cfg.ShouldCallbackWhenMuted > 0 {
