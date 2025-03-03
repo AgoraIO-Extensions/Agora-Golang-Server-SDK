@@ -99,8 +99,23 @@ func main() {
 			fmt.Println("user left, " + uid)
 		},
 	}
+	// for calling onFrame
+	frameCount := 0
+	frameLastRecvTime := time.Now().UnixMilli()
 	videoObserver := &agoraservice.VideoFrameObserver{
 		OnFrame: func(channelId string, userId string, frame *agoraservice.VideoFrame) bool {
+			if frame == nil {
+				return true
+			    
+			}
+			frameCount++
+			Now := time.Now().UnixMilli()
+			if Now -frameLastRecvTime > 1000 {
+				fps := int64(frameCount*1000) / (Now - frameLastRecvTime)
+				fmt.Printf("fps, %d fps, %d\n", frameCount, fps)
+				frameCount = 0
+				frameLastRecvTime = time.Now().UnixMilli()
+			}
 			// do something
 			fmt.Printf("recv video frame, from channel %s, user %s\n", channelId, userId)
 			return true
