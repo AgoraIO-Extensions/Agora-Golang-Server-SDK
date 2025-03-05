@@ -20,12 +20,19 @@ func goOnVideoFrame(cObserver unsafe.Pointer, channelId *C.char, uid *C.char, fr
 	if cObserver == nil {
 		return C.int(0)
 	}
+	// added by wei to avoid uid=0 i.e local users callback , which is a bug in current 44.3.1 sdk version
+	// but fix it from cgo layer is not a good idea
+	goUid := C.GoString(uid)
+	if goUid == "0" {
+		return C.int(0)
+	}
+	
 	con := agoraService.getConFromHandle(cObserver, ConTypeCVideoObserver)
 	if con == nil || con.videoObserver == nil || con.videoObserver.OnFrame == nil {
 		return C.int(0)
 	}
 	goChannelId := C.GoString(channelId)
-	goUid := C.GoString(uid)
+	
 	goFrame := GoVideoFrame(frame)
 	ret := con.videoObserver.OnFrame(goChannelId, goUid, goFrame)
 	if ret {

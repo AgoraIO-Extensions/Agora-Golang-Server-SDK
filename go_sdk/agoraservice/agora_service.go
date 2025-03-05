@@ -66,6 +66,13 @@ type AgoraServiceConfig struct {
 	LogSize int
 	// version 2.1.6
 	DomainLimit int
+	// version 2.2.1
+	// if >0, when remote user muted itself, the onplaybackbeforemixing will be still called badk with active pacakage
+	// if <=0, when remote user muted itself, the onplaybackbeforemixing will be no longer called back
+	// default to 0, i.e when muted, no callback will be triggered
+	ShouldCallbackWhenMuted int
+	// version  2.2.1
+	EnableSteroEncodeMode int
 }
 
 // const def for map type
@@ -83,6 +90,7 @@ type AgoraService struct {
 	inited  bool
 	service unsafe.Pointer
 	isLowDelay bool
+	isSteroEncodeMode bool
 	// mediaFactory         unsafe.Pointer
 	consByCCon                  sync.Map
 	consByCLocalUser            sync.Map
@@ -96,6 +104,7 @@ func newAgoraService() *AgoraService {
 		inited:  false,
 		service: nil,
 		isLowDelay: false,
+		isSteroEncodeMode: false,
 	}
 }
 
@@ -114,6 +123,8 @@ func NewAgoraServiceConfig() *AgoraServiceConfig {
 		LogPath:              "./agora_rtc_log/agorasdk.log",
 		LogSize:              1024 * 1024,
 		DomainLimit: 0, // default to 0
+		ShouldCallbackWhenMuted: 0, // default to 0, no callback when muted
+		EnableSteroEncodeMode: 0, // default to 0,i.e default to mono encode mode
 	}
 }
 
@@ -145,14 +156,24 @@ func Initialize(cfg *AgoraServiceConfig) int {
 	cParamStr := C.CString("rtc.set_app_type")
 	defer C.free(unsafe.Pointer(cParamStr))
 	C.agora_parameter_set_int(cParam, cParamStr, C.int(17))
-	// enable audio label generator
-	EnableExtension("agora.builtin", "agora_audio_label_generator", "", true)
 
-	// enable vad v2 model
 	agoraParam := GetAgoraParameter()
-	agoraParam.SetParameters("{\"che.audio.label.enable\": true}")
+	
+	if (cfg.EnableSteroEncodeMode < 1) { // disable stereo encode mode,can enabel audio label
+		// enable audio label generator
+		EnableExtension("agora.builtin", "agora_audio_label_generator", "", true)
+
+		// enable vad v2 model
+		agoraParam.SetParameters("{\"che.audio.label.enable\": true}")
+	}
+
+	// from version 2.2.1
+	if cfg.ShouldCallbackWhenMuted > 0 {
+		agoraParam.SetParameters("{\"rtc.audio.enable_user_silence_packet\": true}")
+	}
 
 	agoraService.isLowDelay = cfg.AudioScenario == AudioScenarioChorus
+	agoraService.isSteroEncodeMode = (cfg.EnableSteroEncodeMode > 0)
 
 	if cfg.LogPath != "" {
 		logPath := C.CString(cfg.LogPath)

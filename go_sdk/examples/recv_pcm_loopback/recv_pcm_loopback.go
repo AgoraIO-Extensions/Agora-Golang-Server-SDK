@@ -75,7 +75,7 @@ func main() {
 
 	var sender *agoraservice.AudioPcmDataSender = nil
 	audioChan := make(chan *agoraservice.AudioFrame, 10)
-	audioModel := 1 // 0: direct, 1: channel
+	audioModel := 0 // 0: direct, 1: channel
 
 	// a go routine to send audio data to channel
 	if audioModel == 1 {
@@ -137,7 +137,7 @@ func main() {
 	audioObserver := &agoraservice.AudioFrameObserver{
 		OnPlaybackAudioFrameBeforeMixing: func(localUser *agoraservice.LocalUser, channelId string, userId string, frame *agoraservice.AudioFrame, vadResultState agoraservice.VadState, vadResultFrame *agoraservice.AudioFrame) bool {
 			// do something
-			fmt.Printf("Playback audio frame before mixing, from userId %s\n", userId)
+			//fmt.Printf("Playback audio frame before mixing, from userId %s\n", userId)
 			if audioModel == 1 {
 				audioChan <- frame
 			}
@@ -208,6 +208,10 @@ func main() {
 	track.SetEnabled(true)
 	localUser.PublishAudio(track)
 
+	/*
+	// disalbe pre-load audio data from version 2.1.x, by wei
+	// all use build-in function for low-latency
+
 	frame := &agoraservice.AudioFrame{
 		Type:              agoraservice.AudioFrameTypePCM16,
 		SamplesPerChannel: 160,
@@ -225,9 +229,11 @@ func main() {
 	}
 	defer file.Close()
 
-	track.AdjustPublishVolume(100)
+	//track.AdjustPublishVolume(100)
+
 
 	sendCount := 0
+
 	// send 180ms audio data
 	for i := 0; i < 18; i++ {
 		dataLen, err := file.Read(frame.Buffer)
@@ -239,6 +245,7 @@ func main() {
 		ret := sender.SendAudioPcmData(frame)
 		fmt.Printf("SendAudioPcmData %d ret: %d\n", sendCount, ret)
 	}
+	*/
 
 	//added by wei for loop back
 	for !(*bStop) {

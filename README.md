@@ -104,6 +104,21 @@ import (
   - if you don't use VAD, and your glibc version is between 2.16 and 2.27, you can disable VAD by rename **audio_vad.go** file in go_sdk/agoraserver/ to **audio_vad.go.bak**
 
 # Change log
+##  2025.03.05 Release 2.2.1
+-- In the configuration, added support for dual-channel encoding for water devices. By default, this is not supported. If enabled, internal private parameters will be automatically modified to support dual-channel encoding. However, at the app layer, when setting playback parameters, channel=2 must be specified. ​OK
+-- Provided the Vad v1 algorithm. ​OK
+-- Modified the Vad v1 algorithm interface: Exposed control parameters such as RMS, etc. ​OK
+-- Included the Vad v1 algorithm library files in the SDK package. ​OK
+-- Provided the SteroVad class. ​OK
+-- AudioConsumer:
+
+Set the default buffer size to 100ms. ​OK
+Added the isPushToRtcCompleted interface. ​OK
+Fixed the incorrect calculation of AudioConsumer::_samples_per_channel in stereo mode. ​OK
+-- VideoObserver:
+Intercepted frames with userid=0 in OnFrame. This was a bug where, if the local device also sent video, OnFrame would callback with uid=0 frames, which are invalid and needed to be filtered out. ​OK
+-- Documentation:
+Added instructions for private deployment and proxy deployment. ​OK
 ## 2024.12.23 Release 2.2.0
 -- Update:
   - Update the sdk version to 4.4.31.
@@ -398,3 +413,125 @@ VAD: Good afternoon, what are some fun places to visit in Beijing?
 
 
 If latency is a concern, you can lower this value, or consult with the development team to determine how to manage latency while ensuring semantic continuity in speech recognition. This will help avoid the AI being interrupted too sensitively.
+
+Usage of Dual-Channel Encoding: Not Recommended Unless Necessary! If Needed, Please Consult with R&D for Confirmation!
+Applicable Scenarios
+Scenarios where the client must have dual-channel audio, meaning the data in the left and right channels must be different. Remember: Not recommended unless the left and right channel data are definitely different!
+
+Client Usage
+Refer to the documentation.
+
+Server Usage
+​Configure in serviceConfigure:
+Set audioScenario to gameStreaming and enable dual-channel encoding.
+
+go
+svcCfg := agoraservice.NewAgoraServiceConfig()
+svcCfg.AppId = appid
+// Change audio scenario
+svcCfg.AudioScenario = agoraservice.AudioScenarioGameStreaming
+svcCfg.EnableSteroEncodeMode = 1
+
+agoraservice.Initialize(svcCfg)
+​Set Callback Parameters to Dual-Channel:
+Since dual-channel VAD only supports a 16k sample rate, set the callback parameters to dual-channel with a 16k sample rate.
+
+go
+localUser.SetPlaybackAudioFrameBeforeMixingParameters(2, 16000)
+​Disable VAD in audioFrameObserver:
+
+go
+localUser.RegisterAudioFrameObserver(audioObserver, 0, nil)
+​Use SteroVad for Dual-Channel VAD Check in audioFrameObserver Callback:
+​4.1 Initialize StereoVad (Before Callback):
+
+go
+// VAD v1 for stereo
+vadConfigV1 := &agoraservice.AudioVadConfig{
+    StartRecognizeCount:    10,
+    StopRecognizeCount:     6,
+    PreStartRecognizeCount: 10,
+    ActivePercent:          0.6,
+    InactivePercent:        0.2,
+    // Other parameters can be adjusted as needed or left as default
+}
+// Generate stereo VAD
+steroVadInst := agoraservice.NewSteroVad(vadConfigV1, vadConfigV1)
+​4.2 Dual-Channel VAD Check:
+Perform dual-channel VAD check in the audioFrameObserver callback.
+
+go
+audioObserver := &agoraservice.AudioFrameObserver{
+    OnPlaybackAudioFrameBeforeMixing: func(localUser *agoraservice.LocalUser, channelId string, userId string, frame *agoraservice.AudioFrame, vadResultState agoraservice.VadState, vadResultFrame *agoraservice.AudioFrame) bool {
+        // Do something...
+
+        // Perform stereo VAD processing
+        start := time.Now().Local().UnixMilli()
+        leftFrame, leftState, rightFrame, rightState := steroVadInst.ProcessAudioFrame(frame)
+        end := time.Now().UnixMilli()
+        leftLen := 0
+        if leftFrame != nil {
+            leftLen = len(leftFrame.Buffer)
+        }
+        rightLen := 0
+        if rightFrame != nil {
+            rightLen = len(rightFrame.Buffer)
+        }
+        fmt.Printf("Left VAD state %d, left len %d, right VAD state %d, right len: %d, diff = %d\n", leftState, leftLen, rightState, rightLen, end-start)
+
+        // Dump VAD frame: Only for debug, remove this when releasing
+        dumpSteroVadResult(1, leftFrame, leftState)
+        dumpSteroVadResult(0, rightFrame, rightState)
+
+        // Do something...
+        // Return
+        return true
+    }
+}
+​Release:
+Must be called after agoraservice::Release() to take effect. Example code:
+
+go
+agoraservice.Release()
+if steroVadInst != nil {
+    steroVadInst.Release()
+}
+steroVadInst = nil
+Difference Between Proxy and Private Deployment
+​Proxy: Addresses network restrictions in LAN environments. Through the proxy, devices in the LAN can access Agora's RTC services via the public network.
+​Private Deployment: Deploys Agora's RTC services on your own servers. Private deployment allows better control over Agora's RTC services and enhances user privacy protection.
+How to Support Private Deployment
+​Call Sequence:
+​***Must be called after creating the connection but before con.Connect to take effect. If called after agoraservice::Init(), it will not take effect.
+
+​API Call:
+
+go
+connectionCon := agoraservice.NewRtcConnection(&conCfg)
+localUser := con.GetLocalUser()
+
+// Test LAN
+params1 := `{"rtc.enable_nasa2": false}`
+params2 := `{"rtc.force_local": true}`
+params3 := `{"rtc.local_domain": "ap.1452738.agora.local"}`
+params4 := `{"rtc.local_ap_list": ["20.1.125.55"]}`
+
+// Set parameters
+agoraservice.GetAgoraParameter().SetParameters(params1)
+agoraservice.GetAgoraParameter().SetParameters(params2)
+agoraservice.GetAgoraParameter().SetParameters(params3)
+agoraservice.GetAgoraParameter().SetParameters(params4)
+How to Support Proxy
+​Call Sequence:
+Call after agoraService::Init() (but it is not verified whether it actually takes effect).
+
+​API Call:
+
+go
+parameter.setBool("rtc.enable_proxy", true);
+s->setBool("rtc.force_local", true);
+s->setBool("rtc.local_ap_low_level", true);
+
+s->setBool("rtc.enable_nasa2", true);
+s->setParameters("{\"rtc.vos_list\":[\"10.62.0.95:4701\"]}");
+s->setParameters("{\"rtc.local_ap_list\":[\"10.62.0.95\"]}");

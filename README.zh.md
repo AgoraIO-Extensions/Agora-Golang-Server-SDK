@@ -102,6 +102,29 @@ import (
   - 如果你不使用 VAD，并且你的 glibc 版本在 2.16 和 2.27 之间，你可以通过将 go_sdk/agoraserver/ 中的 **audio_vad.go** 文件重命名为 **audio_vad.go.bak** 来禁用 VAD
 
 # 更新日志
+## 2025.03.05 发布 2.2.1
+-- configure中水装置是否支持双声道编码，默认是不支持。如果要支持，内部会默认修改私有参数，从而可以支持双声道编码。但app层，在设置playback参数的时候，需要设置channel=2. ok
+-- 提供Vad v1 算法 ok
+-- vad v1算法接口改变：对外提供rms等控制参数？？ok
+-- sdk包中需要带上vad v1 算法的库文件。ok
+-- 提供SteroVad 类  ok
+-- audioconsumer：
+  - 默认设置为100ms的缓冲区大小 ok
+  - 增加：isPushToRtcCompleted接口 ok
+  - AudioConsumer::_samples_per_channel 在立体声下计算错误的，fixed ok
+-- videoObserver
+  - OnFrame中拦截userid为0的frame。目前是一个bug。就是如果本地也发送视频的时候，onFrame会回调uid=0的frame，这个frame是无效的，需要拦截掉。ok
+-- 文档：
+  - 增加对私有部署、proxy部署的调用说明 ok
+-- SDK 更新：sdk 中增加vad v1库，并重新命名，但保持原始版本号，也兼容原始版本。
+
+-- 增加：
+  -- onVolumeIndication的接口？？
+  -- 接收编码音频的接口？
+  -- 支持rtm？
+  -- 增加一个对kit的封装，方便使用。管理
+    -- {service/factory,connection的创建等}等， 
+    -- 然后client，管理{connection, localuser, track,pcm_sender,audio_consumer, vad_manager}
 ## 2024.12.23 发布 2.2.0
 -- 更新：
   -- 更新sdk 版本到4.4.31
@@ -308,7 +331,7 @@ import (
   3. 停止当前轮roundID轮的RTC推流。
    API调用参考：
     a 调用:AudioConsumer.clear()；
-    b 调用:LocalAudioTrack.clear_sender_buffer()；
+    b 调用:LocalAudioTrack.ClearSenderBuffer()；
     c 业务层：清除TTS返回来保留的数据（如果有）
 ## LLM的结果什么时候交给TTS做合成？
   LLM的结果是异步返回的，而且都是流式返回的。应该按照什么时机将LLM的结果交给TTS做合成呢？
@@ -353,4 +376,115 @@ vad2: 北京有哪些好玩的地方？
 vad： 下午好，北京有哪些好玩的地方？
 
 如果对延迟敏感，可以调低该值，或者咨询研发，在降低该值的情况下，应该如何在应用层做处理，在保障延迟的情况下，还能确保语意的连续性，不会产生AI被敏感的打断的感觉。
+
+## 双声道编码的用法：除非必要，不推荐!如果需要使用，请联系研发确认！
+ # 适用场景
+ 需要客户端一定是双声道的场景，就是左/右声道的数据一定不一样。记住：不推荐，一定是左右声道数据不一样的情下！
+ # 客户端用法
+ 参考文档
+ # 服务端用法
+1、在serviceConfigure设置：设置audoSenariao为：gameStreaming；并且enable双声道编码
+svcCfg := agoraservice.NewAgoraServiceConfig()
+	svcCfg.AppId = appid
+	// change audio senario
+	svcCfg.AudioScenario = agoraservice.AudioScenarioGameStreaming
+	svcCfg.EnableSteroEncodeMode =  1
+
+	agoraservice.Initialize(svcCfg)
+
+2、回调参数设置为双声道：！！因为双声道的vad只支持16k的采样率，所以需要设置回调参数为双声道，采样率为16k
+localUser.SetPlaybackAudioFrameBeforeMixingParameters(2, 16000)
+
+3、audioframeobserver中，取消vad
+localUser.RegisterAudioFrameObserver(audioObserver, 0, nil)
+
+4、在audioframeobserver的回调中，用SteroVad来做双声道的vad检查
+4.1 StereoVad初始化（回调前做）
+//vad v1 for stero 
+	vadConfigV1 := &agoraservice.AudioVadConfig{
+		StartRecognizeCount:    10,
+		StopRecognizeCount:     6,
+		PreStartRecognizeCount: 10,
+		ActivePercent:          0.6,
+		InactivePercent:        0.2,
+    // 别的参数可以根据需要调节，也可以采用默认的
+	}
+	// generate stero vad
+	steroVadInst := agoraservice.NewSteroVad(vadConfigV1, vadConfigV1)
+
+4.2 双声道vad的检查：在audioframeobserver的回调中，用SteroVad来做双声道的vad检查
+audioObserver := &agoraservice.AudioFrameObserver{
+		OnPlaybackAudioFrameBeforeMixing: func(localUser *agoraservice.LocalUser, channelId string, userId string, frame *agoraservice.AudioFrame, vadResultState agoraservice.VadState, vadResultFraem *agoraservice.AudioFrame) bool {
+			// do something...
+			
+			// do stero vad process
+			
+			start := time.Now().Local().UnixMilli()
+			leftFrame, leftState, rightFrame, rightState := steroVadInst.ProcessAudioFrame(frame)
+			end := time.Now().UnixMilli()
+			leftLen := 0
+			if leftFrame != nil {
+				leftLen = len(leftFrame.Buffer)
+			}
+			rightLen := 0
+			if rightFrame != nil {
+				rightLen = len(rightFrame.Buffer)
+			}
+			fmt.Printf("left vad state %d, left len %d, right vad state %d, right len: %d,diff = %d\n", leftState, leftLen, rightState, rightLen, end-start)
+			
+			// dump vad frame: only for debug, when release, please remove this
+			dumpSteroVadResult(1, leftFrame, leftState)
+			dumpSteroVadResult(0, rightFrame, rightState)
+
+      // do something...
+      // return 
+      return true
+    }
+  5、释放
+  在agoraservice::release()之后调用，才能生效。如下代码：
+  	agoraservice.Release()
+	if steroVadInst != nil {
+		steroVadInst.Release()
+	}
+	steroVadInst = nil
+
+## 代理和私有化的区别
+  -代理应对的是LAN环境的网络限制，通过proxy，能够让局域网内的设备通过公网访问agora的rtc服务。
+  -私有化部署，则是将agora的rtc服务部署到自己的服务器上，通过私有化部署，可以更好的控制agora的rtc服务，同时也可以更好的保护用户的隐私。
+
+## 如何支持私有部署
+1、调用时序：
+***就是需要在创建conneton之后、在con.Connect 之前就调用才能生效。
+如果在agoraservice::init()之后调用，则不会生效。
+
+2、Api调用：如下
+connetioncon := agoraservice.NewRtcConnection(&conCfg)
+localUser := con.GetLocalUser()
+
+	
+		// test lan 
+	params1 := `{"rtc.enable_nasa2": false}`
+	params2 := `{"rtc.force_local": true}`
+	params3 := `{"rtc.local_domain": "ap.1452738.agora.local"}`
+	params4 := `{"rtc.local_ap_list": ["20.1.125.55"]}`
+
+	// 设置参数
+	agoraservice.GetAgoraParameter().SetParameters(params1)
+	agoraservice.GetAgoraParameter().SetParameters(params2)
+	agoraservice.GetAgoraParameter().SetParameters(params3)
+	agoraservice.GetAgoraParameter().SetParameters(params4)
+	//
+## 如何支持代理
+1、调用时序：
+在agoraService::init()之后调用(但 没有验证是否真的生效？)
+
+2、Api调用：如下
+parameter.setBool("rtc.enable_proxy", true);
+s->setBool("rtc.force_local",true);
+s->setBool("rtc.local_ap_low_level",true);
+
+s->setBool("rtc.enable_nasa2", true);
+s->setParameters("{\"rtc.vos_list\":[\"10.62.0.95:4701\"]}");
+s->setParameters("{\"rtc.local_ap_list\":[\"10.62.0.95\"]}");
+			
 
