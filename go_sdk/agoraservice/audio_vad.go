@@ -20,6 +20,10 @@ type AudioVadConfig struct {
 	PreStartRecognizeCount int     // pre start recognize count, buffer size for 10ms 16KHz 16bit 1channel PCM, default value is 10
 	ActivePercent          float32 // active percent, if over this percent, will be recognized as speaking, default value is 0.6
 	InactivePercent        float32 // inactive percent, if below this percent, will be recognized as non-speaking, default value is 0.2
+	VoiceProb   float32 // voice probability threshold, default value is 0.7; range from 0 to 1
+	RmsThr float32 // rms threshold, default value is -40; range from -100 to 0
+	JointThr float32 // joint threshold, default value is 0.0; range from 0 to 1
+	Aggressive float32 // default value is 2.0; range from 0 to 3
 }
 
 type AudioVad struct {
@@ -32,11 +36,15 @@ type AudioVad struct {
 func NewAudioVad(cfg *AudioVadConfig) *AudioVad {
 	if cfg == nil {
 		cfg = &AudioVadConfig{
-			StartRecognizeCount:    10,
-			StopRecognizeCount:     6,
-			PreStartRecognizeCount: 10,
-			ActivePercent:          0.6,
+			StartRecognizeCount:    30,
+			StopRecognizeCount:     48,
+			PreStartRecognizeCount: 16,
+			ActivePercent:          0.8,
 			InactivePercent:        0.2,
+			RmsThr:                 -40.0,
+			JointThr:               0.0,
+			Aggressive:             2.0,
+			VoiceProb:              0.7,
 		}
 	}
 	vad := &AudioVad{
@@ -51,10 +59,10 @@ func NewAudioVad(cfg *AudioVadConfig) *AudioVad {
 	cVadCfg.hopSz = C.int(160)
 	cVadCfg.frqInputAvailableFlag = C.int(0)
 	cVadCfg.useCVersionAIModule = C.int(0)
-	cVadCfg.voiceProbThr = C.float(0.7)
-	cVadCfg.rmsThr = C.float(-40.0)
-	cVadCfg.jointThr = C.float(0.0)
-	cVadCfg.aggressive = C.float(2.0)
+	cVadCfg.voiceProbThr = C.float(cfg.VoiceProb)
+	cVadCfg.rmsThr = C.float(cfg.RmsThr)
+	cVadCfg.jointThr = C.float(cfg.JointThr)
+	cVadCfg.aggressive = C.float(cfg.Aggressive)
 	cVadCfg.startRecognizeCount = C.int(cfg.StartRecognizeCount)
 	cVadCfg.stopRecognizeCount = C.int(cfg.StopRecognizeCount)
 	cVadCfg.preStartRecognizeCount = C.int(cfg.PreStartRecognizeCount)
