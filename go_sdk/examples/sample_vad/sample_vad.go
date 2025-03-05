@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"time"
 	"unsafe"
+	"strconv"
 
 	agoraservice "github.com/AgoraIO-Extensions/Agora-Golang-Server-SDK/v2/go_sdk/agoraservice"
 	//"google.golang.org/protobuf/types/known/sourcecontextpb"
@@ -80,7 +81,7 @@ func main() {
 		fmt.Println("Application terminated")
 	}()
 
-	// get parameter from arguments： appid, channel_name
+	// get parameter from arguments： appid, channel_name, steroencodemoe echoback
 
 	argus := os.Args
 	if len(argus) < 3 {
@@ -91,6 +92,10 @@ func main() {
 	channelName := argus[2]
 
 	echoBack := 0
+	steroMode := 0
+	if len(argus) > 3 {
+		steroMode, _ = strconv.Atoi(argus[3])	
+	}
 
 	// get environment variable
 	if appid == "" {
@@ -116,8 +121,24 @@ func main() {
 	}
 	svcCfg := agoraservice.NewAgoraServiceConfig()
 	svcCfg.AppId = appid
-	// change audio senario
+	// setting senario for diff mode
+	var steroVadInst *agoraservice.SteroAudioVad = nil
+	if steroMode > 0 {
+		svcCfg.AudioScenario = agoraservice.AudioScenarioGameStreaming
+		//vad v1 for stero 
+		vadConfigV1 := &agoraservice.AudioVadConfig{
+			StartRecognizeCount:    10,
+			StopRecognizeCount:     6,
+			PreStartRecognizeCount: 10,
+			ActivePercent:          0.6,
+			InactivePercent:        0.2,
+		}
+		steroVadInst = agoraservice.NewSteroVad(vadConfigV1, vadConfigV1)
+	} else {
+		svcCfg.AudioScenario = agoraservice.AudioScenarioChorus
+	}
 	svcCfg.AudioScenario = agoraservice.AudioScenarioGameStreaming
+	svcCfg.EnableSteroEncodeMode =  steroMode
 
 	agoraservice.Initialize(svcCfg)
 
@@ -130,16 +151,9 @@ func main() {
 
 	track := agoraservice.NewCustomAudioTrackPcm(sender)
 	
-	//vad v1 for stero 
-	vadConfigV1 := &agoraservice.AudioVadConfig{
-		StartRecognizeCount:    10,
-		StopRecognizeCount:     6,
-		PreStartRecognizeCount: 10,
-		ActivePercent:          0.6,
-		InactivePercent:        0.2,
-	}
+	
 	// generate stero vad
-	steroVadInst := agoraservice.NewSteroVad(vadConfigV1, vadConfigV1)
+	
 
 	//agoraservice.EnableExtension("agora.builtin", "agora_audio_label_generator", "", true)
 
@@ -204,24 +218,30 @@ func main() {
 			
 
 			// do stero vad process
-			/*
-			start := time.Now().Local().UnixMilli()
-			leftFrame, leftState, rightFrame, rightState := steroVadInst.ProcessAudioFrame(frame)
-			end := time.Now().UnixMilli()
-			leftLen := 0
-			if leftFrame != nil {
-				leftLen = len(leftFrame.Buffer)
-			}
-			rightLen := 0
-			if rightFrame != nil {
-				rightLen = len(rightFrame.Buffer)
-			}
-			fmt.Printf("left vad state %d, left len %d, right vad state %d, right len: %d,diff = %d\n", leftState, leftLen, rightState, rightLen, end-start)
+			if steroMode > 0 {
+			    
 			
-			// dump vad frame for debug
-			dumpSteroVadResult(1, leftFrame, leftState)
-			dumpSteroVadResult(0, rightFrame, rightState)
-			*/
+				start := time.Now().Local().UnixMilli()
+				leftFrame, leftState, rightFrame, rightState := steroVadInst.ProcessAudioFrame(frame)
+				end := time.Now().UnixMilli()
+				leftLen := 0
+				if leftFrame != nil {
+					leftLen = len(leftFrame.Buffer)
+				}
+				rightLen := 0
+				if rightFrame != nil {
+					rightLen = len(rightFrame.Buffer)
+				}
+				fmt.Printf("left vad state %d, left len %d, right vad state %d, right len: %d,diff = %d\n", leftState, leftLen, rightState, rightLen, end-start)
+				
+				// dump vad frame for debug
+				dumpSteroVadResult(1, leftFrame, leftState)
+				dumpSteroVadResult(0, rightFrame, rightState)
+			} else {
+			    vadDump.Write(frame, vadResultFraem, vadResultState)
+				fmt.Printf("Playback from userId %s, far field flag %d, rms %d, pitch %d, state=%d\n", userId, frame.FarFieldFlag, frame.Rms, frame.Pitch, int(vadResultState))
+
+			}
 		
 			if echoBack == 1 {
 				sender.SendAudioPcmData(frame)
@@ -248,21 +268,7 @@ func main() {
 
 	// change audio senario, by wei for stero encodeing
 	agoraParameterHandler := agoraservice.GetAgoraParameter()
-	builtInFunc := 1
-	if builtInFunc == 0 {
-		localUser.SetAudioScenario(agoraservice.AudioScenarioGameStreaming)
-		localUser.SetAudioEncoderConfiguration(&agoraservice.AudioEncoderConfiguration{AudioProfile: int(agoraservice.AudioProfileMusicHighQualityStereo)})
-
-		// fill pirvate parameter
-		
-		agoraParameterHandler.SetParameters("{\"che.audio.aec.enable\":false}")
-		agoraParameterHandler.SetParameters("{\"che.audio.ans.enable\":false}")
-		agoraParameterHandler.SetParameters("{\"che.audio.agc.enable\":false}")
-		agoraParameterHandler.SetParameters("{\"che.audio.custom_payload_type\":78}")
-		agoraParameterHandler.SetParameters("{\"che.audio.custom_bitrate\":128000}")
-	} else {
-	    con.EnableSteroEncodeMode()
-	}
+	
 
 	// dump audio
 	// set to dump 
@@ -307,7 +313,8 @@ func main() {
 			localUser.SendAudioMetaData(metaData)
 		},
 	}
-	localUser.SetPlaybackAudioFrameBeforeMixingParameters(2, 16000)
+	
+	
 	con.RegisterObserver(conHandler)
 	vadConfigure := &agoraservice.AudioVadConfigV2{
 		PreStartRecognizeCount: 16,
@@ -320,7 +327,14 @@ func main() {
 		StopVoiceProb:          70,
 		StopRms:                -50.0,
 	}
-	localUser.RegisterAudioFrameObserver(audioObserver, 0, vadConfigure)
+	if steroMode > 0 {
+	    localUser.SetPlaybackAudioFrameBeforeMixingParameters(2, 16000)
+		localUser.RegisterAudioFrameObserver(audioObserver, 0, nil)
+	} else {
+	    localUser.SetPlaybackAudioFrameBeforeMixingParameters(1, 16000)
+		localUser.RegisterAudioFrameObserver(audioObserver, 1, vadConfigure)
+	}
+	
 	localUser.RegisterLocalUserObserver(localUserObserver)
 
 	// sender := con.NewPcmSender()
@@ -411,8 +425,10 @@ func main() {
 	sender.Release()
 	mediaNodeFactory.Release()
 	agoraservice.Release()
-
-	steroVadInst.Release()
+	if steroVadInst != nil {
+		steroVadInst.Release()
+	}
+	steroVadInst = nil
 
 	track = nil
 	audioObserver = nil
