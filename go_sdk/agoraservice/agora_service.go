@@ -71,6 +71,8 @@ type AgoraServiceConfig struct {
 	// if <=0, when remote user muted itself, the onplaybackbeforemixing will be no longer called back
 	// default to 0, i.e when muted, no callback will be triggered
 	ShouldCallbackWhenMuted int
+	// version  2.2.1
+	EnableSteroEncodeMode int
 }
 
 // const def for map type
@@ -88,6 +90,7 @@ type AgoraService struct {
 	inited  bool
 	service unsafe.Pointer
 	isLowDelay bool
+	isSteroEncodeMode bool
 	// mediaFactory         unsafe.Pointer
 	consByCCon                  sync.Map
 	consByCLocalUser            sync.Map
@@ -101,6 +104,7 @@ func newAgoraService() *AgoraService {
 		inited:  false,
 		service: nil,
 		isLowDelay: false,
+		isSteroEncodeMode: false,
 	}
 }
 
@@ -120,6 +124,7 @@ func NewAgoraServiceConfig() *AgoraServiceConfig {
 		LogSize:              1024 * 1024,
 		DomainLimit: 0, // default to 0
 		ShouldCallbackWhenMuted: 0, // default to 0, no callback when muted
+		EnableSteroEncodeMode: 0, // default to 0,i.e default to mono encode mode
 	}
 }
 
@@ -153,9 +158,8 @@ func Initialize(cfg *AgoraServiceConfig) int {
 	C.agora_parameter_set_int(cParam, cParamStr, C.int(17))
 
 	agoraParam := GetAgoraParameter()
-	var enableAudioLabel int = 1
-	enableAudioLabel = 0
-	if (enableAudioLabel == 1) {
+	
+	if (cfg.EnableSteroEncodeMode < 1) { // disable stereo encode mode,can enabel audio label
 		// enable audio label generator
 		EnableExtension("agora.builtin", "agora_audio_label_generator", "", true)
 
@@ -169,6 +173,7 @@ func Initialize(cfg *AgoraServiceConfig) int {
 	}
 
 	agoraService.isLowDelay = cfg.AudioScenario == AudioScenarioChorus
+	agoraService.isSteroEncodeMode = (cfg.EnableSteroEncodeMode > 0)
 
 	if cfg.LogPath != "" {
 		logPath := C.CString(cfg.LogPath)

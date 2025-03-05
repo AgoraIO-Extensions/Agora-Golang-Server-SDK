@@ -213,6 +213,11 @@ func NewRtcConnection(cfg *RtcConnectionConfig) *RtcConnection {
 		ret.localUser.SetAudioScenario(AudioScenarioChorus)
 	}
 
+	// for stero encoding mode
+	if agoraService.isSteroEncodeMode  {
+	    ret.enableSteroEncodeMode()
+	}
+
 	// save to sync map
 	agoraService.setConFromHandle(ret.cConnection, ret, ConTypeCCon)
 	agoraService.setConFromHandle(ret.localUser.cLocalUser, ret, ConTypeCLocalUser)
@@ -566,7 +571,7 @@ func (conn *RtcConnection) unregisterVideoEncodedFrameObserver() int {
 * for stero encoded audio mode
 * Must be called before con.connect
 */
-func (conn *RtcConnection) EnableSteroEncodeMode() int {
+func (conn *RtcConnection) enableSteroEncodeMode() int {
 	if conn.cConnection == nil {
 		return -1
 	}
