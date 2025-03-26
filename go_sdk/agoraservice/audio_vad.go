@@ -80,10 +80,14 @@ func (vad *AudioVad) Release() {
 		return
 	}
 	C.Agora_UAP_VAD_Destroy(&vad.cVad)
+	vad.cVad = nil
 }
 
 func (vad *AudioVad) ProcessPcmFrame(frame *AudioFrame) (*AudioFrame, int) {
 	if frame.SamplesPerSec != 16000 || frame.Channels != 1 || frame.BytesPerSample != 2 {
+		return nil, -1
+	}
+	if vad.cVad == nil {
 		return nil, -1
 	}
 	cData := C.CBytes(frame.Buffer)
