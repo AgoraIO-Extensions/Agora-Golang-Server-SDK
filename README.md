@@ -104,6 +104,9 @@ import (
   - if you don't use VAD, and your glibc version is between 2.16 and 2.27, you can disable VAD by rename **audio_vad.go** file in go_sdk/agoraserver/ to **audio_vad.go.bak**
 
 # Change log
+## 2025.03.26 Release 2.2.2
+-- FIX：fix a bug in vad Release, if call vad.Release() for more than once, it will cause a crash
+-- ADD：add a func in sample_vad.go, to test stero vad for stero pcm audio file
 ##  2025.03.05 Release 2.2.1
 -- In the configuration, added support for dual-channel encoding for water devices. By default, this is not supported. If enabled, internal private parameters will be automatically modified to support dual-channel encoding. However, at the app layer, when setting playback parameters, channel=2 must be specified. ​OK
 -- Provided the Vad v1 algorithm. ​OK

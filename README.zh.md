@@ -102,6 +102,9 @@ import (
   - 如果你不使用 VAD，并且你的 glibc 版本在 2.16 和 2.27 之间，你可以通过将 go_sdk/agoraserver/ 中的 **audio_vad.go** 文件重命名为 **audio_vad.go.bak** 来禁用 VAD
 
 # 更新日志
+## 2025.03.26 发布 2.2.2
+-- 修复：vad Release中的一个不严谨的地方，多次调用Release会导致crash
+-- 增加：sample_vad.go中增加一个函数，用于测试stero 音频的vad
 ## 2025.03.05 发布 2.2.1
 -- configure中水装置是否支持双声道编码，默认是不支持。如果要支持，内部会默认修改私有参数，从而可以支持双声道编码。但app层，在设置playback参数的时候，需要设置channel=2. ok
 -- 提供Vad v1 算法 ok
