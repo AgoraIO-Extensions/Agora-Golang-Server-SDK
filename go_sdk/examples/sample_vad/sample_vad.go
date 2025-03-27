@@ -192,11 +192,15 @@ func main() {
 		svcCfg.AudioScenario = agoraservice.AudioScenarioGameStreaming
 		//vad v1 for stero
 		vadConfigV1 := &agoraservice.AudioVadConfig{
-			StartRecognizeCount:    10,
-			StopRecognizeCount:     6,
-			PreStartRecognizeCount: 10,
-			ActivePercent:          0.6,
+			StartRecognizeCount:    30,
+			StopRecognizeCount:     48,
+			PreStartRecognizeCount: 16,
+			ActivePercent:          0.8,
 			InactivePercent:        0.2,
+			RmsThr:                 -40.0,
+			JointThr:               0.0,
+			Aggressive:             2.0,
+			VoiceProb:              0.7,
 		}
 		steroVadInst = agoraservice.NewSteroVad(vadConfigV1, vadConfigV1)
 	} else {
