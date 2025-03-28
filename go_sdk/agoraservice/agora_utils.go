@@ -368,3 +368,113 @@ func (v *VadDump) Close() int {
 	v.count = 0
 	return 0
 }
+//why use queue instead of chan?
+// 1. chan is not thread-safe, so we need to use mutex to protect the queue;
+// 2. chan is blocking, so we need to use select to avoid blocking;
+// 3. chan is not flexible, so we need to use queue to replace chan;
+// 4. chan is not scalable, so we need to use queue to replace chan;
+// 5. chan is not easy to use, so we need to use queue to replace chan;
+// 6. use interface{} to avoid type casting
+// a thread-safe with timeout and non-blocking chan notify implementation
+
+// user-defined queue: thread-safe with timeout and non-blocking chan notify implementation
+// Queue 是一个线程安全的队列实现，可以替换chan；
+// 优点：可以避免chan的阻塞问题，可以设置超时时间
+// 推荐：如果用在音频的处理上，可以设置超时间为10ms；如果用在视频处理上，可以设置为20ms
+// recommend: if used in audio processing, set timeout to 10ms; if used in video processing, set to 20ms
+// sample: ref to send_recv_yuv_pcm.go
+type Queue struct {
+	items   []interface{}
+	mutex   sync.Mutex
+	timeout int // in ms
+	notify  chan struct{}
+}
+
+// NewQueue 创建一个新的队列
+func NewQueue(timeout int) *Queue {
+	return &Queue{
+		items:   make([]interface{}, 0),
+		timeout: timeout,
+		notify:  make(chan struct{}),
+	}
+}
+
+// Enqueue 将元素添加到队列尾部
+func (q *Queue) Enqueue(item interface{}) {
+	q.mutex.Lock()
+	q.items = append(q.items, item)
+	q.mutex.Unlock()
+
+	//q.items = append(q.items, item)
+	// notify the dequeue routine: non-blocking mode
+	select {
+	case q.notify <- struct{}{}:
+		//fmt.Println("notify the dequeue routine")
+	default:
+		fmt.Println("--no notify the dequeue routine")
+	}
+}
+
+// Dequeue 从队列头部移除并返回元素
+func (q *Queue) Dequeue() interface{} {
+	q.mutex.Lock()
+	size := len(q.items)
+	q.mutex.Unlock()
+
+	// if size is 0, wait notify signal or timeout
+	if size == 0 {
+		select {
+		case <-time.After(time.Duration(q.timeout) * time.Millisecond):
+			return nil
+		case <-q.notify:
+			// do nothing,just run to next step
+		}
+	}
+
+	// get the signal item
+	q.mutex.Lock()
+	defer q.mutex.Unlock()
+	size = len(q.items)
+	if (size > 0) {
+		item := q.items[0]
+		q.items = q.items[1:]
+		return item
+	}
+	return nil
+}
+
+// Peek 返回队列头部元素但不移除
+func (q *Queue) Peek() interface{} {
+	q.mutex.Lock()
+	defer q.mutex.Unlock()
+
+	if len(q.items) == 0 {
+		return nil
+	}
+
+	return q.items[0]
+}
+
+// IsEmpty 检查队列是否为空
+func (q *Queue) IsEmpty() bool {
+	q.mutex.Lock()
+	defer q.mutex.Unlock()
+
+	return len(q.items) == 0
+}
+
+// Size 返回队列中的元素个数
+func (q *Queue) Size() int {
+	q.mutex.Lock()
+	defer q.mutex.Unlock()
+
+	return len(q.items)
+}
+
+// Clear 清空队列
+func (q *Queue) Clear() {
+	q.mutex.Lock()
+	defer q.mutex.Unlock()
+
+	q.items = make([]interface{}, 0)
+}
