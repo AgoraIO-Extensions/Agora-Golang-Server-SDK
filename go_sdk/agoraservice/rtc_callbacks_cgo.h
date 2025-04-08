@@ -95,3 +95,7 @@ extern void cgo_on_error(AGORA_HANDLE agora_rtc_conn, int error, const char* msg
 extern void cgo_on_audio_publish_state_changed(AGORA_HANDLE agora_rtc_conn, const char* channelid, int oldstate, int newstate, int elapseSinceLastState);
 extern void cgo_on_audio_volume_indication(AGORA_HANDLE agora_local_user, const audio_volume_info* speakers, unsigned int speaker_number, int total_volume);
 extern void cgo_on_audio_meta_data_received(AGORA_HANDLE agora_local_user, user_id_t userId, const char* meta_data, size_t length);
+extern void cgo_on_local_audio_track_statistics(AGORA_HANDLE agora_local_user, const local_audio_stats* stats);
+extern void cgo_on_remote_audio_track_statistics(AGORA_HANDLE agora_local_user, user_id_t userId, const remote_audio_stats* stats);
+extern void cgo_on_local_video_track_statistics(AGORA_HANDLE agora_local_user, const local_video_track_stats* stats);
+extern void cgo_on_remote_video_track_statistics(AGORA_HANDLE agora_local_user, user_id_t userId, const remote_video_track_stats* stats);

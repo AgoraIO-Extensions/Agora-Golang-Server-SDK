@@ -367,3 +367,55 @@ func goOnAudioMetadataReceived(cLocalUser unsafe.Pointer, uid *C.char, metaData 
 	// note： best practise is never reelase handler until app is exiting
 	con.localUserObserver.OnAudioMetaDataReceived(con.GetLocalUser(), C.GoString(uid), C.GoBytes(unsafe.Pointer(metaData),C.int(length)))
 }
+//export goOnLocalAudioTrackStatistics
+func goOnLocalAudioTrackStatistics(cLocalUser unsafe.Pointer, stats *C.struct__local_audio_stats) {
+	//validity check
+	if cLocalUser == nil {
+		return
+	}
+	// get conn from handle
+	con := agoraService.getConFromHandle(cLocalUser, ConTypeCLocalUser)
+	if con == nil || con.localUserObserver == nil || con.localUserObserver.OnLocalAudioTrackStatistics == nil {
+		return
+	}
+	con.localUserObserver.OnLocalAudioTrackStatistics(con.GetLocalUser(), GoLocalAudioStats(stats))
+}
+//export goOnRemoteAudioTrackStatistics
+func goOnRemoteAudioTrackStatistics(cLocalUser unsafe.Pointer, uid *C.char, stats *C.struct__remote_audio_stats) {
+	//validity check
+	if cLocalUser == nil {
+		return
+	}
+	// get conn from handle
+	con := agoraService.getConFromHandle(cLocalUser, ConTypeCLocalUser)
+	if con == nil || con.localUserObserver == nil || con.localUserObserver.OnRemoteAudioTrackStatistics == nil {
+		return
+	}
+	con.localUserObserver.OnRemoteAudioTrackStatistics(con.GetLocalUser(), C.GoString(uid), GoRemoteAudioStats(stats))
+}
+//export goOnLocalVideoTrackStatistics
+func goOnLocalVideoTrackStatistics(cLocalUser unsafe.Pointer, stats *C.struct__local_video_track_stats) {
+	//validity check
+	if cLocalUser == nil {
+		return
+	}
+	// get conn from handle
+	con := agoraService.getConFromHandle(cLocalUser, ConTypeCLocalUser)
+	if con == nil || con.localUserObserver == nil || con.localUserObserver.OnLocalVideoTrackStatistics == nil {
+		return
+	}
+	con.localUserObserver.OnLocalVideoTrackStatistics(con.GetLocalUser(), GoLocalVideoStats(stats))
+}
+//export goOnRemoteVideoTrackStatistics
+func goOnRemoteVideoTrackStatistics(cLocalUser unsafe.Pointer, uid *C.char, stats *C.struct__remote_video_track_stats) {
+	//validity check
+	if cLocalUser == nil {
+		return
+	}
+	// get conn from handle
+	con := agoraService.getConFromHandle(cLocalUser, ConTypeCLocalUser)
+	if con == nil || con.localUserObserver == nil || con.localUserObserver.OnRemoteVideoTrackStatistics == nil {
+		return
+	}
+	con.localUserObserver.OnRemoteVideoTrackStatistics(con.GetLocalUser(), C.GoString(uid), GoRemoteVideoStats(stats))
+}
