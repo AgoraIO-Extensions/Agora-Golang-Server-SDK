@@ -170,6 +170,7 @@ func main() {
 			return true
 		},
 	}
+	start := time.Now().UnixMilli()
 
 	con := agoraservice.NewRtcConnection(&conCfg)
 	defer con.Release()
@@ -231,6 +232,9 @@ func main() {
 	localUser.SetAudioScenario(agoraservice.AudioScenarioChorus)
 	con.Connect(token, channelName, userId)
 	<-conSignal
+
+	end := time.Now().UnixMilli()
+	fmt.Printf("Connect cost %d ms\n", end-start)
 
 	localUser = con.GetLocalUser()
 	localUser.SetPlaybackAudioFrameBeforeMixingParameters(1, 16000)
