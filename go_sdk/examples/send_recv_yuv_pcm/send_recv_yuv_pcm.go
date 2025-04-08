@@ -166,6 +166,21 @@ func main() {
 			return true
 		},
 	}
+	localUserObserver := &agoraservice.LocalUserObserver{
+		OnLocalAudioTrackStatistics: func(localUser *agoraservice.LocalUser, stats *agoraservice.LocalAudioTrackStats) {
+			fmt.Printf("OnLocalAudioTrackStatistics, stats: %v\n", stats)
+		},
+		OnRemoteAudioTrackStatistics: func(localUser *agoraservice.LocalUser, uid string, stats *agoraservice.RemoteAudioTrackStats) {
+			fmt.Printf("OnRemoteAudioTrackStatistics, stats: %v\n", stats)
+		},
+		OnLocalVideoTrackStatistics: func(localUser *agoraservice.LocalUser, stats *agoraservice.LocalVideoTrackStats) {
+			fmt.Printf("OnLocalVideoTrackStatistics, stats: %v\n", stats)
+		},
+		OnRemoteVideoTrackStatistics: func(localUser *agoraservice.LocalUser, uid string, stats *agoraservice.RemoteVideoTrackStats) {
+			fmt.Printf("OnRemoteVideoTrackStatistics, stats: %v\n", stats)
+		},
+		
+	}
 
 	yuvsender := mediaNodeFactory.NewVideoFrameSender()
 	pcmsender := mediaNodeFactory.NewAudioPcmDataSender()
@@ -217,6 +232,9 @@ func main() {
 	localUser.SetPlaybackAudioFrameBeforeMixingParameters(1,16000)
 	audioTrack := agoraservice.NewCustomAudioTrackPcm(pcmsender)
 	localUser.RegisterAudioFrameObserver(audioObserver, 1, nil)
+
+	//localuserobserver
+	localUser.RegisterLocalUserObserver(localUserObserver)
 
 	con.Connect(token, channelName, userId)
 	<-conSignal
