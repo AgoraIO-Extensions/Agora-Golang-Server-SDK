@@ -104,6 +104,9 @@ import (
   - if you don't use VAD, and your glibc version is between 2.16 and 2.27, you can disable VAD by rename **audio_vad.go** file in go_sdk/agoraserver/ to **audio_vad.go.bak**
 
 # Change log
+## 2025.04.15 发布 2.2.3
+-- Added: add a Dequeue class for thread-safe and go chan，referto: send_recv_yuv_pcm.go
+-- Added: add onlocalauiodstats, onremoveaudiostats, onlocalvideostats, ref to: send_recv_yuv_pcm.go
 ## 2025.03.26 Release 2.2.2
 -- FIX：fix a bug in vad Release, if call vad.Release() for more than once, it will cause a crash
 -- ADD：add a func in sample_vad.go, to test stero vad for stero pcm audio file

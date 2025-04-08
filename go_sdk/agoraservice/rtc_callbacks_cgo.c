@@ -113,3 +113,24 @@ void cgo_on_audio_meta_data_received(AGORA_HANDLE agora_local_user, user_id_t us
 {
   goOnAudioMetadataReceived(agora_local_user, userId, meta_data, length);
 }
+
+extern void goOnLocalAudioTrackStatistics(void* agora_local_user, struct _local_audio_stats* stats);
+void cgo_on_local_audio_track_statistics(AGORA_HANDLE agora_local_user, const local_audio_stats* stats) {
+  goOnLocalAudioTrackStatistics(agora_local_user, (struct _local_audio_stats*)stats);
+}
+extern void goOnRemoteAudioTrackStatistics(void* agora_local_user, user_id_t userId, struct _remote_audio_stats* stats);
+void cgo_on_remote_audio_track_statistics(AGORA_HANDLE agora_local_user, user_id_t userId, const remote_audio_stats* stats) {
+  goOnRemoteAudioTrackStatistics(agora_local_user, userId, (struct _remote_audio_stats*)stats);
+}
+
+
+extern void goOnLocalVideoTrackStatistics(void* agora_local_user, struct _local_video_track_stats* stats);
+void cgo_on_local_video_track_statistics(AGORA_HANDLE agora_local_user, const local_video_track_stats* stats) {
+  goOnLocalVideoTrackStatistics(agora_local_user, (struct _local_video_track_stats*)stats);
+}
+
+
+extern void goOnRemoteVideoTrackStatistics(void* agora_local_user, user_id_t userId, struct _remote_video_track_stats* stats);
+void cgo_on_remote_video_track_statistics(AGORA_HANDLE agora_local_user, user_id_t userId, const remote_video_track_stats* stats) {
+  goOnRemoteVideoTrackStatistics(agora_local_user, userId, (struct _remote_video_track_stats*)stats);
+}

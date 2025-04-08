@@ -59,6 +59,191 @@ type RtcConnectionObserver struct {
 	OnStreamMessageError       func(con *RtcConnection, uid string, streamId int, errCode int, missed int, cached int)
 }
 
+//struct for local audio track statistics
+type LocalAudioTrackStats struct {
+	/**
+	 * The number of channels.
+	 */
+	NumChannels int
+	/**
+	 * The sample rate (Hz).
+	 */
+	SentSampleRate int
+	/**
+	 * The average sending bitrate (Kbps).
+	 */
+	SentBitrate int
+	/**
+	 * The internal payload type
+	 */
+	InternalCodec int
+	/**
+	 * Voice pitch frequency in Hz
+	 */
+	VoicePitch float64
+}
+type RemoteAudioTrackStats struct {
+	/**
+	 * User ID of the remote user sending the audio streams.
+	 */
+	Uid uint
+	/**
+	 * Audio quality received by the user: #QUALITY_TYPE.
+	 */
+	Quality int
+	/**
+	 * @return Network delay (ms) from the sender to the receiver.
+	 */
+	NetworkTransportDelay int
+	/**
+	 * @return Delay (ms) from the receiver to the jitter buffer.
+	 */
+	JitterBufferDelay int
+	/**
+	 * The audio frame loss rate in the reported interval.
+	 */
+	AudioLossRate int
+	/**
+	 * The number of channels.
+	 */
+	NumChannels int
+	/**
+	 * The sample rate (Hz) of the received audio stream in the reported interval.
+	 */
+	ReceivedSampleRate int
+	/**
+	 * The average bitrate (Kbps) of the received audio stream in the reported interval.
+	 * */
+	ReceivedBitrate int
+	/**
+	 * The total freeze time (ms) of the remote audio stream after the remote user joins the channel.
+	 * In a session, audio freeze occurs when the audio frame loss rate reaches 4%.
+	 * Agora uses 2 seconds as an audio piece unit to calculate the audio freeze time.
+	 * The total audio freeze time = The audio freeze number &times; 2 seconds
+	 */
+	TotalFrozenTime int
+	/**
+	 * The total audio freeze time as a percentage (%) of the total time when the audio is available.
+	 * */
+	FrozenRate int
+	/**
+	 * The number of audio bytes received.
+	 */
+	ReceivedBytes int64
+	/**
+	 * The MOS value of the received audio stream.
+	 */
+	MosValue int
+	/**
+	 * The total time (ms) when the remote us	er neither stops sending the audio
+	 * stream nor disables the audio module after joining the channel.
+	 */
+	TotalActiveTime int
+	/**
+	 * The total publish duration (ms) of the remote audio stream.
+	 */
+	PublishDuration int
+  }
+  type LocalVideoTrackStats struct {
+	NumberOfStreams uint64
+	BytesMajorStream uint64
+	BytesMinorStream uint64
+	FramesEncoded uint32
+	SSRCMajorStream uint32
+	SSRCMinorStream uint32
+	CaptureFrameRate int
+	RegulatedCaptureFrameRate int
+	InputFrameRate int
+	EncodeFrameRate int
+	RenderFrameRate int
+	TargetMediaBitrateBps int
+	MediaBitrateBps int
+	TotalBitrateBps int
+	CaptureWidth int
+	CaptureHeight int
+	RegulatedCaptureWidth int
+	RegulatedCaptureHeight int
+	Width int
+	Height int
+	EncoderType uint32
+	UplinkCostTimeMs int
+	QualityAdaptIndication int
+  } 
+  
+  
+  type RemoteVideoTrackStats struct {
+	  /**
+	   User ID of the remote user sending the video streams.
+	   */
+	  Uid uint
+	  /** **DEPRECATED** Time delay (ms).
+   */
+	  Delay int
+	  /**
+	   Width (pixels) of the video stream.
+	   */
+	  Width int
+	  /**
+	 Height (pixels) of the video stream.
+	 */
+	  Height int
+	  /**
+	 Bitrate (Kbps) received since the last count.
+	 */
+	  ReceivedBitrate int
+	  /** The decoder output frame rate (fps) of the remote video.
+	   */
+	  DecoderOutputFrameRate int
+	  /** The render output frame rate (fps) of the remote video.
+	   */
+	  RendererOutputFrameRate int
+	  /** The video frame loss rate (%) of the remote video stream in the reported interval.
+	 */
+	  FrameLossRate int
+	  /** Packet loss rate (%) of the remote video stream after using the anti-packet-loss method.
+	   */
+	  PacketLossRate int
+	  RxStreamType int
+	  /**
+	   The total freeze time (ms) of the remote video stream after the remote user joins the channel.
+	   In a video session where the frame rate is set to no less than 5 fps, video freeze occurs when
+	   the time interval between two adjacent renderable video frames is more than 500 ms.
+	   */
+	  TotalFrozenTime int
+	  /**
+	   The total video freeze time as a percentage (%) of the total time when the video is available.
+	   */
+	  FrozenRate int
+	  /**
+	   The total video decoded frames.
+	   */
+	  TotalDecodedFrames uint32
+	  /**
+	   The offset (ms) between audio and video stream. A positive value indicates the audio leads the
+	  video, and a negative value indicates the audio lags the video.
+	  */
+	  AvSyncTimeMs int
+	  /**
+	   The average offset(ms) between receive first packet which composite the frame and  the frame
+	  ready to render.
+	  */
+	  DownlinkProcessTimeMs int
+	  /**
+	   The average time cost in renderer.
+	  */
+	  FrameRenderDelayMs int
+	  /**
+	   The total time (ms) when the remote user neither stops sending the video
+	  stream nor disables the video module after joining the channel.
+	  */
+	  TotalActiveTime uint64
+	  /**
+	   The total publish duration (ms) of the remote video stream.
+	  */
+	  PublishDuration uint64
+  }
+  
+
 type LocalUserObserver struct {
 	OnStreamMessage func(localUser *LocalUser, uid string, streamId int, data []byte)
 	// userMediaInfo: UserMediaInfoXxx
@@ -77,6 +262,11 @@ type LocalUserObserver struct {
 	OnAudioPublishStateChanged func(localUser *LocalUser, channelId string, oldState int, newState int, elapsed int)
 	OnAudioVolumeIndication    func(localUser *LocalUser, audioVolumeInfo []*AudioVolumeInfo, speakerNumber int, totalVolume int)
 	OnAudioMetaDataReceived    func(localUser *LocalUser, uid string, metaData []byte)	
+	// for version 2.2.2
+	OnLocalAudioTrackStatistics func(localUser *LocalUser, stats *LocalAudioTrackStats)
+	OnRemoteAudioTrackStatistics func(localUser *LocalUser, uid string, stats *RemoteAudioTrackStats)
+	OnLocalVideoTrackStatistics func(localUser *LocalUser, stats *LocalVideoTrackStats)
+	OnRemoteVideoTrackStatistics func(localUser *LocalUser, uid string, stats *RemoteVideoTrackStats)	
 }
 
 type AudioFrameObserver struct {

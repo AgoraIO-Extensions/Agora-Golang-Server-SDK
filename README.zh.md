@@ -102,6 +102,21 @@ import (
   - 如果你不使用 VAD，并且你的 glibc 版本在 2.16 和 2.27 之间，你可以通过将 go_sdk/agoraserver/ 中的 **audio_vad.go** 文件重命名为 **audio_vad.go.bak** 来禁用 VAD
 
 # 更新日志
+## todo
+-- factory 内置在agoraservice中，不再需要单独的factory
+--  connection pool实现：在service中实现一个connection pool，用于管理connection的生命周期
+  - 从servcie中创建connection
+  - connection不在具备release 功能，在service中统一管理
+-- datastream：
+  - 不需要在conneciton中创建，直接提供sendstreammessge接口
+  -- 是否不需要onplayback之类的？但因为我们的客户有pcm，encoded，yuv等，如果单一的用livekit::AudioStream可能不是特别灵活，所以需要解决的是如何防止阻塞操作？而不是设计
+  一个新的？？？--建议不需要
+  -- 增加一个getstatics的接口
+  -- 增加了一个Dequeue，用于线程安全的chan机制。参考： sendrcvpcmyuv done
+
+## 2025.04.15 发布 2.2.3
+-- 增加了一个Dequeue，用于线程安全的chan机制。参考： send_recv_yuv_pcm.go
+-- 增加localauiodstats, removeaudiostats, localvideostats, remotevideostats。参考：send_recv_yuv_pcm.go
 ## 2025.03.26 发布 2.2.2
 -- 修复：vad Release中的一个不严谨的地方，多次调用Release会导致crash
 -- 增加：sample_vad.go中增加一个函数，用于测试stero 音频的vad
