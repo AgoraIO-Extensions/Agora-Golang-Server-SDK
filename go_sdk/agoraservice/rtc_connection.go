@@ -2,7 +2,8 @@ package agoraservice
 
 /*
 #cgo CFLAGS: -I../../agora_sdk/include/c/api2 -I../../agora_sdk/include/c/base
-
+#include <stdlib.h>
+#include <string.h>
 #include "agora_local_user.h"
 #include "agora_rtc_conn.h"
 #include "agora_service.h"
@@ -781,4 +782,46 @@ func (conn *RtcConnection) enableSteroEncodeMode() int {
 	agoraParameterHandler.SetParameters("{\"che.audio.custom_bitrate\":128000}")
 	return 0
     
+}
+type EncryptionConfig struct {
+	EncryptionMode int
+	EncryptionKey string
+	EncryptionKdfSalt []byte
+}
+// EnableEncryption enables or disables encryption for the RTC connection.
+// It sets the encryption mode and configuration for the connection.
+// Must be called before RtcConnection.Connect
+//
+// Parameters:
+// - enable: An integer indicating whether to enable (1) or disable (0) encryption.
+// - config: A pointer to an EncryptionConfig struct containing the encryption configuration.
+// 
+// Returns:
+// - An integer indicating the result of the operation. 0 indicates success, and negative value indicates failure.
+func (conn *RtcConnection) EnableEncryption(enable int, config *EncryptionConfig) int {
+	if conn.cConnection == nil || config == nil || enable == 0 {
+		return -1
+	}
+
+	cConfig := C.struct__encryption_config{}
+	C.memset(unsafe.Pointer(&cConfig), 0, C.sizeof_struct__encryption_config)
+	cConfig.encryption_mode = C.int(config.EncryptionMode)
+	if config.EncryptionKey != "" {
+		ckey := C.CString(config.EncryptionKey)
+		defer C.free(unsafe.Pointer(ckey))
+		cConfig.encryption_key = ckey
+	}
+	saltlen := 0
+	if config.EncryptionKdfSalt != nil {
+		saltlen = len(config.EncryptionKdfSalt)
+	}
+	if saltlen > 0 {
+		if saltlen > 32 {
+			saltlen = 32
+		}
+		C.memcpy(unsafe.Pointer(&cConfig.encryption_kdf_salt[0]), unsafe.Pointer(&config.EncryptionKdfSalt[0]), C.size_t(saltlen))
+	}
+
+	ret := C.agora_rtc_conn_enable_encryption(conn.cConnection, C.int(enable), &cConfig)
+	return int(ret)
 }
