@@ -93,6 +93,7 @@ func CRtcConnectionObserver() *C.struct__rtc_conn_observer {
 	ret.on_user_left = (*[0]byte)(C.cgo_on_user_left)
 	ret.on_error = (*[0]byte)(C.cgo_on_error)
 	ret.on_stream_message_error = (*[0]byte)(C.cgo_on_stream_message_error)
+	ret.on_encryption_error = (*[0]byte)(C.cgo_on_encryption_error)
 	return ret
 }
 

@@ -58,6 +58,7 @@ type RtcConnectionObserver struct {
 	OnUserLeft                 func(con *RtcConnection, uid string, reason int)
 	OnError                    func(con *RtcConnection, err int, msg string)
 	OnStreamMessageError       func(con *RtcConnection, uid string, streamId int, errCode int, missed int, cached int)
+	OnEncryptionError          func(con *RtcConnection, err int)
 }
 
 //struct for local audio track statistics

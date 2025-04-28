@@ -419,3 +419,16 @@ func goOnRemoteVideoTrackStatistics(cLocalUser unsafe.Pointer, uid *C.char, stat
 	}
 	con.localUserObserver.OnRemoteVideoTrackStatistics(con.GetLocalUser(), C.GoString(uid), GoRemoteVideoStats(stats))
 }
+//export goOnEncryptionError
+func goOnEncryptionError(cCon unsafe.Pointer, errorType C.int) {
+	//validity check
+	if cCon == nil {
+		return
+	}
+	// get conn from handle
+	con := agoraService.getConFromHandle(cCon, ConTypeCCon)
+	if con == nil || con.handler == nil || con.handler.OnEncryptionError == nil {
+		return
+	}
+	con.handler.OnEncryptionError(con, int(errorType))
+}
