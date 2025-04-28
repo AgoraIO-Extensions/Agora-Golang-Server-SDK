@@ -114,6 +114,8 @@ import (
   -- 增加一个getstatics的接口
   -- 增加了一个Dequeue，用于线程安全的chan机制。参考： sendrcvpcmyuv done
 
+## 2025.04.28 发布 2.2.5
+-- 替换：更新rtc sdk 到4.4.32
 ## 2025.04.28 发布 2.2.4
 -- 增加了EnableEncryption接口，用来设置是否启用加密;
 -- 增加了onEncryptionError接口，用于处理加密错误;
