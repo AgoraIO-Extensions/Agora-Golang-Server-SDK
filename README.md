@@ -104,6 +104,8 @@ import (
   - if you don't use VAD, and your glibc version is between 2.16 and 2.27, you can disable VAD by rename **audio_vad.go** file in go_sdk/agoraserver/ to **audio_vad.go.bak**
 
 # Change log
+## 2025.04.28 Release 2.2.5
+-- Update rtc sdk to 4.4.32
 ## 2025.04.28 Release 2.2.4
 -- Added EnableEncryption api, to enable encryption
 -- Added onEncryptionError calback, to notify encryption error;
