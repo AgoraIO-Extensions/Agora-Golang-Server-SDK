@@ -141,6 +141,7 @@ func main() {
 				return true
 
 			}
+			return true
 			//fmt.Printf("recv video frame, from channel %s, user %s, type %d, width %d, height %d, stride %d, ysize %d, usize %d, vsize %d\n",channelId, userId, frame.Type, frame.Width, frame.Height, frame.YStride, len(frame.YBuffer), len(frame.UBuffer), len(frame.VBuffer))
 			
 			yuvQueue.Enqueue(frame)
@@ -179,6 +180,9 @@ func main() {
 		OnRemoteVideoTrackStatistics: func(localUser *agoraservice.LocalUser, uid string, stats *agoraservice.RemoteVideoTrackStats) {
 			fmt.Printf("OnRemoteVideoTrackStatistics, stats: %v\n", stats)
 		},
+		OnUserAudioTrackStateChanged: func(localUser *agoraservice.LocalUser, uid string, remoteAudioTrack *agoraservice.RemoteAudioTrack, state int, reason int, elapsed int) {
+			fmt.Printf("OnUserAudioTrackStateChanged, uid: %s, state: %d, reason: %d, elapsed: %d\n", uid, state, reason, elapsed)
+		},
 		
 	}
 
@@ -215,7 +219,8 @@ func main() {
 	}
 
 	go audioRoutine()
-	go videoRoutine()
+	//go videoRoutine()
+	fmt.Printf("start audioRoutine: %v, videoRoutine: %v\n", audioRoutine, videoRoutine)
 
 	// step0: create connection
 	con := agoraservice.NewRtcConnection(&conCfg)
@@ -236,6 +241,18 @@ func main() {
 	//localuserobserver
 	localUser.RegisterLocalUserObserver(localUserObserver)
 
+	// set encryption mode
+	salt := "3t6pvC+qHvVW300B3f+g5J49U3Y×QR40tWKEP/Zz+4="
+
+	encCfg := &agoraservice.EncryptionConfig{
+		EncryptionMode: 7,
+		EncryptionKey:  "oLB41X/IGpxgUMzsYpE+IOpNLOyIbpr8C7qe+mb7QRHkmrELtVsWw6Xr6rQ0XAK03fsBXJJVCkXeL2X7J492qXjR89Q=",
+		EncryptionKdfSalt: []byte(salt),
+	}
+	encCfg.EncryptionMode = 1
+	encCfg.EncryptionKey = "123456"
+	con.EnableEncryption(0, encCfg)
+
 	con.Connect(token, channelName, userId)
 	<-conSignal
 
@@ -244,8 +261,8 @@ func main() {
 		Width:             320,
 		Height:            240,
 		Framerate:         30,
-		Bitrate:           500,
-		MinBitrate:        100,
+		Bitrate:           1500,
+		MinBitrate:        300,
 		OrientationMode:   agoraservice.OrientationModeAdaptive,
 		DegradePreference: 0,
 	})
@@ -257,7 +274,7 @@ func main() {
 	localUser.PublishAudio(audioTrack)
 
 	// for yuv test
-	/*
+	
 		w := 352
 		h := 288
 		dataSize := w * h * 3 / 2
@@ -277,7 +294,7 @@ func main() {
 				continue
 			}
 			// senderCon.SendStreamMessage(streamId, data)
-			sender.SendVideoFrame(&agoraservice.ExternalVideoFrame{
+			yuvsender.SendVideoFrame(&agoraservice.ExternalVideoFrame{
 				Type:      agoraservice.VideoBufferRawData,
 				Format:    agoraservice.VideoPixelI420,
 				Buffer:    data,
@@ -287,7 +304,7 @@ func main() {
 			})
 			time.Sleep(33 * time.Millisecond)
 		}
-	*/
+	
 	// rgag colos space type test
 	
 
