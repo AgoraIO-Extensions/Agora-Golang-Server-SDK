@@ -35,6 +35,49 @@ func ConvertVideoFrameToExternalVideoFrame(frame *agoraservice.VideoFrame) *agor
 	return extFrame
 }
 
+func PushFileToConsumer(file *os.File, audioConsumer *agoraservice.AudioConsumer) {
+	buffer := make([]byte, 320)
+	for {
+		readLen, err := file.Read(buffer)
+		if err != nil || readLen < 320 {
+			fmt.Printf("read up to EOF,cur read: %d", readLen)
+			file.Seek(0, 0)
+			break
+		}
+		audioConsumer.PushPCMData(buffer)
+	}
+	buffer = nil
+}
+func ReadFileToConsumer(file *os.File, consumer *agoraservice.AudioConsumer, interval int, done chan bool) {
+	for {
+		select {
+		case <-done:
+			fmt.Println("ReadFileToConsumer done")
+			return
+		default:
+			len := consumer.Len()
+			if len < 320*interval {
+				PushFileToConsumer(file, consumer)
+			}
+			time.Sleep(time.Duration(interval) * time.Millisecond)
+		}
+	}
+}
+
+
+func ConsumeAudio(audioConsumer *agoraservice.AudioConsumer, interval int, done chan bool) {
+	for {
+		select {
+		case <-done:
+			fmt.Println("ConsumeAudio done")
+			return
+		default:
+			audioConsumer.Consume()
+			time.Sleep(time.Duration(interval) * time.Millisecond)
+		}
+	}
+}
+
 // sample to recv and echo back yuv and pcm
 func main() {
 	bStop := new(bool)
@@ -160,7 +203,8 @@ func main() {
 	}
 	audioObserver := &agoraservice.AudioFrameObserver{
 		OnPlaybackAudioFrameBeforeMixing: func(localUser *agoraservice.LocalUser, channelId string, userId string, frame *agoraservice.AudioFrame, vadResulatState agoraservice.VadState, vadResultFrame *agoraservice.AudioFrame) bool {
-			// do something
+			// do something: for play a file
+			return true
 			
 			pcmQueue.Enqueue(frame)
 			//fmt.Printf("Playback audio frame before mixing, from userId %s, far :%d,rms:%d, pitch: %d\n", userId, frame.FarFieldFlag, frame.Rms, frame.Pitch)
@@ -188,6 +232,24 @@ func main() {
 
 	yuvsender := mediaNodeFactory.NewVideoFrameSender()
 	pcmsender := mediaNodeFactory.NewAudioPcmDataSender()
+
+	// open a pcm file for push
+	pcmfile, err := os.Open("../test_data/send_audio_16k_1ch.pcm")
+	if err != nil {
+		fmt.Printf("NewError opening file: %v\n", err)
+		return
+	}
+	defer pcmfile.Close()
+
+	
+
+	audioConsumer := agoraservice.NewAudioConsumer(pcmsender, 16000, 1)
+	defer audioConsumer.Release()
+	done := make(chan bool)
+
+	go ReadFileToConsumer(pcmfile, audioConsumer, 50, done)
+	go ConsumeAudio(audioConsumer, 50, done)
+
 	// create 2 rouite for process audio and video
 	audioRoutine := func() {
 		for !*bStop {
@@ -218,7 +280,7 @@ func main() {
 		fmt.Printf("VideoRoutine end\n")
 	}
 
-	go audioRoutine()
+	//go audioRoutine()
 	//go videoRoutine()
 	fmt.Printf("start audioRoutine: %v, videoRoutine: %v\n", audioRoutine, videoRoutine)
 
@@ -304,6 +366,7 @@ func main() {
 			})
 			time.Sleep(33 * time.Millisecond)
 		}
+
 	
 	// rgag colos space type test
 	
@@ -335,6 +398,7 @@ func main() {
 			})*/
 		time.Sleep(33 * time.Millisecond)
 	}
+	close(done)
 
 	//release now
 
