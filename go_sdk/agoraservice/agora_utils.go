@@ -9,6 +9,7 @@ import (
 	"os"
 	"sync"
 	"time"
+	"encoding/binary"
 )
 
 // AudioConsumer provides utility functions for the Agora SDK.
@@ -477,4 +478,32 @@ func (q *Queue) Clear() {
 	defer q.mutex.Unlock()
 
 	q.items = make([]interface{}, 0)
+}
+
+// to generate wave header
+// generate wave header, default to 16bit pcm data to wav file
+// for 16bit pcm data to wav file
+func GenerateWAVHeader(sampleRate int, channels int, pcmDataSizeInBytes int) []byte {
+	totalSize := pcmDataSizeInBytes + 36 // 数据块+36字节头
+	header := make([]byte, 44)
+
+	// RIFF块
+	copy(header[0:4], "RIFF")
+	binary.LittleEndian.PutUint32(header[4:8], uint32(totalSize))
+	copy(header[8:12], "WAVE")
+
+	// fmt子块
+	copy(header[12:16], "fmt ")
+	binary.LittleEndian.PutUint32(header[16:20], 16)                               // fmt块大小
+	binary.LittleEndian.PutUint16(header[20:22], 1)                                // PCM格式, fixed type
+	binary.LittleEndian.PutUint16(header[22:24], uint16(channels))                 // 单声道
+	binary.LittleEndian.PutUint32(header[24:28], uint32(sampleRate))               // 采样率
+	binary.LittleEndian.PutUint32(header[28:32], uint32(sampleRate*channels*16/8)) // 字节率（16000 * 1 * 16/8）
+	binary.LittleEndian.PutUint16(header[32:34], 2)                                // 块对齐（1 * 16/8）
+	binary.LittleEndian.PutUint16(header[34:36], 16)                               // 位深度
+
+	// data块
+	copy(header[36:40], "data")
+	binary.LittleEndian.PutUint32(header[40:44], uint32(pcmDataSizeInBytes))
+	return header
 }
