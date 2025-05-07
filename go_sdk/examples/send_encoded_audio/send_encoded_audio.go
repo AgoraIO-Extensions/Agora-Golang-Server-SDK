@@ -124,7 +124,7 @@ func main() {
 		},
 	}
 	audioObserver := &agoraservice.AudioFrameObserver{
-		OnPlaybackAudioFrameBeforeMixing: func(localUser *agoraservice.LocalUser, channelId string, userId string, frame *agoraservice.AudioFrame) bool {
+		OnPlaybackAudioFrameBeforeMixing: func(localUser *agoraservice.LocalUser, channelId string, userId string, frame *agoraservice.AudioFrame, vadResultStat agoraservice.VadState, vadResultFrame *agoraservice.AudioFrame) bool {
 			// do something
 			fmt.Printf("Playback audio frame before mixing, from userId %s\n", userId)
 			return true
@@ -136,7 +136,7 @@ func main() {
 	localUser := con.GetLocalUser()
 	localUser.SetPlaybackAudioFrameBeforeMixingParameters(1, 16000)
 	con.RegisterObserver(conHandler)
-	localUser.RegisterAudioFrameObserver(audioObserver)
+	localUser.RegisterAudioFrameObserver(audioObserver, 0, nil)
 
 	sender := mediaNodeFactory.NewAudioEncodedFrameSender() // .NewAudioPcmDataSender()
 	defer sender.Release()

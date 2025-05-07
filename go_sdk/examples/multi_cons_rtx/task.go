@@ -504,7 +504,7 @@ func (taskCtx *TaskContext) startTask() {
 	con.RegisterObserver(obs)
 	if cfg.recvPcm {
 		recvAudioFrameObs := &agoraservice.AudioFrameObserver{
-			OnPlaybackAudioFrameBeforeMixing: func(localUser *agoraservice.LocalUser, channelId string, userId string, frame *agoraservice.AudioFrame) bool {
+			OnPlaybackAudioFrameBeforeMixing: func(localUser *agoraservice.LocalUser, channelId string, userId string, frame *agoraservice.AudioFrame, vadResultStat agoraservice.VadState, vadResultFrame *agoraservice.AudioFrame) bool {
 				// do something
 				if cfg.enableAudioLabel {
 					fmt.Printf("task %d OnPlaybackAudioFrameBeforeMixing, from channel %s, "+
@@ -532,7 +532,7 @@ func (taskCtx *TaskContext) startTask() {
 			},
 		}
 		localUser.SetPlaybackAudioFrameBeforeMixingParameters(1, 16000)
-		localUser.RegisterAudioFrameObserver(recvAudioFrameObs)
+		localUser.RegisterAudioFrameObserver(recvAudioFrameObs, 0, nil)
 	}
 	if cfg.recvYuv {
 		recvVideoFrameObs := &agoraservice.VideoFrameObserver{
