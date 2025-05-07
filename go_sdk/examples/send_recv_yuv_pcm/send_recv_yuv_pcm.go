@@ -2,24 +2,21 @@ package main
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 	"os/signal"
 	"time"
-	"net/http"
-	_ "net/http/pprof"
 
 	agoraservice "github.com/AgoraIO-Extensions/Agora-Golang-Server-SDK/v2/go_sdk/agoraservice"
 
 	rtctokenbuilder "github.com/AgoraIO/Tools/DynamicKey/AgoraDynamicKey/go/src/rtctokenbuilder2"
 )
 
-
-
 // convert video frame to external video frame
 func ConvertVideoFrameToExternalVideoFrame(frame *agoraservice.VideoFrame) *agoraservice.ExternalVideoFrame {
 	bufsize := frame.Width * frame.Height * 3 / 2
 	ysize := frame.Width * frame.Height
-	merged := make([]byte, 0,bufsize)
+	merged := make([]byte, 0, bufsize)
 	merged = append(merged, frame.YBuffer[:ysize]...)
 	merged = append(merged, frame.UBuffer[:ysize/4]...)
 	merged = append(merged, frame.VBuffer[:ysize/4]...)
@@ -64,7 +61,6 @@ func ReadFileToConsumer(file *os.File, consumer *agoraservice.AudioConsumer, int
 	}
 }
 
-
 func ConsumeAudio(audioConsumer *agoraservice.AudioConsumer, interval int, done chan bool) {
 	for {
 		select {
@@ -77,6 +73,35 @@ func ConsumeAudio(audioConsumer *agoraservice.AudioConsumer, interval int, done 
 		}
 	}
 }
+
+// generate wave header
+// for 16bit pcm data to wav file
+/*
+func generateWAVHeader(sampleRate int, channels int, pcmDataSize int) []byte {
+	totalSize := pcmDataSize + 36 // 数据块+36字节头
+	header := make([]byte, 44)
+
+	// RIFF块
+	copy(header[0:4], "RIFF")
+	binary.LittleEndian.PutUint32(header[4:8], uint32(totalSize))
+	copy(header[8:12], "WAVE")
+
+	// fmt子块
+	copy(header[12:16], "fmt ")
+	binary.LittleEndian.PutUint32(header[16:20], 16)                               // fmt块大小
+	binary.LittleEndian.PutUint16(header[20:22], 1)                                // PCM格式, fixed type
+	binary.LittleEndian.PutUint16(header[22:24], uint16(channels))                 // 单声道
+	binary.LittleEndian.PutUint32(header[24:28], uint32(sampleRate))               // 采样率
+	binary.LittleEndian.PutUint32(header[28:32], uint32(sampleRate*channels*16/8)) // 字节率（16000 * 1 * 16/8）
+	binary.LittleEndian.PutUint16(header[32:34], 2)                                // 块对齐（1 * 16/8）
+	binary.LittleEndian.PutUint16(header[34:36], 16)                               // 位深度
+
+	// data块
+	copy(header[36:40], "data")
+	binary.LittleEndian.PutUint32(header[40:44], uint32(pcmDataSize))
+	return header
+}
+*/
 
 // sample to recv and echo back yuv and pcm
 func main() {
@@ -186,7 +211,7 @@ func main() {
 			}
 			return true
 			//fmt.Printf("recv video frame, from channel %s, user %s, type %d, width %d, height %d, stride %d, ysize %d, usize %d, vsize %d\n",channelId, userId, frame.Type, frame.Width, frame.Height, frame.YStride, len(frame.YBuffer), len(frame.UBuffer), len(frame.VBuffer))
-			
+
 			yuvQueue.Enqueue(frame)
 			frameCount++
 			Now := time.Now().UnixMilli()
@@ -197,15 +222,46 @@ func main() {
 				frameLastRecvTime = time.Now().UnixMilli()
 			}
 			// do something
-			
+
 			return true
 		},
 	}
+	audioFrameCount := 0
+	var audioWaveFile *os.File
+	var audioFileName string
+	var err error
 	audioObserver := &agoraservice.AudioFrameObserver{
 		OnPlaybackAudioFrameBeforeMixing: func(localUser *agoraservice.LocalUser, channelId string, userId string, frame *agoraservice.AudioFrame, vadResulatState agoraservice.VadState, vadResultFrame *agoraservice.AudioFrame) bool {
 			// do something: for play a file
+			if audioFrameCount == 0 {
+				// create a wave file
+				audioFileName = fmt.Sprintf("./audio_%d.wav", time.Now().UnixMilli())
+				audioWaveFile, err = os.Create(audioFileName)
+				if err != nil {
+					fmt.Printf("Failed to create file: %v\n", err)
+					return true
+				}
+				// generate wave header
+				waveHeader := agoraservice.GenerateWAVHeader(16000, 1, len(frame.Buffer))
+				audioWaveFile.Write(waveHeader)
+			}
+			audioFrameCount++
+			// write audio data to wave file
+			audioWaveFile.Write(frame.Buffer)
+			if audioFrameCount > 1000 { // indicate 1000 frames, ie 10 seconds
+				// re-generate wave header
+				waveHeader := agoraservice.GenerateWAVHeader(16000, 1, len(frame.Buffer)*audioFrameCount)
+				// seek to the beginning of the wave file
+				audioWaveFile.Seek(0, 0)
+				// write the new wave header（i.e to update the wave file size）
+				audioWaveFile.Write(waveHeader)
+				// close the wave file
+				audioFrameCount = 0
+				audioWaveFile.Close()
+			}
+
 			return true
-			
+
 			pcmQueue.Enqueue(frame)
 			//fmt.Printf("Playback audio frame before mixing, from userId %s, far :%d,rms:%d, pitch: %d\n", userId, frame.FarFieldFlag, frame.Rms, frame.Pitch)
 			return true
@@ -227,7 +283,6 @@ func main() {
 		OnUserAudioTrackStateChanged: func(localUser *agoraservice.LocalUser, uid string, remoteAudioTrack *agoraservice.RemoteAudioTrack, state int, reason int, elapsed int) {
 			fmt.Printf("OnUserAudioTrackStateChanged, uid: %s, state: %d, reason: %d, elapsed: %d\n", uid, state, reason, elapsed)
 		},
-		
 	}
 
 	yuvsender := mediaNodeFactory.NewVideoFrameSender()
@@ -240,8 +295,6 @@ func main() {
 		return
 	}
 	defer pcmfile.Close()
-
-	
 
 	audioConsumer := agoraservice.NewAudioConsumer(pcmsender, 16000, 1)
 	defer audioConsumer.Release()
@@ -257,10 +310,10 @@ func main() {
 			if AudioFrame != nil {
 				//fmt.Printf("AudioFrame: %d\n", time.Now().UnixMilli())
 				if frame, ok := AudioFrame.(*agoraservice.AudioFrame); ok {
-					frame.RenderTimeMs	 = 0
+					frame.RenderTimeMs = 0
 					ret := pcmsender.SendAudioPcmData(frame)
 					if ret != 0 {
-					fmt.Printf("Send audio pcm data failed, error code %d\n", ret)
+						fmt.Printf("Send audio pcm data failed, error code %d\n", ret)
 					}
 				}
 			}
@@ -296,7 +349,7 @@ func main() {
 	track := agoraservice.NewCustomVideoTrackFrame(yuvsender)
 
 	// step2: register audio frame observer and audio track
-	localUser.SetPlaybackAudioFrameBeforeMixingParameters(1,16000)
+	localUser.SetPlaybackAudioFrameBeforeMixingParameters(1, 16000)
 	audioTrack := agoraservice.NewCustomAudioTrackPcm(pcmsender)
 	localUser.RegisterAudioFrameObserver(audioObserver, 1, nil)
 
@@ -307,8 +360,8 @@ func main() {
 	salt := "3t6pvC+qHvVW300B3f+g5J49U3Y×QR40tWKEP/Zz+4="
 
 	encCfg := &agoraservice.EncryptionConfig{
-		EncryptionMode: 7,
-		EncryptionKey:  "oLB41X/IGpxgUMzsYpE+IOpNLOyIbpr8C7qe+mb7QRHkmrELtVsWw6Xr6rQ0XAK03fsBXJJVCkXeL2X7J492qXjR89Q=",
+		EncryptionMode:    7,
+		EncryptionKey:     "oLB41X/IGpxgUMzsYpE+IOpNLOyIbpr8C7qe+mb7QRHkmrELtVsWw6Xr6rQ0XAK03fsBXJJVCkXeL2X7J492qXjR89Q=",
 		EncryptionKdfSalt: []byte(salt),
 	}
 	encCfg.EncryptionMode = 1
@@ -336,40 +389,38 @@ func main() {
 	localUser.PublishAudio(audioTrack)
 
 	// for yuv test
-	
-		w := 352
-		h := 288
-		dataSize := w * h * 3 / 2
-		data := make([]byte, dataSize)
-		// read yuv from file 103_RaceHorses_416x240p30_300.yuv
-		file, err := os.Open("../test_data/send_video_cif.yuv")
-		if err != nil {
-			fmt.Println("Error opening file:", err)
-			return
-		}
-		defer file.Close()
 
-		for !*bStop {
-			dataLen, err := file.Read(data)
-			if err != nil || dataLen < dataSize {
-				file.Seek(0, 0)
-				continue
-			}
-			// senderCon.SendStreamMessage(streamId, data)
-			yuvsender.SendVideoFrame(&agoraservice.ExternalVideoFrame{
-				Type:      agoraservice.VideoBufferRawData,
-				Format:    agoraservice.VideoPixelI420,
-				Buffer:    data,
-				Stride:    w,
-				Height:    h,
-				Timestamp: 0,
-			})
-			time.Sleep(33 * time.Millisecond)
-		}
+	w := 352
+	h := 288
+	dataSize := w * h * 3 / 2
+	data := make([]byte, dataSize)
+	// read yuv from file 103_RaceHorses_416x240p30_300.yuv
+	file, err := os.Open("../test_data/send_video_cif.yuv")
+	if err != nil {
+		fmt.Println("Error opening file:", err)
+		return
+	}
+	defer file.Close()
 
-	
+	for !*bStop {
+		dataLen, err := file.Read(data)
+		if err != nil || dataLen < dataSize {
+			file.Seek(0, 0)
+			continue
+		}
+		// senderCon.SendStreamMessage(streamId, data)
+		yuvsender.SendVideoFrame(&agoraservice.ExternalVideoFrame{
+			Type:      agoraservice.VideoBufferRawData,
+			Format:    agoraservice.VideoPixelI420,
+			Buffer:    data,
+			Stride:    w,
+			Height:    h,
+			Timestamp: 0,
+		})
+		time.Sleep(33 * time.Millisecond)
+	}
+
 	// rgag colos space type test
-	
 
 	for !*bStop {
 		/*
