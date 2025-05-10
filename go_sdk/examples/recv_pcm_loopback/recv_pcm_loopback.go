@@ -99,41 +99,8 @@ func main() {
 		ClientRole:         agoraservice.ClientRoleBroadcaster,
 		ChannelProfile:     agoraservice.ChannelProfileLiveBroadcasting,
 	}
-	conSignal := make(chan struct{})
-	OnDisconnectedSign := make(chan struct{})
-	conHandler := &agoraservice.RtcConnectionObserver{
-		OnConnected: func(con *agoraservice.RtcConnection, info *agoraservice.RtcConnectionInfo, reason int) {
-			// do something
-			fmt.Printf("Connected, reason %d\n", reason)
-			conSignal <- struct{}{}
-		},
-		OnDisconnected: func(con *agoraservice.RtcConnection, info *agoraservice.RtcConnectionInfo, reason int) {
-			// do something
-			fmt.Printf("Disconnected, reason %d\n", reason)
-			OnDisconnectedSign <- struct{}{}
-		},
-		OnConnecting: func(con *agoraservice.RtcConnection, conInfo *agoraservice.RtcConnectionInfo, reason int) {
-			fmt.Printf("Connecting, reason %d\n", reason)
-		},
-		OnReconnecting: func(con *agoraservice.RtcConnection, conInfo *agoraservice.RtcConnectionInfo, reason int) {
-			fmt.Printf("Reconnecting, reason %d\n", reason)
-		},
-		OnReconnected: func(con *agoraservice.RtcConnection, conInfo *agoraservice.RtcConnectionInfo, reason int) {
-			fmt.Printf("Reconnected, reason %d\n", reason)
-		},
-		OnConnectionLost: func(con *agoraservice.RtcConnection, conInfo *agoraservice.RtcConnectionInfo) {
-			fmt.Printf("Connection lost\n")
-		},
-		OnConnectionFailure: func(con *agoraservice.RtcConnection, conInfo *agoraservice.RtcConnectionInfo, errCode int) {
-			fmt.Printf("Connection failure, error code %d\n", errCode)
-		},
-		OnUserJoined: func(con *agoraservice.RtcConnection, uid string) {
-			fmt.Println("user joined, " + uid)
-		},
-		OnUserLeft: func(con *agoraservice.RtcConnection, uid string, reason int) {
-			fmt.Printf("user left: %s, reason = %d\n", uid, reason)
-		},
-	}
+	conObserver := NewRtcConnectionObserverImpl()
+
 	audioObserver := &agoraservice.AudioFrameObserver{
 		OnPlaybackAudioFrameBeforeMixing: func(localUser *agoraservice.LocalUser, channelId string, userId string, frame *agoraservice.AudioFrame, vadResultState agoraservice.VadState, vadResultFrame *agoraservice.AudioFrame) bool {
 			// do something
@@ -183,7 +150,7 @@ func main() {
 		},
 	}
 
-	con.RegisterObserver(conHandler)
+	con.RegisterObserver(conObserver)
 
 	//end
 
@@ -196,7 +163,7 @@ func main() {
 	localUser := con.GetLocalUser()
 	//localUser.SetAudioScenario(agoraservice.AudioScenarioChorus)
 	con.Connect(token, channelName, userId)
-	<-conSignal
+	conObserver.WaitConnected()
 
 	localUser = con.GetLocalUser()
 	localUser.SetPlaybackAudioFrameBeforeMixingParameters(1, 16000)
@@ -209,42 +176,42 @@ func main() {
 	localUser.PublishAudio(track)
 
 	/*
-	// disalbe pre-load audio data from version 2.1.x, by wei
-	// all use build-in function for low-latency
+		// disalbe pre-load audio data from version 2.1.x, by wei
+		// all use build-in function for low-latency
 
-	frame := &agoraservice.AudioFrame{
-		Type:              agoraservice.AudioFrameTypePCM16,
-		SamplesPerChannel: 160,
-		BytesPerSample:    2,
-		Channels:          1,
-		SamplesPerSec:     16000,
-		Buffer:            make([]byte, 320),
-		RenderTimeMs:      0,
-	}
-
-	file, err := os.Open("../test_data/send_audio_16k_1ch.pcm")
-	if err != nil {
-		fmt.Println("Error opening file:", err)
-		return
-	}
-	defer file.Close()
-
-	//track.AdjustPublishVolume(100)
-
-
-	sendCount := 0
-
-	// send 180ms audio data
-	for i := 0; i < 18; i++ {
-		dataLen, err := file.Read(frame.Buffer)
-		if err != nil || dataLen < 320 {
-			fmt.Println("Finished reading file:", err)
-			break
+		frame := &agoraservice.AudioFrame{
+			Type:              agoraservice.AudioFrameTypePCM16,
+			SamplesPerChannel: 160,
+			BytesPerSample:    2,
+			Channels:          1,
+			SamplesPerSec:     16000,
+			Buffer:            make([]byte, 320),
+			RenderTimeMs:      0,
 		}
-		sendCount++
-		ret := sender.SendAudioPcmData(frame)
-		fmt.Printf("SendAudioPcmData %d ret: %d\n", sendCount, ret)
-	}
+
+		file, err := os.Open("../test_data/send_audio_16k_1ch.pcm")
+		if err != nil {
+			fmt.Println("Error opening file:", err)
+			return
+		}
+		defer file.Close()
+
+			//track.AdjustPublishVolume(100)
+
+
+			sendCount := 0
+
+			// send 180ms audio data
+			for i := 0; i < 18; i++ {
+				dataLen, err := file.Read(frame.Buffer)
+				if err != nil || dataLen < 320 {
+					fmt.Println("Finished reading file:", err)
+					break
+				}
+				sendCount++
+				ret := sender.SendAudioPcmData(frame)
+				fmt.Printf("SendAudioPcmData %d ret: %d\n", sendCount, ret)
+			}
 	*/
 
 	//added by wei for loop back
@@ -263,7 +230,7 @@ func main() {
 
 	start_disconnect := time.Now().UnixMilli()
 	con.Disconnect()
-	<-OnDisconnectedSign
+	conObserver.WaitDisconnected()
 	con.UnregisterObserver()
 
 	fmt.Printf("Disconnect, cost %d ms\n", time.Now().UnixMilli()-start_disconnect)
@@ -283,7 +250,7 @@ func main() {
 	audioObserver = nil
 	localUserObserver = nil
 	localUser = nil
-	conHandler = nil
+	conObserver = nil
 	con = nil
 
 	fmt.Printf("Disconnected, cost %d ms\n", time.Now().UnixMilli()-start_disconnect)
