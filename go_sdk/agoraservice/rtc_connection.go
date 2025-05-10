@@ -44,24 +44,24 @@ type AudioFrameObserverAudioParams struct {
 	SamplesPerCall int
 }
 
-type RtcConnectionObserver struct {
-	OnConnected                func(con *RtcConnection, conInfo *RtcConnectionInfo, reason int)
-	OnDisconnected             func(con *RtcConnection, conInfo *RtcConnectionInfo, reason int)
-	OnConnecting               func(con *RtcConnection, conInfo *RtcConnectionInfo, reason int)
-	OnReconnecting             func(con *RtcConnection, conInfo *RtcConnectionInfo, reason int)
-	OnReconnected              func(con *RtcConnection, conInfo *RtcConnectionInfo, reason int)
-	OnConnectionLost           func(con *RtcConnection, conInfo *RtcConnectionInfo)
-	OnConnectionFailure        func(con *RtcConnection, conInfo *RtcConnectionInfo, errCode int)
-	OnTokenPrivilegeWillExpire func(con *RtcConnection, token string)
-	OnTokenPrivilegeDidExpire  func(con *RtcConnection)
-	OnUserJoined               func(con *RtcConnection, uid string)
-	OnUserLeft                 func(con *RtcConnection, uid string, reason int)
-	OnError                    func(con *RtcConnection, err int, msg string)
-	OnStreamMessageError       func(con *RtcConnection, uid string, streamId int, errCode int, missed int, cached int)
-	OnEncryptionError          func(con *RtcConnection, err int)
+type RtcConnectionObserver interface {
+	OnConnected(con *RtcConnection, conInfo *RtcConnectionInfo, reason int)
+	OnDisconnected(con *RtcConnection, conInfo *RtcConnectionInfo, reason int)
+	OnConnecting(con *RtcConnection, conInfo *RtcConnectionInfo, reason int)
+	OnReconnecting(con *RtcConnection, conInfo *RtcConnectionInfo, reason int)
+	OnReconnected(con *RtcConnection, conInfo *RtcConnectionInfo, reason int)
+	OnConnectionLost(con *RtcConnection, conInfo *RtcConnectionInfo)
+	OnConnectionFailure(con *RtcConnection, conInfo *RtcConnectionInfo, errCode int)
+	OnTokenPrivilegeWillExpire(con *RtcConnection, token string)
+	OnTokenPrivilegeDidExpire(con *RtcConnection)
+	OnUserJoined(con *RtcConnection, uid string)
+	OnUserLeft(con *RtcConnection, uid string, reason int)
+	OnError(con *RtcConnection, err int, msg string)
+	OnStreamMessageError(con *RtcConnection, uid string, streamId int, errCode int, missed int, cached int)
+	OnEncryptionError(con *RtcConnection, err int)
 }
 
-//struct for local audio track statistics
+// struct for local audio track statistics
 type LocalAudioTrackStats struct {
 	/**
 	 * The number of channels.
@@ -145,106 +145,104 @@ type RemoteAudioTrackStats struct {
 	 * The total publish duration (ms) of the remote audio stream.
 	 */
 	PublishDuration int
-  }
-  type LocalVideoTrackStats struct {
-	NumberOfStreams uint64
-	BytesMajorStream uint64
-	BytesMinorStream uint64
-	FramesEncoded uint32
-	SSRCMajorStream uint32
-	SSRCMinorStream uint32
-	CaptureFrameRate int
+}
+type LocalVideoTrackStats struct {
+	NumberOfStreams           uint64
+	BytesMajorStream          uint64
+	BytesMinorStream          uint64
+	FramesEncoded             uint32
+	SSRCMajorStream           uint32
+	SSRCMinorStream           uint32
+	CaptureFrameRate          int
 	RegulatedCaptureFrameRate int
-	InputFrameRate int
-	EncodeFrameRate int
-	RenderFrameRate int
-	TargetMediaBitrateBps int
-	MediaBitrateBps int
-	TotalBitrateBps int
-	CaptureWidth int
-	CaptureHeight int
-	RegulatedCaptureWidth int
-	RegulatedCaptureHeight int
+	InputFrameRate            int
+	EncodeFrameRate           int
+	RenderFrameRate           int
+	TargetMediaBitrateBps     int
+	MediaBitrateBps           int
+	TotalBitrateBps           int
+	CaptureWidth              int
+	CaptureHeight             int
+	RegulatedCaptureWidth     int
+	RegulatedCaptureHeight    int
+	Width                     int
+	Height                    int
+	EncoderType               uint32
+	UplinkCostTimeMs          int
+	QualityAdaptIndication    int
+}
+
+type RemoteVideoTrackStats struct {
+	/**
+	  User ID of the remote user sending the video streams.
+	*/
+	Uid uint
+	/** **DEPRECATED** Time delay (ms).
+	 */
+	Delay int
+	/**
+	  Width (pixels) of the video stream.
+	*/
 	Width int
+	/**
+	Height (pixels) of the video stream.
+	*/
 	Height int
-	EncoderType uint32
-	UplinkCostTimeMs int
-	QualityAdaptIndication int
-  } 
-  
-  
-  type RemoteVideoTrackStats struct {
-	  /**
-	   User ID of the remote user sending the video streams.
-	   */
-	  Uid uint
-	  /** **DEPRECATED** Time delay (ms).
-   */
-	  Delay int
-	  /**
-	   Width (pixels) of the video stream.
-	   */
-	  Width int
-	  /**
-	 Height (pixels) of the video stream.
+	/**
+	Bitrate (Kbps) received since the last count.
+	*/
+	ReceivedBitrate int
+	/** The decoder output frame rate (fps) of the remote video.
 	 */
-	  Height int
-	  /**
-	 Bitrate (Kbps) received since the last count.
+	DecoderOutputFrameRate int
+	/** The render output frame rate (fps) of the remote video.
 	 */
-	  ReceivedBitrate int
-	  /** The decoder output frame rate (fps) of the remote video.
-	   */
-	  DecoderOutputFrameRate int
-	  /** The render output frame rate (fps) of the remote video.
-	   */
-	  RendererOutputFrameRate int
-	  /** The video frame loss rate (%) of the remote video stream in the reported interval.
+	RendererOutputFrameRate int
+	/** The video frame loss rate (%) of the remote video stream in the reported interval.
 	 */
-	  FrameLossRate int
-	  /** Packet loss rate (%) of the remote video stream after using the anti-packet-loss method.
-	   */
-	  PacketLossRate int
-	  RxStreamType int
-	  /**
-	   The total freeze time (ms) of the remote video stream after the remote user joins the channel.
-	   In a video session where the frame rate is set to no less than 5 fps, video freeze occurs when
-	   the time interval between two adjacent renderable video frames is more than 500 ms.
-	   */
-	  TotalFrozenTime int
-	  /**
-	   The total video freeze time as a percentage (%) of the total time when the video is available.
-	   */
-	  FrozenRate int
-	  /**
-	   The total video decoded frames.
-	   */
-	  TotalDecodedFrames uint32
-	  /**
+	FrameLossRate int
+	/** Packet loss rate (%) of the remote video stream after using the anti-packet-loss method.
+	 */
+	PacketLossRate int
+	RxStreamType   int
+	/**
+	  The total freeze time (ms) of the remote video stream after the remote user joins the channel.
+	  In a video session where the frame rate is set to no less than 5 fps, video freeze occurs when
+	  the time interval between two adjacent renderable video frames is more than 500 ms.
+	*/
+	TotalFrozenTime int
+	/**
+	  The total video freeze time as a percentage (%) of the total time when the video is available.
+	*/
+	FrozenRate int
+	/**
+	  The total video decoded frames.
+	*/
+	TotalDecodedFrames uint32
+	/**
 	   The offset (ms) between audio and video stream. A positive value indicates the audio leads the
 	  video, and a negative value indicates the audio lags the video.
-	  */
-	  AvSyncTimeMs int
-	  /**
+	*/
+	AvSyncTimeMs int
+	/**
 	   The average offset(ms) between receive first packet which composite the frame and  the frame
 	  ready to render.
-	  */
-	  DownlinkProcessTimeMs int
-	  /**
-	   The average time cost in renderer.
-	  */
-	  FrameRenderDelayMs int
-	  /**
+	*/
+	DownlinkProcessTimeMs int
+	/**
+	  The average time cost in renderer.
+	*/
+	FrameRenderDelayMs int
+	/**
 	   The total time (ms) when the remote user neither stops sending the video
 	  stream nor disables the video module after joining the channel.
-	  */
-	  TotalActiveTime uint64
-	  /**
-	   The total publish duration (ms) of the remote video stream.
-	  */
-	  PublishDuration uint64
-  }
-  
+	*/
+	TotalActiveTime uint64
+	/**
+	  The total publish duration (ms) of the remote video stream.
+	*/
+	PublishDuration uint64
+}
 
 type LocalUserObserver struct {
 	OnStreamMessage func(localUser *LocalUser, uid string, streamId int, data []byte)
@@ -263,12 +261,12 @@ type LocalUserObserver struct {
 	//  void (*on_audio_publish_state_changed)(AGORA_HANDLE agora_local_user, const char* channel, int old_state, int new_state, int elapse_since_last_state);
 	OnAudioPublishStateChanged func(localUser *LocalUser, channelId string, oldState int, newState int, elapsed int)
 	OnAudioVolumeIndication    func(localUser *LocalUser, audioVolumeInfo []*AudioVolumeInfo, speakerNumber int, totalVolume int)
-	OnAudioMetaDataReceived    func(localUser *LocalUser, uid string, metaData []byte)	
+	OnAudioMetaDataReceived    func(localUser *LocalUser, uid string, metaData []byte)
 	// for version 2.2.2
-	OnLocalAudioTrackStatistics func(localUser *LocalUser, stats *LocalAudioTrackStats)
+	OnLocalAudioTrackStatistics  func(localUser *LocalUser, stats *LocalAudioTrackStats)
 	OnRemoteAudioTrackStatistics func(localUser *LocalUser, uid string, stats *RemoteAudioTrackStats)
-	OnLocalVideoTrackStatistics func(localUser *LocalUser, stats *LocalVideoTrackStats)
-	OnRemoteVideoTrackStatistics func(localUser *LocalUser, uid string, stats *RemoteVideoTrackStats)	
+	OnLocalVideoTrackStatistics  func(localUser *LocalUser, stats *LocalVideoTrackStats)
+	OnRemoteVideoTrackStatistics func(localUser *LocalUser, uid string, stats *RemoteVideoTrackStats)
 }
 
 type AudioFrameObserver struct {
@@ -358,7 +356,7 @@ type RtcConnection struct {
 	parameter   *AgoraParameter
 	// cLocalUser  unsafe.Pointer
 	// subAudioConfig     *SubscribeAudioConfig
-	handler               *RtcConnectionObserver
+	handler               RtcConnectionObserver
 	cHandler              *C.struct__rtc_conn_observer
 	localUserObserver     *LocalUserObserver
 	cLocalUserObserver    *C.struct__local_user_observer
@@ -372,8 +370,8 @@ type RtcConnection struct {
 	// remoteVideoRWMutex          *sync.RWMutex
 	// remoteEncodedVideoReceivers map[*VideoEncodedImageReceiver]*videoEncodedImageReceiverInner
 	// vad related for the connection
-	enableVad         int
-	audioVadManager  *AudioVadManager
+	enableVad       int
+	audioVadManager *AudioVadManager
 }
 
 func NewRtcConnection(cfg *RtcConnectionConfig) *RtcConnection {
@@ -390,7 +388,7 @@ func NewRtcConnection(cfg *RtcConnectionConfig) *RtcConnection {
 		encodedVideoObserver: nil,
 		// remoteVideoRWMutex:          &sync.RWMutex{},
 		// remoteEncodedVideoReceivers: make(map[*VideoEncodedImageReceiver]*videoEncodedImageReceiverInner),
-		enableVad: 0,
+		enableVad:       0,
 		audioVadManager: nil,
 	}
 	ret.localUser = &LocalUser{
@@ -406,8 +404,8 @@ func NewRtcConnection(cfg *RtcConnectionConfig) *RtcConnection {
 	}
 
 	// for stero encoding mode
-	if agoraService.isSteroEncodeMode  {
-	    ret.enableSteroEncodeMode()
+	if agoraService.isSteroEncodeMode {
+		ret.enableSteroEncodeMode()
 	}
 
 	// save to sync map
@@ -569,7 +567,7 @@ func (conn *RtcConnection) SendStreamMessage(streamId int, msg []byte) int {
 	return int(C.agora_rtc_conn_send_stream_message(conn.cConnection, C.int(streamId), (*C.char)(cMsg), C.uint32_t(len(msg))))
 }
 
-func (conn *RtcConnection) RegisterObserver(handler *RtcConnectionObserver) int {
+func (conn *RtcConnection) RegisterObserver(handler RtcConnectionObserver) int {
 	if conn.cConnection == nil || handler == nil {
 		return -1
 	}
@@ -653,7 +651,7 @@ func (conn *RtcConnection) registerAudioFrameObserver(observer *AudioFrameObserv
 	conn.enableVad = enableVad
 	if conn.enableVad > 0 && vadConfigure != nil {
 		conn.audioVadManager = NewAudioVadManager(vadConfigure)
-	} 
+	}
 
 	conn.audioObserver = observer
 	if conn.cAudioObserver == nil {
@@ -679,7 +677,7 @@ func (conn *RtcConnection) unregisterAudioFrameObserver() int {
 		conn.audioVadManager.Release()
 		conn.audioVadManager = nil
 	}
-	
+
 	conn.enableVad = 0
 	return 0
 }
@@ -759,10 +757,11 @@ func (conn *RtcConnection) unregisterVideoEncodedFrameObserver() int {
 	conn.encodedVideoObserver = nil
 	return 0
 }
+
 /*
 * for stero encoded audio mode
 * Must be called before con.connect
-*/
+ */
 func (conn *RtcConnection) enableSteroEncodeMode() int {
 	if conn.cConnection == nil {
 		return -1
@@ -782,13 +781,15 @@ func (conn *RtcConnection) enableSteroEncodeMode() int {
 	agoraParameterHandler.SetParameters("{\"che.audio.custom_payload_type\":78}")
 	agoraParameterHandler.SetParameters("{\"che.audio.custom_bitrate\":128000}")
 	return 0
-    
+
 }
+
 type EncryptionConfig struct {
-	EncryptionMode int
-	EncryptionKey string
+	EncryptionMode    int
+	EncryptionKey     string
 	EncryptionKdfSalt []byte
 }
+
 // EnableEncryption enables or disables encryption for the RTC connection.
 // It sets the encryption mode and configuration for the connection.
 // Must be called before RtcConnection.Connect
@@ -796,7 +797,7 @@ type EncryptionConfig struct {
 // Parameters:
 // - enable: An integer indicating whether to enable (1) or disable (0) encryption.
 // - config: A pointer to an EncryptionConfig struct containing the encryption configuration.
-// 
+//
 // Returns:
 // - An integer indicating the result of the operation. 0 indicates success, and negative value indicates failure.
 func (conn *RtcConnection) EnableEncryption(enable int, config *EncryptionConfig) int {
