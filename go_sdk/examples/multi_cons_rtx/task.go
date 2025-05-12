@@ -90,7 +90,7 @@ func (globalCtx *GlobalContext) newTask(id int, cfg *TaskConfig) *TaskContext {
 	return taskCtx
 }
 
-func (taskCtx *TaskContext) sendPcm() {
+func (taskCtx *TaskContext) sendPcm(filePath string) {
 	ctx := taskCtx.ctx
 	audioTrack := taskCtx.audioTrack
 	pcmSender := taskCtx.audioPcmSender
@@ -116,7 +116,7 @@ func (taskCtx *TaskContext) sendPcm() {
 		RenderTimeMs:      0,
 	}
 
-	file, err := os.Open(SendPcmPath)
+	file, err := os.Open(filePath)
 	if err != nil {
 		fmt.Printf("task %d Error opening file: %s\n", taskCtx.id, err.Error())
 		return
@@ -156,7 +156,7 @@ func (taskCtx *TaskContext) sendPcm() {
 	}
 }
 
-func (taskCtx *TaskContext) sendEncodedAudio() {
+func (taskCtx *TaskContext) sendEncodedAudio(filePath string) {
 	ctx := taskCtx.ctx
 	encodedAudioTrack := taskCtx.encodedAudioTrack
 	encodedAudioSender := taskCtx.encodedAudioSender
@@ -170,7 +170,7 @@ func (taskCtx *TaskContext) sendEncodedAudio() {
 	// 	encodedAudioTrack.SetEnabled(false)
 	// }()
 
-	pFormatContext := openMediaFile(SendEncodedAudioPath)
+	pFormatContext := openMediaFile(filePath)
 	if pFormatContext == nil {
 		fmt.Printf("task %d Failed to open media file\n", taskCtx.id)
 		return
@@ -228,7 +228,7 @@ func (taskCtx *TaskContext) sendEncodedAudio() {
 	}
 }
 
-func (taskCtx *TaskContext) sendYuv() {
+func (taskCtx *TaskContext) sendYuv(filePath string) {
 	ctx := taskCtx.ctx
 	videoTrack := taskCtx.videoTrack
 	yuvSender := taskCtx.videoYuvSender
@@ -257,7 +257,7 @@ func (taskCtx *TaskContext) sendYuv() {
 	dataSize := w * h * 3 / 2
 	data := make([]byte, dataSize)
 	// read yuv from file 103_RaceHorses_416x240p30_300.yuv
-	file, err := os.Open(SendYuvPath)
+	file, err := os.Open(filePath)
 	if err != nil {
 		fmt.Printf("task %d Error opening file: %s\n", taskCtx.id, err.Error())
 		return
@@ -290,7 +290,7 @@ func (taskCtx *TaskContext) sendYuv() {
 	}
 }
 
-func (taskCtx *TaskContext) sendEncodedVideo() {
+func (taskCtx *TaskContext) sendEncodedVideo(filePath string) {
 	ctx := taskCtx.ctx
 	encodedVideoTrack := taskCtx.encodedVideoTrack
 	encodedVideoSender := taskCtx.encodedVideoSender
@@ -304,7 +304,7 @@ func (taskCtx *TaskContext) sendEncodedVideo() {
 	// 	encodedVideoTrack.SetEnabled(false)
 	// }()
 
-	pFormatContext := openMediaFile(SendEncodedVideoPath)
+	pFormatContext := openMediaFile(filePath)
 	if pFormatContext == nil {
 		fmt.Printf("task %d Failed to open media file\n", taskCtx.id)
 		return
@@ -452,10 +452,17 @@ func (taskCtx *TaskContext) startTask() {
 		},
 	}
 	// senderLocalUserObs := &agoraservice.LocalUserObserver{}
+	var role agoraservice.ClientRole
+	if cfg.role {
+		role = agoraservice.ClientRoleBroadcaster
+	} else {
+		role = agoraservice.ClientRoleAudience
+	}
+
 	con := agoraservice.NewRtcConnection(&agoraservice.RtcConnectionConfig{
 		AutoSubscribeAudio: cfg.recvPcm,
 		AutoSubscribeVideo: cfg.recvYuv || cfg.recvEncodedVideo,
-		ClientRole:         agoraservice.ClientRoleBroadcaster,
+		ClientRole:         role,//agoraservice.ClientRoleBroadcaster,
 		ChannelProfile:     agoraservice.ChannelProfileLiveBroadcasting,
 	})
 	taskCtx.con = con
@@ -614,7 +621,7 @@ func (taskCtx *TaskContext) startTask() {
 		waitGroup.Add(1)
 		go func() {
 			defer waitGroup.Done()
-			taskCtx.sendPcm()
+			taskCtx.sendPcm(cfg.pcmFilePath)
 		}()
 	}
 
@@ -623,7 +630,7 @@ func (taskCtx *TaskContext) startTask() {
 		waitGroup.Add(1)
 		go func() {
 			defer waitGroup.Done()
-			taskCtx.sendEncodedAudio()
+			taskCtx.sendEncodedAudio(cfg.encodedAudioFilePath)
 		}()
 	}
 
@@ -632,7 +639,7 @@ func (taskCtx *TaskContext) startTask() {
 		waitGroup.Add(1)
 		go func() {
 			defer waitGroup.Done()
-			taskCtx.sendYuv()
+			taskCtx.sendYuv(cfg.yuvFilePath)
 		}()
 	}
 
@@ -641,7 +648,7 @@ func (taskCtx *TaskContext) startTask() {
 		waitGroup.Add(1)
 		go func() {
 			defer waitGroup.Done()
-			taskCtx.sendEncodedVideo()
+			taskCtx.sendEncodedVideo(cfg.encodedVideoFilePath)
 		}()
 	}
 

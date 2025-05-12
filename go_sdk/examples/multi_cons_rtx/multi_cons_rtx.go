@@ -50,6 +50,11 @@ type TaskConfig struct {
 	dumpEncodedVideo bool
 
 	taskTime int64
+	pcmFilePath      string
+	encodedAudioFilePath string
+	yuvFilePath          string
+	encodedVideoFilePath string
+	role                 bool
 }
 
 func (globalCtx *GlobalContext) genToken(channelName string, userId string) (string, error) {
@@ -134,9 +139,62 @@ func main() {
 
 		taskCount = flag.Int("taskCount", 1, "Task count")
 		randTask  = flag.Bool("randTask", false, "Enable Randomly restart task")
+
+		// role
+		role        = flag.Bool("role", true, "Descprtion: true for host, false for client")
+		// pcm file path
+		pcmFilePath = flag.String("pcmFilePath", "", "Descprtion: Pcm file path")
+		// encoded audio file path
+		encodedAudioFilePath = flag.String("encodedAudioFilePath", "", "Descprtion: Encoded audio file path")
+		// yuv file path
+		yuvFilePath = flag.String("yuvFilePath", "", "Descprtion: Yuv file path")
+		// encoded video file path
+		encodedVideoFilePath = flag.String("encodedVideoFilePath", "", "Descprtion: Encoded video file path")	
 	)
 
 	flag.Parse()
+	
+	fmt.Println("channelName:", *channelName)
+	fmt.Println("sendYuv:", *sendYuv)
+	fmt.Println("sendEncodedVideo:", *sendEncodedVideo)
+	fmt.Println("sendPcm:", *sendPcm)
+	fmt.Println("sendEncodedAudio:", *sendEncodedAudio)
+	fmt.Println("sendData:", *sendData)
+	fmt.Println("enableAudioLabel:", *enableAudioLabel)
+	fmt.Println("recvYuv:", *recvYuv)
+	fmt.Println("recvEncodedVideo:", *recvEncodedVideo)
+	fmt.Println("recvPcm:", *recvPcm)
+	fmt.Println("recvData:", *recvData)
+	fmt.Println("dumpPcm:", *dumpPcm)
+	fmt.Println("dumpYuv:", *dumpYuv)
+	fmt.Println("dumpEncodedVideo:", *dumpEncodedVideo)
+	fmt.Println("taskCount:", *taskCount)
+	fmt.Println("randTask:", *randTask)
+	fmt.Println("role:", *role)
+	fmt.Println("pcmFilePath:", *pcmFilePath)
+	fmt.Println("encodedAudioFilePath:", *encodedAudioFilePath)
+	fmt.Println("yuvFilePath:", *yuvFilePath)
+	fmt.Println("encodedVideoFilePath:", *encodedVideoFilePath)
+
+	//validity check
+	if *sendYuv && *yuvFilePath == "" {
+		fmt.Println("yuvFilePath is required when sendYuv is true")
+		return
+	}
+	if *sendEncodedVideo && *encodedVideoFilePath == "" {
+		fmt.Println("encodedVideoFilePath is required when sendEncodedVideo is true")
+		return
+	}
+	if *sendPcm && *pcmFilePath == "" {
+		fmt.Println("pcmFilePath is required when sendPcm is true")
+		return
+	}	
+	if *sendEncodedAudio && *encodedAudioFilePath == "" {
+		fmt.Println("encodedAudioFilePath is required when sendEncodedAudio is true")
+		return
+	}
+	
+	
 
 	globalCtx := globalInit()
 	if globalCtx == nil {
@@ -166,6 +224,11 @@ func main() {
 		dumpPcm:          *dumpPcm,
 		dumpYuv:          *dumpYuv,
 		dumpEncodedVideo: *dumpEncodedVideo,
+		pcmFilePath:      *pcmFilePath,
+		encodedAudioFilePath: *encodedAudioFilePath,
+		yuvFilePath: *yuvFilePath,
+		encodedVideoFilePath: *encodedVideoFilePath,
+		role:             *role,
 	}
 	for i := 0; i < *taskCount; i++ {
 		globalCtx.waitTasks.Add(1)
