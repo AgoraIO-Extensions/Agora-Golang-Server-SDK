@@ -414,7 +414,7 @@ func (taskCtx *TaskContext) startTask() {
 	cfg := taskCtx.cfg
 
 	var channelName string
-	if cfg.role == true {  // for broadcaster
+	if cfg.role == 1 {  // for broadcaster
 		channelName = fmt.Sprintf("%s%d", globalCtx.channelNamePrefix, id)
 	} else {
 		channelName = globalCtx.channelNamePrefix
@@ -489,7 +489,7 @@ func (taskCtx *TaskContext) startTask() {
 	}
 	// senderLocalUserObs := &agoraservice.LocalUserObserver{}
 	var role agoraservice.ClientRole
-	if cfg.role {
+	if cfg.role == 1 {
 		role = agoraservice.ClientRoleBroadcaster
 	} else {
 		role = agoraservice.ClientRoleAudience
@@ -530,7 +530,7 @@ func (taskCtx *TaskContext) startTask() {
 		taskCtx.encodedVideoTrack = agoraservice.NewCustomVideoTrackEncoded(taskCtx.encodedVideoSender, &agoraservice.VideoEncodedImageSenderOptions{
 			CcMode:        agoraservice.VideoSendCcDisabled,
 			CodecType:     agoraservice.VideoCodecTypeH264,
-			TargetBitrate: 500,
+			TargetBitrate: cfg.sendVideoBitrate,
 		})
 		// defer taskCtx.encodedVideoTrack.Release()
 	}

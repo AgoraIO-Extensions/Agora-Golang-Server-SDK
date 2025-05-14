@@ -54,7 +54,7 @@ type TaskConfig struct {
 	encodedAudioFilePath string
 	yuvFilePath          string
 	encodedVideoFilePath string
-	role                 bool
+	role                 int
 	sendVideoFps         int
 	sendVideoMinBitrate int
 	sendVideoBitrate     int
@@ -146,7 +146,7 @@ func main() {
 		randTask  = flag.Bool("randTask", false, "Enable Randomly restart task")
 
 		// role
-		role        = flag.Bool("role", true, "Descprtion: true for host, false for client")
+		role        = flag.Int("role", 1, "Descprtion: 1 for host, 0 for client")
 		// pcm file path
 		pcmFilePath = flag.String("pcmFilePath", "", "Descprtion: Pcm file path")
 		// encoded audio file path
