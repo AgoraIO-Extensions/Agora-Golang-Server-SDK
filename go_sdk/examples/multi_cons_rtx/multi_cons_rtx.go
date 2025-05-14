@@ -158,8 +158,8 @@ func main() {
 
 		// send video parameter: fps, min bitrate, bitrate
 		sendVideoFps = flag.Int("sendVideoFps", 15, "Descprtion: Send video fps")
-		sendVideoMinBitrate = flag.Int("sendVideoMinBitrate", 100000, "Descprtion: Send video min bitrate")
-		sendVideoBitrate = flag.Int("sendVideoBitrate", 200000, "Descprtion: Send video bitrate")
+		sendVideoMinBitrate = flag.Int("sendVideoMinBitrate", 100, "Descprtion: Send video min bitrate")
+		sendVideoBitrate = flag.Int("sendVideoBitrate", 500, "Descprtion: Send video bitrate")
 		sendYuvWidth = flag.Int("sendYuvWidth", 640, "Descprtion: Send yuv width")
 		sendYuvHeight = flag.Int("sendYuvHeight", 360, "Descprtion: Send yuv height")
 	)
