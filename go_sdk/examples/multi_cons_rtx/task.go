@@ -646,8 +646,8 @@ func (taskCtx *TaskContext) startTask() {
 
 	select {
 	case <-conSignal:
-	case <-time.After(5 * time.Second):
-		fmt.Printf("task %d failed to connect\n", id)
+	case <-time.After(25 * time.Second):
+		fmt.Printf("task %d failed to connect after 25 seconds\n", id)
 		return
 	}
 
