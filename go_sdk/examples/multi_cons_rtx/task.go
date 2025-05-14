@@ -42,12 +42,12 @@ type TaskContext struct {
 }
 
 const (
-	SendPcmPath          = "../test_data/send_audio_16k_1ch.pcm"
-	SendYuvWidth         = 640
-	SendYuvHeight        = 360
-	SendYuvFps           = 15
-	SendYuvBitrate       = 500
-	SendYuvMinBitrate    = 100
+	SendPcmPath = "../test_data/send_audio_16k_1ch.pcm"
+	//SendYuvWidth         = 640
+	//SendYuvHeight        = 360
+	//SendYuvFps           = 15
+	//SendYuvBitrate       = 500
+	//SendYuvMinBitrate    = 100
 	SendYuvPath          = "../test_data/360p_I420.yuv"
 	SendEncodedAudioPath = "../test_data/send_audio_16k.aac"
 	SendEncodedVideoPath = "../test_data/send_video.h264"
@@ -90,7 +90,7 @@ func (globalCtx *GlobalContext) newTask(id int, cfg *TaskConfig) *TaskContext {
 	return taskCtx
 }
 
-func (taskCtx *TaskContext) sendPcm(filePath string) {
+func (taskCtx *TaskContext) sendPcm(taskCfg *TaskConfig) {
 	ctx := taskCtx.ctx
 	audioTrack := taskCtx.audioTrack
 	pcmSender := taskCtx.audioPcmSender
@@ -115,6 +115,7 @@ func (taskCtx *TaskContext) sendPcm(filePath string) {
 		Buffer:            make([]byte, 320),
 		RenderTimeMs:      0,
 	}
+	filePath := taskCfg.pcmFilePath
 
 	if filePath == "" {
 		fmt.Printf("task %d No pcm file\n", taskCtx.id)
@@ -161,7 +162,7 @@ func (taskCtx *TaskContext) sendPcm(filePath string) {
 	}
 }
 
-func (taskCtx *TaskContext) sendEncodedAudio(filePath string) {
+func (taskCtx *TaskContext) sendEncodedAudio(taskCfg *TaskConfig) {
 	ctx := taskCtx.ctx
 	encodedAudioTrack := taskCtx.encodedAudioTrack
 	encodedAudioSender := taskCtx.encodedAudioSender
@@ -175,6 +176,7 @@ func (taskCtx *TaskContext) sendEncodedAudio(filePath string) {
 	// 	encodedAudioTrack.SetEnabled(false)
 	// }()
 
+	filePath := taskCfg.encodedAudioFilePath
 	if filePath == "" {
 		fmt.Printf("task %d No encoded audio file\n", taskCtx.id)
 		filePath = SendEncodedAudioPath
@@ -238,7 +240,7 @@ func (taskCtx *TaskContext) sendEncodedAudio(filePath string) {
 	}
 }
 
-func (taskCtx *TaskContext) sendYuv(filePath string) {
+func (taskCtx *TaskContext) sendYuv(taskCfg *TaskConfig) {
 	ctx := taskCtx.ctx
 	videoTrack := taskCtx.videoTrack
 	yuvSender := taskCtx.videoYuvSender
@@ -246,11 +248,11 @@ func (taskCtx *TaskContext) sendYuv(filePath string) {
 
 	videoTrack.SetVideoEncoderConfiguration(&agoraservice.VideoEncoderConfiguration{
 		CodecType:         agoraservice.VideoCodecTypeH264,
-		Width:             SendYuvWidth,
-		Height:            SendYuvHeight,
-		Framerate:         SendYuvFps,
-		Bitrate:           SendYuvBitrate,
-		MinBitrate:        SendYuvMinBitrate,
+		Width:             taskCfg.sendYuvWidth,
+		Height:            taskCfg.sendYuvHeight,
+		Framerate:         taskCfg.sendVideoFps,
+		Bitrate:           taskCfg.sendVideoBitrate,
+		MinBitrate:        taskCfg.sendVideoMinBitrate,
 		OrientationMode:   agoraservice.OrientationModeAdaptive,
 		DegradePreference: 0,
 	})
@@ -262,13 +264,14 @@ func (taskCtx *TaskContext) sendYuv(filePath string) {
 	// 	videoTrack.SetEnabled(false)
 	// }()
 
+	filePath := taskCfg.yuvFilePath
 	if filePath == "" {
 		fmt.Printf("task %d No yuv file\n", taskCtx.id)
 		filePath = SendYuvPath
 	}
 
-	w := SendYuvWidth
-	h := SendYuvHeight
+	w := taskCfg.sendYuvWidth
+	h := taskCfg.sendYuvHeight
 	dataSize := w * h * 3 / 2
 	data := make([]byte, dataSize)
 	// read yuv from file 103_RaceHorses_416x240p30_300.yuv
@@ -279,7 +282,10 @@ func (taskCtx *TaskContext) sendYuv(filePath string) {
 	}
 	defer file.Close()
 
-	ticker := time.NewTicker((1000 / SendYuvFps) * time.Millisecond)
+	iterval := 1000 / taskCfg.sendVideoFps
+	fmt.Println("iterval:", iterval)
+
+	ticker := time.NewTicker(time.Duration(iterval) * time.Millisecond)
 	defer ticker.Stop()
 	for {
 		select {
@@ -305,7 +311,7 @@ func (taskCtx *TaskContext) sendYuv(filePath string) {
 	}
 }
 
-func (taskCtx *TaskContext) sendEncodedVideo(filePath string) {
+func (taskCtx *TaskContext) sendEncodedVideo(taskCfg *TaskConfig) {
 	ctx := taskCtx.ctx
 	encodedVideoTrack := taskCtx.encodedVideoTrack
 	encodedVideoSender := taskCtx.encodedVideoSender
@@ -319,6 +325,7 @@ func (taskCtx *TaskContext) sendEncodedVideo(filePath string) {
 	// 	encodedVideoTrack.SetEnabled(false)
 	// }()
 
+	filePath := taskCfg.encodedVideoFilePath
 	if filePath == "" {
 		fmt.Printf("task %d No encoded video file\n", taskCtx.id)
 		filePath = SendEncodedVideoPath
@@ -402,7 +409,9 @@ func (taskCtx *TaskContext) startTask() {
 	taskCtx.ctx = globalCtx.ctx
 	// defer globalCtx.waitTasks.Done()
 
-	channelName := fmt.Sprintf("%s%d", globalCtx.channelNamePrefix, id)
+	// channelName := fmt.Sprintf("%s%d", globalCtx.channelNamePrefix, id)
+	//change channelName to fixed value
+	channelName := globalCtx.channelNamePrefix
 	senderId := "0"
 	token1, err1 := globalCtx.genToken(channelName, senderId)
 	if err1 != nil {
@@ -482,7 +491,7 @@ func (taskCtx *TaskContext) startTask() {
 	con := agoraservice.NewRtcConnection(&agoraservice.RtcConnectionConfig{
 		AutoSubscribeAudio: cfg.recvPcm,
 		AutoSubscribeVideo: cfg.recvYuv || cfg.recvEncodedVideo,
-		ClientRole:         role,//agoraservice.ClientRoleBroadcaster,
+		ClientRole:         role, //agoraservice.ClientRoleBroadcaster,
 		ChannelProfile:     agoraservice.ChannelProfileLiveBroadcasting,
 	})
 	taskCtx.con = con
@@ -641,7 +650,7 @@ func (taskCtx *TaskContext) startTask() {
 		waitGroup.Add(1)
 		go func() {
 			defer waitGroup.Done()
-			taskCtx.sendPcm(cfg.pcmFilePath)
+			taskCtx.sendPcm(cfg)
 		}()
 	}
 
@@ -650,7 +659,7 @@ func (taskCtx *TaskContext) startTask() {
 		waitGroup.Add(1)
 		go func() {
 			defer waitGroup.Done()
-			taskCtx.sendEncodedAudio(cfg.encodedAudioFilePath)
+			taskCtx.sendEncodedAudio(cfg)
 		}()
 	}
 
@@ -659,7 +668,7 @@ func (taskCtx *TaskContext) startTask() {
 		waitGroup.Add(1)
 		go func() {
 			defer waitGroup.Done()
-			taskCtx.sendYuv(cfg.yuvFilePath)
+			taskCtx.sendYuv(cfg)
 		}()
 	}
 
@@ -668,7 +677,7 @@ func (taskCtx *TaskContext) startTask() {
 		waitGroup.Add(1)
 		go func() {
 			defer waitGroup.Done()
-			taskCtx.sendEncodedVideo(cfg.encodedVideoFilePath)
+			taskCtx.sendEncodedVideo(cfg)
 		}()
 	}
 

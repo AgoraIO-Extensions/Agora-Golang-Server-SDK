@@ -55,6 +55,11 @@ type TaskConfig struct {
 	yuvFilePath          string
 	encodedVideoFilePath string
 	role                 bool
+	sendVideoFps         int
+	sendVideoMinBitrate int
+	sendVideoBitrate     int
+	sendYuvWidth         int
+	sendYuvHeight        int
 }
 
 func (globalCtx *GlobalContext) genToken(channelName string, userId string) (string, error) {
@@ -150,6 +155,13 @@ func main() {
 		yuvFilePath = flag.String("yuvFilePath", "", "Descprtion: Yuv file path")
 		// encoded video file path
 		encodedVideoFilePath = flag.String("encodedVideoFilePath", "", "Descprtion: Encoded video file path")	
+
+		// send video parameter: fps, min bitrate, bitrate
+		sendVideoFps = flag.Int("sendVideoFps", 15, "Descprtion: Send video fps")
+		sendVideoMinBitrate = flag.Int("sendVideoMinBitrate", 100000, "Descprtion: Send video min bitrate")
+		sendVideoBitrate = flag.Int("sendVideoBitrate", 200000, "Descprtion: Send video bitrate")
+		sendYuvWidth = flag.Int("sendYuvWidth", 640, "Descprtion: Send yuv width")
+		sendYuvHeight = flag.Int("sendYuvHeight", 360, "Descprtion: Send yuv height")
 	)
 
 	flag.Parse()
@@ -175,6 +187,11 @@ func main() {
 	fmt.Println("encodedAudioFilePath:", *encodedAudioFilePath)
 	fmt.Println("yuvFilePath:", *yuvFilePath)
 	fmt.Println("encodedVideoFilePath:", *encodedVideoFilePath)
+	fmt.Println("sendVideoFps:", *sendVideoFps)
+	fmt.Println("sendVideoMinBitrate:", *sendVideoMinBitrate)
+	fmt.Println("sendVideoBitrate:", *sendVideoBitrate)
+	fmt.Println("sendYuvWidth:", *sendYuvWidth)
+	fmt.Println("sendYuvHeight:", *sendYuvHeight)
 
 	//validity check
 	if *sendYuv && *yuvFilePath == "" {
@@ -229,6 +246,11 @@ func main() {
 		yuvFilePath: *yuvFilePath,
 		encodedVideoFilePath: *encodedVideoFilePath,
 		role:             *role,
+		sendVideoFps:         *sendVideoFps,
+		sendVideoMinBitrate: *sendVideoMinBitrate,
+		sendVideoBitrate:     *sendVideoBitrate,
+		sendYuvWidth: *sendYuvWidth,
+		sendYuvHeight: *sendYuvHeight,
 	}
 	for i := 0; i < *taskCount; i++ {
 		globalCtx.waitTasks.Add(1)
