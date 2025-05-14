@@ -409,9 +409,14 @@ func (taskCtx *TaskContext) startTask() {
 	taskCtx.ctx = globalCtx.ctx
 	// defer globalCtx.waitTasks.Done()
 
-	// channelName := fmt.Sprintf("%s%d", globalCtx.channelNamePrefix, id)
-	//change channelName to fixed value
-	channelName := globalCtx.channelNamePrefix
+	cfg := taskCtx.cfg
+
+	var channelName string
+	if cfg.role == true {  // for broadcaster
+		channelName = fmt.Sprintf("%s%d", globalCtx.channelNamePrefix, id)
+	} else {
+		channelName = globalCtx.channelNamePrefix
+	}
 	senderId := "0"
 	token1, err1 := globalCtx.genToken(channelName, senderId)
 	if err1 != nil {
@@ -419,7 +424,7 @@ func (taskCtx *TaskContext) startTask() {
 		return
 	}
 
-	cfg := taskCtx.cfg
+	
 	if cfg.taskTime > 0 {
 		ctx, cancel := context.WithTimeout(taskCtx.ctx, time.Duration(cfg.taskTime)*time.Second)
 		taskCtx.ctx = ctx
