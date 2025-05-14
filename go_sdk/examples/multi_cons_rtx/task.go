@@ -116,6 +116,11 @@ func (taskCtx *TaskContext) sendPcm(filePath string) {
 		RenderTimeMs:      0,
 	}
 
+	if filePath == "" {
+		fmt.Printf("task %d No pcm file\n", taskCtx.id)
+		filePath = SendPcmPath
+	}
+
 	file, err := os.Open(filePath)
 	if err != nil {
 		fmt.Printf("task %d Error opening file: %s\n", taskCtx.id, err.Error())
@@ -170,6 +175,11 @@ func (taskCtx *TaskContext) sendEncodedAudio(filePath string) {
 	// 	encodedAudioTrack.SetEnabled(false)
 	// }()
 
+	if filePath == "" {
+		fmt.Printf("task %d No encoded audio file\n", taskCtx.id)
+		filePath = SendEncodedAudioPath
+	}
+
 	pFormatContext := openMediaFile(filePath)
 	if pFormatContext == nil {
 		fmt.Printf("task %d Failed to open media file\n", taskCtx.id)
@@ -200,7 +210,7 @@ func (taskCtx *TaskContext) sendEncodedAudio(filePath string) {
 				if ret < 0 {
 					fmt.Printf("task %d Finished reading file: %d\n", taskCtx.id, ret)
 					closeMediaFile(&pFormatContext)
-					pFormatContext = openMediaFile(SendEncodedAudioPath)
+					pFormatContext = openMediaFile(filePath)
 					streamInfo = getStreamInfo(pFormatContext)
 					codecParam = (*C.struct_AVCodecParameters)(unsafe.Pointer(streamInfo.codecpar))
 					continue
@@ -251,6 +261,11 @@ func (taskCtx *TaskContext) sendYuv(filePath string) {
 	// 	senderLocalUser.UnpublishVideo(videoTrack)
 	// 	videoTrack.SetEnabled(false)
 	// }()
+
+	if filePath == "" {
+		fmt.Printf("task %d No yuv file\n", taskCtx.id)
+		filePath = SendYuvPath
+	}
 
 	w := SendYuvWidth
 	h := SendYuvHeight
@@ -304,6 +319,11 @@ func (taskCtx *TaskContext) sendEncodedVideo(filePath string) {
 	// 	encodedVideoTrack.SetEnabled(false)
 	// }()
 
+	if filePath == "" {
+		fmt.Printf("task %d No encoded video file\n", taskCtx.id)
+		filePath = SendEncodedVideoPath
+	}
+
 	pFormatContext := openMediaFile(filePath)
 	if pFormatContext == nil {
 		fmt.Printf("task %d Failed to open media file\n", taskCtx.id)
@@ -327,7 +347,7 @@ func (taskCtx *TaskContext) sendEncodedVideo(filePath string) {
 				fmt.Println("Finished reading file:", ret)
 				// file.Seek(0, 0)
 				closeMediaFile(&pFormatContext)
-				pFormatContext = openMediaFile(SendEncodedVideoPath)
+				pFormatContext = openMediaFile(filePath)
 				streamInfo = getStreamInfo(pFormatContext)
 				codecParam = (*C.struct_AVCodecParameters)(unsafe.Pointer(streamInfo.codecpar))
 				continue
