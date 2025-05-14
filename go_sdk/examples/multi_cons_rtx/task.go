@@ -343,7 +343,9 @@ func (taskCtx *TaskContext) sendEncodedVideo(taskCfg *TaskConfig) {
 	streamInfo := getStreamInfo(pFormatContext)
 	codecParam := (*C.struct_AVCodecParameters)(unsafe.Pointer(streamInfo.codecpar))
 
-	sendInterval := 1000 * int64(codecParam.framerate.den) / int64(codecParam.framerate.num)
+	//sendInterval := 1000 * int64(codecParam.framerate.den) / int64(codecParam.framerate.num)
+	//change sendInterval to configured value not the file framerate
+	sendInterval := 1000 / taskCfg.sendVideoFps	
 	ticker := time.NewTicker(time.Duration(sendInterval) * time.Millisecond)
 	defer ticker.Stop()
 	for {
