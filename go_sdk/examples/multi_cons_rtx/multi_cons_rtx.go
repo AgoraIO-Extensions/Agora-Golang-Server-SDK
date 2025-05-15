@@ -119,7 +119,7 @@ func (ctx *GlobalContext) release() {
 }
 
 func main() {
-	var enablePprof bool = false
+	var enablePprof bool = true
 	if enablePprof {
 		go func() {
 			fmt.Println("**********enable pprof on port 6060**********")
