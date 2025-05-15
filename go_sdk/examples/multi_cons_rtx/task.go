@@ -496,13 +496,14 @@ func (taskCtx *TaskContext) startTask() {
 	}
 
 	con := agoraservice.NewRtcConnection(&agoraservice.RtcConnectionConfig{
-		AutoSubscribeAudio: cfg.recvPcm,
+		AutoSubscribeAudio: cfg.recvPcm ,
 		AutoSubscribeVideo: cfg.recvYuv || cfg.recvEncodedVideo,
 		ClientRole:         role, //agoraservice.ClientRoleBroadcaster,
 		ChannelProfile:     agoraservice.ChannelProfileLiveBroadcasting,
 	})
 	taskCtx.con = con
 	defer taskCtx.releaseTask()
+	fmt.Printf("task %d config.role: %d, rtc role: %d, channelname: %s\n", id, cfg.role, role, channelName)
 
 	if cfg.sendPcm {
 		// create audio track
