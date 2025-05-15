@@ -632,6 +632,11 @@ func (taskCtx *TaskContext) startTask() {
 				return true
 			},
 		}
+		subvideoopt := &agoraservice.VideoSubscriptionOptions{
+			StreamType: agoraservice.VideoStreamHigh,
+			EncodedFrameOnly: true,
+		}
+		localUser.SubscribeAllVideo(subvideoopt)
 		localUser.RegisterVideoEncodedFrameObserver(encodedVideoObserver)
 	}
 	if cfg.recvData {
