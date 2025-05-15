@@ -184,6 +184,7 @@ func Initialize(cfg *AgoraServiceConfig) int {
 		}
 		C.agora_service_set_log_file(agoraService.service, logPath,
 			C.uint(logSize))
+		C.agora_service_set_log_filter(agoraService.service, 12)
 	}
 	agoraService.inited = true
 	return 0
