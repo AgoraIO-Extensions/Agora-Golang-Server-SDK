@@ -119,9 +119,14 @@ func (ctx *GlobalContext) release() {
 }
 
 func main() {
-	go func() {
-		log.Println(http.ListenAndServe(":6060", nil))
-	}()
+	var enablePprof bool = false
+	if enablePprof {
+		go func() {
+			fmt.Println("**********enable pprof on port 6060**********")
+			log.Println(http.ListenAndServe(":6060", nil))
+		}()
+	}
+	
 
 	// parse command options
 	var (
