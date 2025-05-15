@@ -658,6 +658,7 @@ func (taskCtx *TaskContext) startTask() {
 		waitGroup.Add(1)
 		go func() {
 			defer waitGroup.Done()
+			fmt.Printf("task %d send pcm\n", id)
 			taskCtx.sendPcm(cfg)
 		}()
 	}
@@ -667,6 +668,7 @@ func (taskCtx *TaskContext) startTask() {
 		waitGroup.Add(1)
 		go func() {
 			defer waitGroup.Done()
+			fmt.Printf("task %d send encoded audio\n", id)
 			taskCtx.sendEncodedAudio(cfg)
 		}()
 	}
@@ -676,6 +678,7 @@ func (taskCtx *TaskContext) startTask() {
 		waitGroup.Add(1)
 		go func() {
 			defer waitGroup.Done()
+			fmt.Printf("task %d send yuv\n", id)
 			taskCtx.sendYuv(cfg)
 		}()
 	}
@@ -685,6 +688,7 @@ func (taskCtx *TaskContext) startTask() {
 		waitGroup.Add(1)
 		go func() {
 			defer waitGroup.Done()
+			fmt.Printf("task %d send encoded video\n", id)
 			taskCtx.sendEncodedVideo(cfg)
 		}()
 	}
