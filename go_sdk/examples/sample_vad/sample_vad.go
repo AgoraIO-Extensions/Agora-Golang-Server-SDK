@@ -43,9 +43,9 @@ func DebugSteroPcmSource(filePath string) {
 	// open stero vad for debug
 	vadConfigV1 := &agoraservice.AudioVadConfig{
 		StartRecognizeCount:    30,
-		StopRecognizeCount:     48,
+		StopRecognizeCount:     45,
 		PreStartRecognizeCount: 16,
-		ActivePercent:          0.8,
+		ActivePercent:          0.6,
 		InactivePercent:        0.2,
 		RmsThr:                 -40.0,
 		JointThr:               0.0,
@@ -68,22 +68,27 @@ func DebugSteroPcmSource(filePath string) {
 		Buffer:         nil, // Pre-allocate frame buffer
 	}
 
+	frameCount := 0
+
 	for {
 		n, err := file.Read(buffer)
+
 		if err != nil {
 			break
 		}
 		if n < 640 {
 			break;
 		}
+		frameCount++
+		readed := n
+		
+		
 		// process stero vad
-		frame.Buffer = buffer[:n]
+		frame.Buffer = buffer
 		leftFrame, leftState, rightFrame, rightState := steroVadInst.ProcessAudioFrame(frame)
-		fmt.Printf("n: %d, left: %d, right: %d   ", n, leftState, rightState)
+		fmt.Printf("n: %d-%d, left: %d, right: %d   ", readed, len(buffer), leftState, rightState)
 		dumpSteroVadResult(1, leftFrame, leftState)
 		dumpSteroVadResult(0, rightFrame, rightState)
-
-		sourcfile.Write(buffer[:n])
 		
 	}
 	
@@ -124,8 +129,97 @@ func file_vad_main() {
 	DebugSteroPcmSource("/Users/weihognqin/Downloads/output_case1_1.pcm")
 }
 
+// offline vad test
+func offline_vad1_test() {
+	// get the file list in the current directory
+	argus := os.Args
+	if len(argus) < 2 {
+		fmt.Println("Please input stero vad file path")
+		return
+	}
+	filePath := argus[1]
+	// open file for read
+	file, err := os.Open(filePath)
+	if err != nil {
+		fmt.Println("Failed to open file: ", err)
+		return
+	}
+	defer file.Close()
+
+	// set vadv1
+	vadConfigV1 := &agoraservice.AudioVadConfig{
+		StartRecognizeCount:    10,
+		StopRecognizeCount:     20,
+		PreStartRecognizeCount: 16,
+		ActivePercent:          0.6,
+		InactivePercent:        0.2,
+		RmsThr:                 -40.0,
+		JointThr:               0.0,
+		Aggressive:             2.0,
+		VoiceProb:              0.5,
+	}
+	//steroVadInst := agoraservice.NewSteroVad(vadConfigV1, vadConfigV1)
+	//defer steroVadInst.Release()
+
+	var monoVadInst *agoraservice.AudioVad = nil
+	signal := make(chan struct{})
+
+	go func() {
+		monoVadInst = agoraservice.NewAudioVad(vadConfigV1)
+		time.Sleep(3000 * time.Millisecond)
+		signal <- struct{}{}
+	}()
+	<-signal
+	defer monoVadInst.Release()
+	
+	
+	//time.Sleep(1000 * time.Millisecond)
+	
+	// read the file
+	buffer := make([]byte, 320)
+	frame := &agoraservice.AudioFrame{
+		SamplesPerSec:  16000,
+		Channels:       1,
+		BytesPerSample: 2,
+		Buffer:         nil, // Pre-allocate frame buffer
+	}
+	frameCount := 0
+	
+	vadfile, _ := os.Create("./vad_dump.pcm")
+	defer vadfile.Close()
+	for {
+		n, err := file.Read(buffer)
+		if err != nil {
+			break
+		}
+		if n < 320 {
+			break;
+		}
+		
+
+	
+		
+
+		// process stero vad
+		frame.Buffer = buffer[:n]
+		//leftFrame, leftState, rightFrame, rightState := steroVadInst.ProcessAudioFrame(frame)
+		rightFrame, rightState := monoVadInst.ProcessPcmFrame(frame)
+		fmt.Printf("count: %d-%d, left: %d, right: %d\n", frameCount, n	, rightState, len(rightFrame.Buffer))
+
+		//dumpSteroVadResult(1, leftFrame, leftState)
+		//dumpSteroVadResult(0, rightFrame, rightState)
+		if rightState == 1 || rightState == 2 || rightState == 3 {
+			vadfile.Write(rightFrame.Buffer)
+		}
+		frameCount++
+	}
+}
 
 func main() {
+	offline_vad1_test()
+}
+
+func original_main() {
 	bStop := new(bool)
 	*bStop = false
 
@@ -167,7 +261,7 @@ func main() {
 		appid = os.Getenv("AGORA_APP_ID")
 	}
 	cert := os.Getenv("AGORA_APP_CERTIFICATE")
-	userId := "0"
+	userId := "0"	
 	if appid == "" {
 		fmt.Println("Please set AGORA_APP_ID environment variable, and AGORA_APP_CERTIFICATE if needed")
 		return
