@@ -42,12 +42,12 @@ type TaskContext struct {
 }
 
 const (
-	SendPcmPath          = "../test_data/send_audio_16k_1ch.pcm"
-	SendYuvWidth         = 640
-	SendYuvHeight        = 360
-	SendYuvFps           = 15
-	SendYuvBitrate       = 500
-	SendYuvMinBitrate    = 100
+	SendPcmPath = "../test_data/send_audio_16k_1ch.pcm"
+	//SendYuvWidth         = 640
+	//SendYuvHeight        = 360
+	//SendYuvFps           = 15
+	//SendYuvBitrate       = 500
+	//SendYuvMinBitrate    = 100
 	SendYuvPath          = "../test_data/360p_I420.yuv"
 	SendEncodedAudioPath = "../test_data/send_audio_16k.aac"
 	SendEncodedVideoPath = "../test_data/send_video.h264"
@@ -90,7 +90,7 @@ func (globalCtx *GlobalContext) newTask(id int, cfg *TaskConfig) *TaskContext {
 	return taskCtx
 }
 
-func (taskCtx *TaskContext) sendPcm() {
+func (taskCtx *TaskContext) sendPcm(taskCfg *TaskConfig) {
 	ctx := taskCtx.ctx
 	audioTrack := taskCtx.audioTrack
 	pcmSender := taskCtx.audioPcmSender
@@ -115,8 +115,14 @@ func (taskCtx *TaskContext) sendPcm() {
 		Buffer:            make([]byte, 320),
 		RenderTimeMs:      0,
 	}
+	filePath := taskCfg.pcmFilePath
 
-	file, err := os.Open(SendPcmPath)
+	if filePath == "" {
+		fmt.Printf("task %d No pcm file\n", taskCtx.id)
+		filePath = SendPcmPath
+	}
+
+	file, err := os.Open(filePath)
 	if err != nil {
 		fmt.Printf("task %d Error opening file: %s\n", taskCtx.id, err.Error())
 		return
@@ -156,7 +162,7 @@ func (taskCtx *TaskContext) sendPcm() {
 	}
 }
 
-func (taskCtx *TaskContext) sendEncodedAudio() {
+func (taskCtx *TaskContext) sendEncodedAudio(taskCfg *TaskConfig) {
 	ctx := taskCtx.ctx
 	encodedAudioTrack := taskCtx.encodedAudioTrack
 	encodedAudioSender := taskCtx.encodedAudioSender
@@ -170,7 +176,13 @@ func (taskCtx *TaskContext) sendEncodedAudio() {
 	// 	encodedAudioTrack.SetEnabled(false)
 	// }()
 
-	pFormatContext := openMediaFile(SendEncodedAudioPath)
+	filePath := taskCfg.encodedAudioFilePath
+	if filePath == "" {
+		fmt.Printf("task %d No encoded audio file\n", taskCtx.id)
+		filePath = SendEncodedAudioPath
+	}
+
+	pFormatContext := openMediaFile(filePath)
 	if pFormatContext == nil {
 		fmt.Printf("task %d Failed to open media file\n", taskCtx.id)
 		return
@@ -200,7 +212,7 @@ func (taskCtx *TaskContext) sendEncodedAudio() {
 				if ret < 0 {
 					fmt.Printf("task %d Finished reading file: %d\n", taskCtx.id, ret)
 					closeMediaFile(&pFormatContext)
-					pFormatContext = openMediaFile(SendEncodedAudioPath)
+					pFormatContext = openMediaFile(filePath)
 					streamInfo = getStreamInfo(pFormatContext)
 					codecParam = (*C.struct_AVCodecParameters)(unsafe.Pointer(streamInfo.codecpar))
 					continue
@@ -228,7 +240,7 @@ func (taskCtx *TaskContext) sendEncodedAudio() {
 	}
 }
 
-func (taskCtx *TaskContext) sendYuv() {
+func (taskCtx *TaskContext) sendYuv(taskCfg *TaskConfig) {
 	ctx := taskCtx.ctx
 	videoTrack := taskCtx.videoTrack
 	yuvSender := taskCtx.videoYuvSender
@@ -236,11 +248,11 @@ func (taskCtx *TaskContext) sendYuv() {
 
 	videoTrack.SetVideoEncoderConfiguration(&agoraservice.VideoEncoderConfiguration{
 		CodecType:         agoraservice.VideoCodecTypeH264,
-		Width:             SendYuvWidth,
-		Height:            SendYuvHeight,
-		Framerate:         SendYuvFps,
-		Bitrate:           SendYuvBitrate,
-		MinBitrate:        SendYuvMinBitrate,
+		Width:             taskCfg.sendYuvWidth,
+		Height:            taskCfg.sendYuvHeight,
+		Framerate:         taskCfg.sendVideoFps,
+		Bitrate:           taskCfg.sendVideoBitrate,
+		MinBitrate:        taskCfg.sendVideoMinBitrate,
 		OrientationMode:   agoraservice.OrientationModeAdaptive,
 		DegradePreference: 0,
 	})
@@ -252,19 +264,28 @@ func (taskCtx *TaskContext) sendYuv() {
 	// 	videoTrack.SetEnabled(false)
 	// }()
 
-	w := SendYuvWidth
-	h := SendYuvHeight
+	filePath := taskCfg.yuvFilePath
+	if filePath == "" {
+		fmt.Printf("task %d No yuv file\n", taskCtx.id)
+		filePath = SendYuvPath
+	}
+
+	w := taskCfg.sendYuvWidth
+	h := taskCfg.sendYuvHeight
 	dataSize := w * h * 3 / 2
 	data := make([]byte, dataSize)
 	// read yuv from file 103_RaceHorses_416x240p30_300.yuv
-	file, err := os.Open(SendYuvPath)
+	file, err := os.Open(filePath)
 	if err != nil {
 		fmt.Printf("task %d Error opening file: %s\n", taskCtx.id, err.Error())
 		return
 	}
 	defer file.Close()
 
-	ticker := time.NewTicker((1000 / SendYuvFps) * time.Millisecond)
+	iterval := 1000 / taskCfg.sendVideoFps
+	fmt.Println("iterval:", iterval)
+
+	ticker := time.NewTicker(time.Duration(iterval) * time.Millisecond)
 	defer ticker.Stop()
 	for {
 		select {
@@ -290,7 +311,7 @@ func (taskCtx *TaskContext) sendYuv() {
 	}
 }
 
-func (taskCtx *TaskContext) sendEncodedVideo() {
+func (taskCtx *TaskContext) sendEncodedVideo(taskCfg *TaskConfig) {
 	ctx := taskCtx.ctx
 	encodedVideoTrack := taskCtx.encodedVideoTrack
 	encodedVideoSender := taskCtx.encodedVideoSender
@@ -304,7 +325,13 @@ func (taskCtx *TaskContext) sendEncodedVideo() {
 	// 	encodedVideoTrack.SetEnabled(false)
 	// }()
 
-	pFormatContext := openMediaFile(SendEncodedVideoPath)
+	filePath := taskCfg.encodedVideoFilePath
+	if filePath == "" {
+		fmt.Printf("task %d No encoded video file\n", taskCtx.id)
+		filePath = SendEncodedVideoPath
+	}
+
+	pFormatContext := openMediaFile(filePath)
 	if pFormatContext == nil {
 		fmt.Printf("task %d Failed to open media file\n", taskCtx.id)
 		return
@@ -316,7 +343,9 @@ func (taskCtx *TaskContext) sendEncodedVideo() {
 	streamInfo := getStreamInfo(pFormatContext)
 	codecParam := (*C.struct_AVCodecParameters)(unsafe.Pointer(streamInfo.codecpar))
 
-	sendInterval := 1000 * int64(codecParam.framerate.den) / int64(codecParam.framerate.num)
+	//sendInterval := 1000 * int64(codecParam.framerate.den) / int64(codecParam.framerate.num)
+	//change sendInterval to configured value not the file framerate
+	sendInterval := 1000 / taskCfg.sendVideoFps	
 	ticker := time.NewTicker(time.Duration(sendInterval) * time.Millisecond)
 	defer ticker.Stop()
 	for {
@@ -327,7 +356,7 @@ func (taskCtx *TaskContext) sendEncodedVideo() {
 				fmt.Println("Finished reading file:", ret)
 				// file.Seek(0, 0)
 				closeMediaFile(&pFormatContext)
-				pFormatContext = openMediaFile(SendEncodedVideoPath)
+				pFormatContext = openMediaFile(filePath)
 				streamInfo = getStreamInfo(pFormatContext)
 				codecParam = (*C.struct_AVCodecParameters)(unsafe.Pointer(streamInfo.codecpar))
 				continue
@@ -382,7 +411,14 @@ func (taskCtx *TaskContext) startTask() {
 	taskCtx.ctx = globalCtx.ctx
 	// defer globalCtx.waitTasks.Done()
 
-	channelName := fmt.Sprintf("%s%d", globalCtx.channelNamePrefix, id)
+	cfg := taskCtx.cfg
+
+	var channelName string
+	if cfg.role == 1 {  // for broadcaster
+		channelName = fmt.Sprintf("%s%d", globalCtx.channelNamePrefix, id)
+	} else {
+		channelName = globalCtx.channelNamePrefix
+	}
 	senderId := "0"
 	token1, err1 := globalCtx.genToken(channelName, senderId)
 	if err1 != nil {
@@ -390,7 +426,7 @@ func (taskCtx *TaskContext) startTask() {
 		return
 	}
 
-	cfg := taskCtx.cfg
+	
 	if cfg.taskTime > 0 {
 		ctx, cancel := context.WithTimeout(taskCtx.ctx, time.Duration(cfg.taskTime)*time.Second)
 		taskCtx.ctx = ctx
@@ -452,14 +488,22 @@ func (taskCtx *TaskContext) startTask() {
 		},
 	}
 	// senderLocalUserObs := &agoraservice.LocalUserObserver{}
+	var role agoraservice.ClientRole
+	if cfg.role == 1 {
+		role = agoraservice.ClientRoleBroadcaster
+	} else {
+		role = agoraservice.ClientRoleAudience
+	}
+
 	con := agoraservice.NewRtcConnection(&agoraservice.RtcConnectionConfig{
-		AutoSubscribeAudio: cfg.recvPcm,
+		AutoSubscribeAudio: cfg.recvPcm ,
 		AutoSubscribeVideo: cfg.recvYuv || cfg.recvEncodedVideo,
-		ClientRole:         agoraservice.ClientRoleBroadcaster,
+		ClientRole:         role, //agoraservice.ClientRoleBroadcaster,
 		ChannelProfile:     agoraservice.ChannelProfileLiveBroadcasting,
 	})
 	taskCtx.con = con
 	defer taskCtx.releaseTask()
+	fmt.Printf("task %d config.role: %d, rtc role: %d, channelname: %s\n", id, cfg.role, role, channelName)
 
 	if cfg.sendPcm {
 		// create audio track
@@ -487,7 +531,7 @@ func (taskCtx *TaskContext) startTask() {
 		taskCtx.encodedVideoTrack = agoraservice.NewCustomVideoTrackEncoded(taskCtx.encodedVideoSender, &agoraservice.VideoEncodedImageSenderOptions{
 			CcMode:        agoraservice.VideoSendCcDisabled,
 			CodecType:     agoraservice.VideoCodecTypeH264,
-			TargetBitrate: 500,
+			TargetBitrate: cfg.sendVideoBitrate,
 		})
 		// defer taskCtx.encodedVideoTrack.Release()
 	}
@@ -504,7 +548,7 @@ func (taskCtx *TaskContext) startTask() {
 	con.RegisterObserver(obs)
 	if cfg.recvPcm {
 		recvAudioFrameObs := &agoraservice.AudioFrameObserver{
-			OnPlaybackAudioFrameBeforeMixing: func(localUser *agoraservice.LocalUser, channelId string, userId string, frame *agoraservice.AudioFrame) bool {
+			OnPlaybackAudioFrameBeforeMixing: func(localUser *agoraservice.LocalUser, channelId string, userId string, frame *agoraservice.AudioFrame, vadResultStat agoraservice.VadState, vadResultFrame *agoraservice.AudioFrame) bool {
 				// do something
 				if cfg.enableAudioLabel {
 					fmt.Printf("task %d OnPlaybackAudioFrameBeforeMixing, from channel %s, "+
@@ -532,7 +576,7 @@ func (taskCtx *TaskContext) startTask() {
 			},
 		}
 		localUser.SetPlaybackAudioFrameBeforeMixingParameters(1, 16000)
-		localUser.RegisterAudioFrameObserver(recvAudioFrameObs)
+		localUser.RegisterAudioFrameObserver(recvAudioFrameObs, 0, nil)
 	}
 	if cfg.recvYuv {
 		recvVideoFrameObs := &agoraservice.VideoFrameObserver{
@@ -588,6 +632,11 @@ func (taskCtx *TaskContext) startTask() {
 				return true
 			},
 		}
+		subvideoopt := &agoraservice.VideoSubscriptionOptions{
+			StreamType: agoraservice.VideoStreamHigh,
+			EncodedFrameOnly: true,
+		}
+		localUser.SubscribeAllVideo(subvideoopt)
 		localUser.RegisterVideoEncodedFrameObserver(encodedVideoObserver)
 	}
 	if cfg.recvData {
@@ -603,8 +652,8 @@ func (taskCtx *TaskContext) startTask() {
 
 	select {
 	case <-conSignal:
-	case <-time.After(5 * time.Second):
-		fmt.Printf("task %d failed to connect\n", id)
+	case <-time.After(25 * time.Second):
+		fmt.Printf("task %d failed to connect after 25 seconds\n", id)
 		return
 	}
 
@@ -614,7 +663,8 @@ func (taskCtx *TaskContext) startTask() {
 		waitGroup.Add(1)
 		go func() {
 			defer waitGroup.Done()
-			taskCtx.sendPcm()
+			fmt.Printf("task %d send pcm\n", id)
+			taskCtx.sendPcm(cfg)
 		}()
 	}
 
@@ -623,7 +673,8 @@ func (taskCtx *TaskContext) startTask() {
 		waitGroup.Add(1)
 		go func() {
 			defer waitGroup.Done()
-			taskCtx.sendEncodedAudio()
+			fmt.Printf("task %d send encoded audio\n", id)
+			taskCtx.sendEncodedAudio(cfg)
 		}()
 	}
 
@@ -632,7 +683,8 @@ func (taskCtx *TaskContext) startTask() {
 		waitGroup.Add(1)
 		go func() {
 			defer waitGroup.Done()
-			taskCtx.sendYuv()
+			fmt.Printf("task %d send yuv\n", id)
+			taskCtx.sendYuv(cfg)
 		}()
 	}
 
@@ -641,7 +693,8 @@ func (taskCtx *TaskContext) startTask() {
 		waitGroup.Add(1)
 		go func() {
 			defer waitGroup.Done()
-			taskCtx.sendEncodedVideo()
+			fmt.Printf("task %d send encoded video\n", id)
+			taskCtx.sendEncodedVideo(cfg)
 		}()
 	}
 
