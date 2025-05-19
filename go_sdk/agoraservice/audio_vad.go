@@ -10,8 +10,8 @@ package agoraservice
 import "C"
 import (
 	"fmt"
-	"unsafe"
 	"os"
+	"unsafe"
 )
 
 type AudioVadConfig struct {
@@ -50,6 +50,7 @@ func NewAudioVad(cfg *AudioVadConfig) *AudioVad {
 	vad := &AudioVad{
 		vadCfg:    cfg,
 		lastOutTs: 0,
+		cVad: nil,
 		// lastStatus: VAD_WAIT_SPEEKING,
 	}
 	cVadCfg := C.struct_Vad_Config_{}
@@ -72,6 +73,7 @@ func NewAudioVad(cfg *AudioVadConfig) *AudioVad {
 	if ret != 0 {
 		return nil
 	}
+	
 	return vad
 }
 
@@ -179,8 +181,8 @@ func (vad *SteroAudioVad) ProcessAudioFrame(inFrame *AudioFrame) (*AudioFrame, i
 	rightBuffer := make([]byte, channelDataLen)
 	dataLen := channelDataLen/2
 
-	fmt.Printf("info: samplesPerSec: %d, channels: %d, bytesPerSample: %d, len: %d\n", 
-	inFrame.SamplesPerSec, inFrame.Channels, inFrame.BytesPerSample, inLength)
+	//fmt.Printf("info: samplesPerSec: %d, channels: %d, bytesPerSample: %d, len: %d\n", 
+	//inFrame.SamplesPerSec, inFrame.Channels, inFrame.BytesPerSample, inLength)
 
 
 	lefeFrame := &AudioFrame{
