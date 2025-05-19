@@ -114,6 +114,9 @@ import (
   -- 增加一个getstatics的接口
   -- 增加了一个Dequeue，用于线程安全的chan机制。参考： sendrcvpcmyuv done
 
+## 2025.05.19 发布 2.2.6
+-- 更新vadv1 库，fix 一个参数传递在某些case下会传递不成功的bug
+-- 去除sample_vad.go中的打印信息
 ## 2025.04.28 发布 2.2.5
 -- 替换：更新rtc sdk 到4.4.32
 ## 2025.04.28 发布 2.2.4
