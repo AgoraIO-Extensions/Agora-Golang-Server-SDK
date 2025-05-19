@@ -162,15 +162,10 @@ func offline_vad1_test() {
 	//defer steroVadInst.Release()
 
 	var monoVadInst *agoraservice.AudioVad = nil
-	signal := make(chan struct{})
-
-	go func() {
-		monoVadInst = agoraservice.NewAudioVad(vadConfigV1)
-		time.Sleep(3000 * time.Millisecond)
-		signal <- struct{}{}
-	}()
-	<-signal
+	
+	monoVadInst = agoraservice.NewAudioVad(vadConfigV1)
 	defer monoVadInst.Release()
+	
 	
 	
 	//time.Sleep(1000 * time.Millisecond)
@@ -187,7 +182,7 @@ func offline_vad1_test() {
 	
 	vadfile, _ := os.Create("./vad_dump.pcm")
 	defer vadfile.Close()
-	go func ()  {
+	//go func ()  {
 		
 	
 	for {
@@ -216,13 +211,14 @@ func offline_vad1_test() {
 		}
 		frameCount++
 	}
-	signal <- struct{}{}
-}()
-<-signal
+	//signal <- struct{}{}
+	//}()
+	//<-signal
 }
 
 func main() {
-	offline_vad1_test()
+	//offline_vad1_test()
+	original_main()
 }
 
 func original_main() {
