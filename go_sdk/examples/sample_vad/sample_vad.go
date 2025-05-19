@@ -148,15 +148,15 @@ func offline_vad1_test() {
 
 	// set vadv1
 	vadConfigV1 := &agoraservice.AudioVadConfig{
-		StartRecognizeCount:    10,
-		StopRecognizeCount:     20,
+		StartRecognizeCount:    30,
+		StopRecognizeCount:     45,
 		PreStartRecognizeCount: 16,
 		ActivePercent:          0.6,
 		InactivePercent:        0.2,
 		RmsThr:                 -40.0,
 		JointThr:               0.0,
 		Aggressive:             2.0,
-		VoiceProb:              0.5,
+		VoiceProb:              0.7,
 	}
 	//steroVadInst := agoraservice.NewSteroVad(vadConfigV1, vadConfigV1)
 	//defer steroVadInst.Release()
@@ -187,6 +187,9 @@ func offline_vad1_test() {
 	
 	vadfile, _ := os.Create("./vad_dump.pcm")
 	defer vadfile.Close()
+	go func ()  {
+		
+	
 	for {
 		n, err := file.Read(buffer)
 		if err != nil {
@@ -213,6 +216,9 @@ func offline_vad1_test() {
 		}
 		frameCount++
 	}
+	signal <- struct{}{}
+}()
+<-signal
 }
 
 func main() {
