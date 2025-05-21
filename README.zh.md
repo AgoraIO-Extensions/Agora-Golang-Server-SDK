@@ -114,6 +114,8 @@ import (
   -- 增加一个getstatics的接口
   -- 增加了一个Dequeue，用于线程安全的chan机制。参考： sendrcvpcmyuv done
 
+## 2025.05.21 发布 2.2.7
+-- 更新：vad v1 lib removed libc++ and libstdc++ dependence，fix a bug that the vad lib can not be loaded in some os which has not libc++ and libstdc++.
 ## 2025.05.19 发布 2.2.6
 -- 更新vadv1 库，fix 一个参数传递在某些case下会传递不成功的bug
 -- 去除sample_vad.go中的打印信息
