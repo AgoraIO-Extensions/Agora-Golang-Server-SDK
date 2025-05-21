@@ -529,7 +529,7 @@ func (taskCtx *TaskContext) startTask() {
 		taskCtx.encodedVideoSender = globalCtx.mediaNodeFactory.NewVideoEncodedImageSender()
 		// defer taskCtx.encodedVideoSender.Release()
 		taskCtx.encodedVideoTrack = agoraservice.NewCustomVideoTrackEncoded(taskCtx.encodedVideoSender, &agoraservice.VideoEncodedImageSenderOptions{
-			CcMode:        agoraservice.VideoSendCcDisabled,
+			CcMode:        agoraservice.VideoSendCcEnabled,
 			CodecType:     agoraservice.VideoCodecTypeH264,
 			TargetBitrate: cfg.sendVideoBitrate,
 		})
