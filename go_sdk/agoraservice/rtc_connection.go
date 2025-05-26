@@ -779,8 +779,11 @@ func (conn *RtcConnection) enableSteroEncodeMode() int {
 	agoraParameterHandler.SetParameters("{\"che.audio.aec.enable\":false}")
 	agoraParameterHandler.SetParameters("{\"che.audio.ans.enable\":false}")
 	agoraParameterHandler.SetParameters("{\"che.audio.agc.enable\":false}")
-	agoraParameterHandler.SetParameters("{\"che.audio.custom_payload_type\":78}")
-	agoraParameterHandler.SetParameters("{\"che.audio.custom_bitrate\":128000}")
+	//  // "HEAAC_2ch" is case 78,but no need to set it for ai senario so disable it
+	// in ai senario, we only want stero encoded audio, but really for speech so disable 78 
+	// agoraParameterHandler.SetParameters("{\"che.audio.custom_payload_type\":78}")
+	// and set bitrate to 32000
+	//agoraParameterHandler.SetParameters("{\"che.audio.custom_bitrate\":32000}")
 	return 0
     
 }

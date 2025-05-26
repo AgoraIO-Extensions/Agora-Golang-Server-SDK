@@ -9,18 +9,18 @@ import (
 	"os"
 	"os/signal"
 	"time"
-	_ "net/http/pprof"
+	"strconv"
 
 	agoraservice "github.com/AgoraIO-Extensions/Agora-Golang-Server-SDK/v2/go_sdk/agoraservice"
 
 	rtctokenbuilder "github.com/AgoraIO/Tools/DynamicKey/AgoraDynamicKey/go/src/rtctokenbuilder2"
 )
 
-func PushFileToConsumer(file *os.File, audioConsumer *agoraservice.AudioConsumer) {
-	buffer := make([]byte, 320)
+func PushFileToConsumer(file *os.File, audioConsumer *agoraservice.AudioConsumer, chunk int) {
+	buffer := make([]byte, chunk)
 	for {
 		readLen, err := file.Read(buffer)
-		if err != nil || readLen < 320 {
+		if err != nil || readLen < chunk {
 			fmt.Printf("read up to EOF,cur read: %d", readLen)
 			file.Seek(0, 0)
 			break
@@ -29,7 +29,7 @@ func PushFileToConsumer(file *os.File, audioConsumer *agoraservice.AudioConsumer
 	}
 	buffer = nil
 }
-func ReadFileToConsumer(file *os.File, consumer *agoraservice.AudioConsumer, interval int, done chan bool) {
+func ReadFileToConsumer(file *os.File, consumer *agoraservice.AudioConsumer, interval int, done chan bool, chunk int) {
 	for {
 		select {
 		case <-done:
@@ -37,8 +37,8 @@ func ReadFileToConsumer(file *os.File, consumer *agoraservice.AudioConsumer, int
 			return
 		default:
 			len := consumer.Len()
-			if len < 320*interval {
-				PushFileToConsumer(file, consumer)
+			if len < chunk*interval {
+				PushFileToConsumer(file, consumer, chunk)
 			}
 			time.Sleep(time.Duration(interval) * time.Millisecond)
 		}
@@ -86,6 +86,16 @@ func main() {
 	}
 	appid := argus[1]
 	channelName := argus[2]
+
+	filepath := "../test_data/send_audio_16k_1ch.pcm"
+	if len(argus) > 3 {
+	    filepath = argus[3]
+	}
+	//default samplerate to 16k
+	samplerate := 16000
+	if len(argus) > 4 {
+	    samplerate, _ = strconv.Atoi(argus[4]) // strconv is in the "strconv" package, which is a standard package in Go's library.
+	}
 
 
 	// get environment variable
@@ -166,7 +176,7 @@ func main() {
 	audioObserver := &agoraservice.AudioFrameObserver{
 		OnPlaybackAudioFrameBeforeMixing: func(localUser *agoraservice.LocalUser, channelId string, userId string, frame *agoraservice.AudioFrame, vadResulatState agoraservice.VadState, vadResultFrame *agoraservice.AudioFrame) bool {
 			// do something
-			fmt.Printf("Playback audio frame before mixing, from userId %s, far :%d,rms:%d, pitch: %d\n", userId, frame.FarFieldFlag, frame.Rms, frame.Pitch)
+			//fmt.Printf("Playback audio frame before mixing, from userId %s, far :%d,rms:%d, pitch: %d\n", userId, frame.FarFieldFlag, frame.Rms, frame.Pitch)
 			return true
 		},
 	}
@@ -229,7 +239,12 @@ func main() {
 	defer track.Release()
 
 	localUser := con.GetLocalUser()
-	localUser.SetAudioScenario(agoraservice.AudioScenarioChorus)
+	
+	// for lixiang test
+	localUser.SetAudioScenario(agoraservice.AudioScenarioGameStreaming)
+	localUser.SetAudioEncoderConfiguration(&agoraservice.AudioEncoderConfiguration{AudioProfile: int(agoraservice.AudioProfileMusicHighQualityStereo)})
+
+	// end lixiang 
 	con.Connect(token, channelName, userId)
 	<-conSignal
 
@@ -238,7 +253,6 @@ func main() {
 
 	localUser = con.GetLocalUser()
 	localUser.SetPlaybackAudioFrameBeforeMixingParameters(1, 16000)
-	localUser.SetAudioVolumeIndicationParameters(300, 1, true)
 	localUser.RegisterLocalUserObserver(localUserObserver)
 
 	localUser.RegisterAudioFrameObserver(audioObserver, 0, nil)
@@ -246,16 +260,16 @@ func main() {
 	track.SetEnabled(true)
 	localUser.PublishAudio(track)
 
-	file, err := os.Open("../test_data/send_audio_16k_1ch.pcm")
+	file, err := os.Open(filepath)
 	if err != nil {
 		fmt.Printf("NewError opening file: %v\n", err)
 		return
 	}
 	defer file.Close()
 
-	track.AdjustPublishVolume(100)
 
-	audioConsumer := agoraservice.NewAudioConsumer(sender, 16000, 1)
+
+	audioConsumer := agoraservice.NewAudioConsumer(sender, samplerate, 1)
 	defer audioConsumer.Release()
 
 	done := make(chan bool)
@@ -275,7 +289,7 @@ func main() {
 		    # “Timer”的触发间隔，可以和业务已有的timer间隔一致，也可以根据业务需求调整，推荐在40～80ms之间
 
 	*/
-	go ReadFileToConsumer(file, audioConsumer, 50, done)
+	go ReadFileToConsumer(file, audioConsumer, 50, done, samplerate*2/100)
 	go ConsumeAudio(audioConsumer, 50, done)
 
 

@@ -104,6 +104,9 @@ import (
   - if you don't use VAD, and your glibc version is between 2.16 and 2.27, you can disable VAD by rename **audio_vad.go** file in go_sdk/agoraserver/ to **audio_vad.go.bak**
 
 # Change log
+## 2025.05.26 release 2.2.8
+--  fix: fix a bug in sterom mode, the custome bitrate is not work
+--  update: update mac sdk version to 4.4.32
 ## 2025.05.21 发布 2.2.7
 -- 更新：vad v1 lib removed libc++ and libstdc++ dependence，fix a bug that the vad lib can not be loaded in some os which has not libc++ and libstdc++.
 ## 2025.05.19 发布 2.2.6
