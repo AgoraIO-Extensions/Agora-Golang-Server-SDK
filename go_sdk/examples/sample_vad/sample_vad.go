@@ -138,6 +138,10 @@ func offline_vad1_test() {
 		return
 	}
 	filePath := argus[1]
+	channels := 1
+	if len(argus) > 2 {
+		channels, _ = strconv.Atoi(argus[2])
+	}
 	// open file for read
 	file, err := os.Open(filePath)
 	if err != nil {
@@ -153,28 +157,34 @@ func offline_vad1_test() {
 		PreStartRecognizeCount: 16,
 		ActivePercent:          0.6,
 		InactivePercent:        0.2,
-		RmsThr:                 -40.0,
+		RmsThr:                 -30.0,
 		JointThr:               0.0,
 		Aggressive:             2.0,
 		VoiceProb:              0.7,
 	}
-	//steroVadInst := agoraservice.NewSteroVad(vadConfigV1, vadConfigV1)
-	//defer steroVadInst.Release()
+	
+	var chunk int = 320
 
 	var monoVadInst *agoraservice.AudioVad = nil
-	
-	monoVadInst = agoraservice.NewAudioVad(vadConfigV1)
-	defer monoVadInst.Release()
-	
+	var steroVadInst *agoraservice.SteroAudioVad = nil
+	if channels == 1 {
+		monoVadInst = agoraservice.NewAudioVad(vadConfigV1)
+		chunk = 320
+		defer monoVadInst.Release()
+	} else {	
+		steroVadInst = agoraservice.NewSteroVad(vadConfigV1, vadConfigV1)
+		chunk = 640
+		defer steroVadInst.Release()
+	}
 	
 	
 	//time.Sleep(1000 * time.Millisecond)
 	
 	// read the file
-	buffer := make([]byte, 320)
+	buffer := make([]byte, chunk)
 	frame := &agoraservice.AudioFrame{
 		SamplesPerSec:  16000,
-		Channels:       1,
+		Channels:       channels,
 		BytesPerSample: 2,
 		Buffer:         nil, // Pre-allocate frame buffer
 	}
@@ -184,31 +194,41 @@ func offline_vad1_test() {
 	defer vadfile.Close()
 	//go func ()  {
 		
+	var leftFrame *agoraservice.AudioFrame = nil
+	var leftState int = 0
+	var rightFrame *agoraservice.AudioFrame = nil
+	var rightState int = 0
 	
 	for {
 		n, err := file.Read(buffer)
 		if err != nil {
 			break
 		}
-		if n < 320 {
+		if n < chunk {
 			break;
 		}
 		
-
-	
-		
-
 		// process stero vad
 		frame.Buffer = buffer[:n]
-		//leftFrame, leftState, rightFrame, rightState := steroVadInst.ProcessAudioFrame(frame)
-		rightFrame, rightState := monoVadInst.ProcessPcmFrame(frame)
-		fmt.Printf("count: %d-%d, left: %d, right: %d\n", frameCount, n	, rightState, len(rightFrame.Buffer))
-
-		//dumpSteroVadResult(1, leftFrame, leftState)
-		//dumpSteroVadResult(0, rightFrame, rightState)
-		if rightState == 1 || rightState == 2 || rightState == 3 {
-			vadfile.Write(rightFrame.Buffer)
+		
+		if channels == 1 {
+			leftFrame, leftState = monoVadInst.ProcessPcmFrame(frame)
+			if leftState == 1 || leftState == 2 || leftState == 3 {
+				vadfile.Write(leftFrame.Buffer)
+			}
+			fmt.Printf("count: %d-%d, left: %d, right: %d\n", frameCount, n	, leftState, len(leftFrame.Buffer))
+			
+		} else {
+			leftFrame, leftState, rightFrame, rightState = steroVadInst.ProcessAudioFrame(frame)
+			fmt.Printf("count: %d-%d, left: %d, right: %d\n", frameCount, n	, leftState, rightState)
+			dumpSteroVadResult(1, leftFrame, leftState)
+			dumpSteroVadResult(0, rightFrame, rightState)
 		}
+		
+		
+
+		
+		
 		frameCount++
 	}
 	//signal <- struct{}{}

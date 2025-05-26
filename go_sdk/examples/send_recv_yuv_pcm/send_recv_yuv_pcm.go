@@ -201,66 +201,28 @@ func main() {
 		},
 	}
 	// for calling onFrame
-	frameCount := 0
-	frameLastRecvTime := time.Now().UnixMilli()
+	
 	videoObserver := &agoraservice.VideoFrameObserver{
 		OnFrame: func(channelId string, userId string, frame *agoraservice.VideoFrame) bool {
 			if frame == nil {
 				return true
 
 			}
-			return true
+			
 			//fmt.Printf("recv video frame, from channel %s, user %s, type %d, width %d, height %d, stride %d, ysize %d, usize %d, vsize %d\n",channelId, userId, frame.Type, frame.Width, frame.Height, frame.YStride, len(frame.YBuffer), len(frame.UBuffer), len(frame.VBuffer))
 
 			yuvQueue.Enqueue(frame)
-			frameCount++
-			Now := time.Now().UnixMilli()
-			if Now-frameLastRecvTime > 1000 {
-				fps := int64(frameCount*1000) / (Now - frameLastRecvTime)
-				fmt.Printf("fps, %d fps, %d\n", frameCount, fps)
-				frameCount = 0
-				frameLastRecvTime = time.Now().UnixMilli()
-			}
-			// do something
+			
 
 			return true
 		},
 	}
-	audioFrameCount := 0
-	var audioWaveFile *os.File
-	var audioFileName string
+	
 	var err error
 	audioObserver := &agoraservice.AudioFrameObserver{
 		OnPlaybackAudioFrameBeforeMixing: func(localUser *agoraservice.LocalUser, channelId string, userId string, frame *agoraservice.AudioFrame, vadResulatState agoraservice.VadState, vadResultFrame *agoraservice.AudioFrame) bool {
 			// do something: for play a file
-			if audioFrameCount == 0 {
-				// create a wave file
-				audioFileName = fmt.Sprintf("./audio_%d.wav", time.Now().UnixMilli())
-				audioWaveFile, err = os.Create(audioFileName)
-				if err != nil {
-					fmt.Printf("Failed to create file: %v\n", err)
-					return true
-				}
-				// generate wave header
-				waveHeader := agoraservice.GenerateWAVHeader(16000, 1, len(frame.Buffer))
-				audioWaveFile.Write(waveHeader)
-			}
-			audioFrameCount++
-			// write audio data to wave file
-			audioWaveFile.Write(frame.Buffer)
-			if audioFrameCount > 1000 { // indicate 1000 frames, ie 10 seconds
-				// re-generate wave header
-				waveHeader := agoraservice.GenerateWAVHeader(16000, 1, len(frame.Buffer)*audioFrameCount)
-				// seek to the beginning of the wave file
-				audioWaveFile.Seek(0, 0)
-				// write the new wave header（i.e to update the wave file size）
-				audioWaveFile.Write(waveHeader)
-				// close the wave file
-				audioFrameCount = 0
-				audioWaveFile.Close()
-			}
-
-			return true
+			
 
 			pcmQueue.Enqueue(frame)
 			//fmt.Printf("Playback audio frame before mixing, from userId %s, far :%d,rms:%d, pitch: %d\n", userId, frame.FarFieldFlag, frame.Rms, frame.Pitch)
@@ -300,8 +262,8 @@ func main() {
 	defer audioConsumer.Release()
 	done := make(chan bool)
 
-	go ReadFileToConsumer(pcmfile, audioConsumer, 50, done)
-	go ConsumeAudio(audioConsumer, 50, done)
+	//go ReadFileToConsumer(pcmfile, audioConsumer, 50, done)
+	//go ConsumeAudio(audioConsumer, 50, done)
 
 	// create 2 rouite for process audio and video
 	audioRoutine := func() {
@@ -333,8 +295,8 @@ func main() {
 		fmt.Printf("VideoRoutine end\n")
 	}
 
-	//go audioRoutine()
-	//go videoRoutine()
+	go audioRoutine()
+	go videoRoutine()
 	fmt.Printf("start audioRoutine: %v, videoRoutine: %v\n", audioRoutine, videoRoutine)
 
 	// step0: create connection
@@ -356,17 +318,7 @@ func main() {
 	//localuserobserver
 	localUser.RegisterLocalUserObserver(localUserObserver)
 
-	// set encryption mode
-	salt := "3t6pvC+qHvVW300B3f+g5J49U3Y×QR40tWKEP/Zz+4="
-
-	encCfg := &agoraservice.EncryptionConfig{
-		EncryptionMode:    7,
-		EncryptionKey:     "oLB41X/IGpxgUMzsYpE+IOpNLOyIbpr8C7qe+mb7QRHkmrELtVsWw6Xr6rQ0XAK03fsBXJJVCkXeL2X7J492qXjR89Q=",
-		EncryptionKdfSalt: []byte(salt),
-	}
-	encCfg.EncryptionMode = 1
-	encCfg.EncryptionKey = "123456"
-	con.EnableEncryption(0, encCfg)
+	
 
 	con.Connect(token, channelName, userId)
 	<-conSignal
@@ -390,63 +342,14 @@ func main() {
 
 	// for yuv test
 
-	w := 352
-	h := 288
-	dataSize := w * h * 3 / 2
-	data := make([]byte, dataSize)
-	// read yuv from file 103_RaceHorses_416x240p30_300.yuv
-	file, err := os.Open("../test_data/send_video_cif.yuv")
-	if err != nil {
-		fmt.Println("Error opening file:", err)
-		return
-	}
-	defer file.Close()
+	
 
-	for !*bStop {
-		dataLen, err := file.Read(data)
-		if err != nil || dataLen < dataSize {
-			file.Seek(0, 0)
-			continue
-		}
-		// senderCon.SendStreamMessage(streamId, data)
-		yuvsender.SendVideoFrame(&agoraservice.ExternalVideoFrame{
-			Type:      agoraservice.VideoBufferRawData,
-			Format:    agoraservice.VideoPixelI420,
-			Buffer:    data,
-			Stride:    w,
-			Height:    h,
-			Timestamp: 0,
-		})
-		time.Sleep(33 * time.Millisecond)
-	}
-
+	
 	// rgag colos space type test
 
 	for !*bStop {
-		/*
-			dataLen, err := file.Read(data)
-			if err != nil || dataLen < dataSize {
-				file.Seek(0, 0)
-				continue
-			}
-			// senderCon.SendStreamMessage(streamId, data)
-
-			sender.SendVideoFrame(&agoraservice.ExternalVideoFrame{
-				Type:      agoraservice.VideoBufferRawData,
-				Format:    agoraservice.VideoPixelRGBA,
-				Buffer:    data,
-				Stride:    w,
-				Height:    h,
-				Timestamp: 0,
-				/*
-					// for rgba with pure background color test
-					ColorSpace: agoraservice.ColorSpaceType{
-						MatrixId:    1,
-						PrimariesId: 1,
-						RangeId:     2, //or 2,
-						TransferId:  1,
-					},
-			})*/
+		
+		
 		time.Sleep(33 * time.Millisecond)
 	}
 	close(done)

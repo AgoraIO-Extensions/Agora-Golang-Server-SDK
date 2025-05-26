@@ -174,6 +174,10 @@ func Initialize(cfg *AgoraServiceConfig) int {
 
 	agoraService.isLowDelay = cfg.AudioScenario == AudioScenarioChorus
 	agoraService.isSteroEncodeMode = (cfg.EnableSteroEncodeMode > 0)
+	//added by wei for stero encode mode
+	if cfg.EnableSteroEncodeMode > 0 {
+		agoraParam.SetParameters("{\"che.audio.custom_bitrate\":32000}")
+	}
 
 	if cfg.LogPath != "" {
 		logPath := C.CString(cfg.LogPath)

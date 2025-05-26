@@ -114,6 +114,9 @@ import (
   -- 增加一个getstatics的接口
   -- 增加了一个Dequeue，用于线程安全的chan机制。参考： sendrcvpcmyuv done
 
+## 2025.05.26 发布 2.2.8
+-- 修改：修改一个bug，在立体声模式下，编码码率不生效的bug
+-- 更新：将mac sdk 版本更新到4.4.32
 ## 2025.05.21 发布 2.2.7
 -- 更新：vad v1 lib removed libc++ and libstdc++ dependence，fix a bug that the vad lib can not be loaded in some os which has not libc++ and libstdc++.
 ## 2025.05.19 发布 2.2.6
