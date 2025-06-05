@@ -127,6 +127,10 @@ int resample_audio(DecodeContext *decode_ctx, AVFrame *frame) {
     }
     decode_ctx->buffer_size = buf_size;
     decode_ctx->buffer = (uint8_t *)av_malloc(decode_ctx->buffer_size);
+    if (!decode_ctx->buffer) {
+        av_log(NULL, AV_LOG_ERROR, "Can't allocate buffer\n");
+        return AVERROR(ENOMEM);
+    }
     av_samples_fill_arrays(decode_ctx->samples, NULL, decode_ctx->buffer, decode_ctx->dst_ch_layout.nb_channels, dst_nb_samples, decode_ctx->dst_sample_fmt, 1);
   }
   decode_ctx->actual_buffer_size = buf_size;
@@ -164,6 +168,7 @@ int init_sws(DecodeContext *decode_ctx) {
   int ret = av_image_alloc(decode_ctx->dst_data, decode_ctx->dst_linesize, 
       decode_ctx->dst_width, decode_ctx->dst_height, decode_ctx->dst_pix_fmt, 1);
   if (ret < 0) {
+    av_freep(&decode_ctx->dst_data[0]);
     av_log(NULL, AV_LOG_ERROR, "Can't allocate image\n");
     return ret;
   }
@@ -494,9 +499,8 @@ int h264_to_annexb(void *decoder, MediaPacket **packet) {
 
   int ret = av_bsf_send_packet(d->bsf, pkt);
   if (ret < 0) {
+      av_packet_free(&pkt);
       free_packet(packet);
-      av_log(NULL, AV_LOG_ERROR, "Error submitting a packet for filtering: %s\n",
-              av_err2str(ret));
       return ret;
   }
 
@@ -569,6 +573,7 @@ int decode_packet(void *decoder, MediaPacket *packet, MediaFrame *frame) {
   av_packet_unref(pkt);
 
   if (result < 0) {
+      av_packet_unref(pkt);
       av_log(NULL, AV_LOG_ERROR, "Error submitting a packet for decoding\n");
       return result;
   }
@@ -582,6 +587,7 @@ int decode_packet(void *decoder, MediaPacket *packet, MediaFrame *frame) {
       } else if (result == AVERROR(EAGAIN)) {
           break;
       } else if (result < 0) {
+          av_packet_unref(pkt);
           av_log(NULL, AV_LOG_ERROR, "Error decoding frame\n");
           return result;
       }
@@ -589,6 +595,7 @@ int decode_packet(void *decoder, MediaPacket *packet, MediaFrame *frame) {
       if (media_type == AVMEDIA_TYPE_VIDEO) {
         int ret = resize_video(decode_ctx, fr);
         if (ret < 0) {
+          av_packet_unref(pkt);
           av_log(NULL, AV_LOG_ERROR, "Error resize video, code %d\n", ret);
           return ret;
         }
@@ -604,6 +611,7 @@ int decode_packet(void *decoder, MediaPacket *packet, MediaFrame *frame) {
       } else if (media_type == AVMEDIA_TYPE_AUDIO) {
         int ret = resample_audio(decode_ctx, fr);
         if (ret < 0) {
+          av_packet_unref(pkt);
           av_log(NULL, AV_LOG_ERROR, "Error resample audio, code %d\n", ret);
           return ret;
         }
@@ -684,6 +692,7 @@ int get_frame(void *decoder, MediaFrame *frame) {
       av_packet_unref(pkt);
 
       if (result < 0) {
+          av_packet_unref(pkt);
           av_log(NULL, AV_LOG_ERROR, "Error submitting a packet for decoding\n");
           return result;
       }
@@ -699,6 +708,7 @@ int get_frame(void *decoder, MediaFrame *frame) {
               result = 0;
               break;
           } else if (result < 0) {
+              av_packet_unref(pkt);
               av_log(NULL, AV_LOG_ERROR, "Error decoding frame\n");
               return result;
           }
@@ -706,6 +716,7 @@ int get_frame(void *decoder, MediaFrame *frame) {
           if (media_type == AVMEDIA_TYPE_VIDEO) {
             int ret = resize_video(decode_ctx, fr);
             if (ret < 0) {
+              av_packet_unref(pkt);
               av_log(NULL, AV_LOG_ERROR, "Error resize video, code %d\n", ret);
               return ret;
             }
@@ -721,6 +732,7 @@ int get_frame(void *decoder, MediaFrame *frame) {
           } else if (media_type == AVMEDIA_TYPE_AUDIO) {
             int ret = resample_audio(decode_ctx, fr);
             if (ret < 0) {
+              av_packet_unref(pkt);
               av_log(NULL, AV_LOG_ERROR, "Error resample audio, code %d\n", ret);
               return ret;
             }
@@ -758,5 +770,8 @@ void close_media_file(void *decoder) {
     }
     avformat_close_input(&d->fmt_ctx);
     av_packet_free(&d->pkt);
+    if (d->video_ctx.dst_data[0]) {
+        av_freep(&d->video_ctx.dst_data[0]);
+    }
     free(d);
 }

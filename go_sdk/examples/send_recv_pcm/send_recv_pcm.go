@@ -131,6 +131,12 @@ func main() {
 	defer agoraservice.Release()
 	mediaNodeFactory := agoraservice.NewMediaNodeFactory()
 	defer mediaNodeFactory.Release()
+	agoraParam := agoraservice.GetAgoraParameter()
+	// 用来做验证：chorus模式下的延迟和抖动之间的关系
+	agoraParam.SetParameters("{\"che.audio.rsfec\":[1, 0]}")
+	agoraParam.SetParameters("{\"che.audio.custom_bitrate\":32000}")
+	agoraParam.SetParameters("{\"che.audio.max_target_delay\":100}")
+	
 
 	conCfg := agoraservice.RtcConnectionConfig{
 		AutoSubscribeAudio: true,

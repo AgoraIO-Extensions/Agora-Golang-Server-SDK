@@ -18,6 +18,12 @@ const (
 	AudioScenarioChorus AudioScenario = 7
 	// AudioScenarioMeeting is the meeting scenario.
 	AudioScenarioMeeting AudioScenario = 8
+	// AudioScenarioAiServer is the AI server scenario.
+	AudioScenarioAiServer AudioScenario = 9
+	// AudioScenarioAiClient is the AI client scenario.
+	AudioScenarioAiClient AudioScenario = 10
+	// AudioScenarioNum is the number of audio scenarios.
+	AudioScenarioNum AudioScenario = 11
 )
 
 // AudioProfile represents the audio profile.

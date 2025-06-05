@@ -36,6 +36,8 @@ type AudioConsumer struct {
 	// State
 	isInitialized bool
 	lastConsumeedTime int64 // in ms
+	isDirectMode bool  // default to false, if true, means the pcmSender is in direct mode, and the data will be sent directly to the rtc channel
+	directDataLen int // the length of the data in the direct mode
 }
 
 // NewAudioConsumer creates a new AudioConsumer instance
@@ -59,20 +61,49 @@ func NewAudioConsumer(pcmSender *AudioPcmDataSender, sampleRate int, channels in
 		samplesPerChannel: sampleRate / 100 ,
 		isInitialized:     true,
 		lastConsumeedTime: 0,
+		isDirectMode: false,
+		directDataLen: 0,
+	}
+
+	if pcmSender.audioScenario == AudioScenarioAiServer {
+		consumer.isDirectMode = true
 	}
 
 	return consumer
 }
+// 暂时不处理非10ms整数的情况
+func (ac *AudioConsumer) directPush(data []byte) {
+	ac.frame.Buffer = data
+	actualPackets := len(data) / ac.bytesPerFrame
+
+	ac.frame.SamplesPerChannel = ac.samplesPerChannel * actualPackets
+	ac.mu.Lock()
+	ac.directDataLen += len(data) // not equal to the actual packets, because the data may not be 10ms aligned	
+	ac.mu.Unlock()
+
+	fmt.Printf("directPush data len: %d, directDataLen: %d\n", len(data),ac.directDataLen)
+	
+	ac.pcmSender.SendAudioPcmData(ac.frame)
+}
+
 
 // PushPCMData adds PCM data to the buffer
-func (ac *AudioConsumer) PushPCMData(data []byte) {
-	if !ac.isInitialized || data == nil || len(data) == 0 {
-		return
-	}
+func (ac *AudioConsumer) undirectPush(data []byte) {
 
 	ac.mu.Lock()
 	defer ac.mu.Unlock()
 	ac.buffer.Write(data)
+}
+
+func (ac *AudioConsumer) PushPCMData(data []byte) {
+	if !ac.isInitialized || data == nil || len(data) == 0 {
+		return
+	}
+	if ac.isDirectMode {
+		ac.directPush(data)
+	} else {
+		ac.undirectPush(data)
+	}	
 }
 
 // reset resets the consumer's timing state
@@ -84,20 +115,23 @@ func (ac *AudioConsumer) reset() {
 	ac.startTime = (time.Now().UnixMilli())
 	ac.consumedPackets = 0
 	ac.lastConsumeedTime = ac.startTime
+	ac.directDataLen = 0
 }
 
-// Consume processes and sends audio data
-func (ac *AudioConsumer) Consume() int {
-	if !ac.isInitialized {
-		return -1
-	}
-
+func (ac *AudioConsumer) calculateCurWantPackets() int {
+	
 	now := time.Now().UnixMilli()
 	elapsedTime := now - ac.startTime
 	expectedTotalPackets := int(elapsedTime / 10) //change type from
 	toBeSentPackets := expectedTotalPackets - ac.consumedPackets
 
-	dataLen := ac.buffer.Len()
+	dataLen := 0
+	if ac.isDirectMode {
+		dataLen = ac.directDataLen
+	} else {
+		dataLen = ac.buffer.Len()
+	}
+
 	if dataLen > 0 {
 	    ac.lastConsumeedTime = now
 	}
@@ -116,6 +150,20 @@ func (ac *AudioConsumer) Consume() int {
 
 	// Calculate actual packets to send
 	actualPackets := min(toBeSentPackets, dataLen/ac.bytesPerFrame)
+	if actualPackets < 1 {
+		return -3
+	}
+
+	return actualPackets
+}
+
+	
+
+// Consume processes and sends audio data
+func (ac *AudioConsumer) undirectConsume() int {
+
+	// Calculate actual packets to send
+	actualPackets := ac.calculateCurWantPackets()
 	if actualPackets < 1 {
 		return -3
 	}
@@ -148,15 +196,58 @@ func (ac *AudioConsumer) Consume() int {
 	return -5
 }
 
+func (ac *AudioConsumer) directConsume() int {
+	
+	actualPackets := ac.calculateCurWantPackets()
+	if actualPackets < 1 {
+		return -3
+	}
+
+	// Prepare and send frame
+	ac.mu.Lock()
+	bytesToSend := ac.bytesPerFrame * actualPackets
+	ac.directDataLen -= bytesToSend
+	defer ac.mu.Unlock()
+
+	
+
+	if bytesToSend > 0 {
+		
+
+		ac.consumedPackets += actualPackets
+
+		
+		return 0
+	}
+
+	return -5
+}
+
+func (ac *AudioConsumer) Consume() int {
+	if !ac.isInitialized {
+		return -1
+	}
+	if ac.isDirectMode {
+		return ac.directConsume()
+	} else {
+		return ac.undirectConsume()
+	}
+}
+
 // Len returns the current buffer length
 func (ac *AudioConsumer) Len() int {
-	return ac.buffer.Len()
+	if ac.isDirectMode {
+		return ac.directDataLen;
+	} else {
+		return ac.buffer.Len()
+	}
 }
 
 // Clear empties the buffer
 func (ac *AudioConsumer) Clear() {
 	ac.mu.Lock()
 	defer ac.mu.Unlock()
+	ac.directDataLen = 0
 	ac.buffer.Reset()
 }
 /*判断AudioConsumer中的数据是否已经完全推送给了RTC 频道
@@ -169,8 +260,13 @@ func (ac *AudioConsumer) IsPushToRtcCompleted() int {
 		return -1
 	}
 	// no need to lock, because this function is only called in the main thread
+	remain_size := 0
+	if ac.isDirectMode {
+		remain_size = ac.directDataLen
+	} else {
+		remain_size = ac.buffer.Len()
+	}
 	
-	remain_size := ac.buffer.Len()
 	if remain_size == 0 {
 		now := time.Now().UnixMilli()
 		diff := now - ac.lastConsumeedTime
@@ -197,6 +293,8 @@ func (ac *AudioConsumer) Release() {
 	ac.buffer = nil
 	ac.frame = nil
 	ac.pcmSender = nil
+	ac.directDataLen = 0
+	ac.isDirectMode = false
 }
 
 func min(a, b int) int {
@@ -412,7 +510,7 @@ func (q *Queue) Enqueue(item interface{}) {
 	case q.notify <- struct{}{}:
 		//fmt.Println("notify the dequeue routine")
 	default:
-		fmt.Println("--no notify the dequeue routine")
+		//fmt.Println("--no notify the dequeue routine")
 	}
 }
 
@@ -421,6 +519,8 @@ func (q *Queue) Dequeue() interface{} {
 	q.mutex.Lock()
 	size := len(q.items)
 	q.mutex.Unlock()
+
+	fmt.Printf("Dequeue size: %d\n", size)
 
 	// if size is 0, wait notify signal or timeout
 	if size == 0 {

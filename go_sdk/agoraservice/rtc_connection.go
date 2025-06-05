@@ -772,7 +772,7 @@ func (conn *RtcConnection) enableSteroEncodeMode() int {
 
 	// change audio senario, by wei for stero encodeing
 	localUser.SetAudioScenario(AudioScenarioGameStreaming)
-	localUser.SetAudioEncoderConfiguration(&AudioEncoderConfiguration{AudioProfile: int(AudioProfileMusicHighQualityStereo)})
+	localUser.SetAudioEncoderConfiguration(&AudioEncoderConfiguration{AudioProfile: int(AudioProfileMusicStandardStereo)})
 
 	// fill pirvate parameter
 	agoraParameterHandler := conn.parameter

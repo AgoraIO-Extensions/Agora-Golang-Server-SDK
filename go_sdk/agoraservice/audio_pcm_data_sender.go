@@ -30,6 +30,7 @@ type AudioPcmDataSender struct {
 	cSender unsafe.Pointer
 	mu      sync.RWMutex
 	closed  bool
+	audioScenario AudioScenario
 }
 type AudioVolumeInfo struct {
 	UserId     string
@@ -49,6 +50,7 @@ func (mediaNodeFactory *MediaNodeFactory) NewAudioPcmDataSender() *AudioPcmDataS
 	return &AudioPcmDataSender{
 		cSender: sender,
 		closed:  false,
+		audioScenario: AudioScenarioChorus,  //default to chorus mode
 	}
 }
 

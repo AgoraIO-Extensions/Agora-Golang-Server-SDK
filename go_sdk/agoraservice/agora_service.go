@@ -91,6 +91,7 @@ type AgoraService struct {
 	service unsafe.Pointer
 	isLowDelay bool
 	isSteroEncodeMode bool
+	audioScenario AudioScenario
 	// mediaFactory         unsafe.Pointer
 	consByCCon                  sync.Map
 	consByCLocalUser            sync.Map
@@ -105,6 +106,7 @@ func newAgoraService() *AgoraService {
 		service: nil,
 		isLowDelay: false,
 		isSteroEncodeMode: false,
+		audioScenario: AudioScenarioChorus,
 	}
 }
 
@@ -174,6 +176,7 @@ func Initialize(cfg *AgoraServiceConfig) int {
 
 	agoraService.isLowDelay = cfg.AudioScenario == AudioScenarioChorus
 	agoraService.isSteroEncodeMode = (cfg.EnableSteroEncodeMode > 0)
+	agoraService.audioScenario = cfg.AudioScenario
 	//added by wei for stero encode mode
 	if cfg.EnableSteroEncodeMode > 0 {
 		agoraParam.SetParameters("{\"che.audio.custom_bitrate\":32000}")

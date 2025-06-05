@@ -114,6 +114,37 @@ import (
   -- 增加一个getstatics的接口
   -- 增加了一个Dequeue，用于线程安全的chan机制。参考： sendrcvpcmyuv done
 
+## todo：2025.05.31 ai_server senario 版本
+
+-- server端：需要用directAudioTrack来做推送，不再用customAudioTrack；也不需要按照10ms的速率来发送，就是有多少就发送多少
+-- server端：不在需要audioConsumer，或者在audioconsumer内部做对senario的适配，这样能做兼容
+-- server端：vad打断的时候，需要调用publish/unpublish方法，替代localaudiotrack的clearsendbuffer方法
+是否可以unpub后，多久可以在做pub？
+DirectCustomAudioTrackPcm：
+- 内部是否还需要设置senddelayinms？内部是否有缓存？--内部没有缓存。
+- 内部原理大概是啥？内部会拆分成10个ms一个包，不停的发送。总体的发送速度取决于编码/上行带宽等综合因素。
+- 如果app层也是10ms的频率push数据，和cuscomaudiotrack是否行为一致？--基本一致
+- 是否可以用在别的senario？==如果用在别的senario，需要按照10ms来推。否则不太推荐。
+- ai client目前不限制
+- 打断需要用unpub 机制
+
+--设计思想
+-- 1. 对外来说，并没有customAudioTrack和DirectAudioTrack的区别，都是AudioTrack，只是内部根据senario的不同而做不同的实现；
+-- 2. 在service中，根据senario的不同，创建不同的AudioTrack，并做适配；
+-- 3. 在service中，根据senario的不同，创建不同的AudioConsumer，并做适配；
+-- 4. 在service中，根据senario的不同，对pcmdatasender做不同的适配
+-- 5. 在service中，无论是那种senario，对外都是一致的，都是AudioTrack和AudioConsumer、PcmDataSender，但内部根据senario的不同，做不同的实现
+--AI server的用法：
+-- 1. 在创建service的时候，指定senario为ai_server
+-- 2. 别的用法都不用修改
+-- 3. 当有ai对话，需要做打断的时候，调用unpub方法，打断后，调用pub方法，重新开始？？？
+pub/unpub: 只是api调用，大概是0～1ms；
+
+
+--测试结果： 0603
+  -1. 不能在onplaybackbeformixing中，直接调用sendpcmdata，否则会block！原来的版本是可以的。参考/recv_pcm_loopback
+
+
 ## 2025.05.26 发布 2.2.8
 -- 修改：修改一个bug，在立体声模式下，编码码率不生效的bug
 -- 更新：将mac sdk 版本更新到4.4.32

@@ -8,16 +8,29 @@ import "unsafe"
 
 type LocalAudioTrack struct {
 	cTrack unsafe.Pointer
+	audioScenario AudioScenario
 }
 
 func NewCustomAudioTrackPcm(pcmSender *AudioPcmDataSender) *LocalAudioTrack {
-	cTrack := C.agora_service_create_custom_audio_track_pcm(agoraService.service, pcmSender.cSender)
+	if agoraService == nil || agoraService.service == nil {
+		return nil
+	}
+	var cTrack unsafe.Pointer = nil
+	audioScenario := agoraService.audioScenario
+	if audioScenario == AudioScenarioAiServer {
+		cTrack = C.agora_service_create_direct_custom_audio_track_pcm(agoraService.service, pcmSender.cSender)
+	} else {
+		cTrack = C.agora_service_create_custom_audio_track_pcm(agoraService.service, pcmSender.cSender)
+	}
+	
 	if cTrack == nil {
 		return nil
 	}
 	audioTrack := &LocalAudioTrack{
 		cTrack: cTrack,
+		audioScenario: audioScenario,
 	}
+	pcmSender.audioScenario = audioScenario
 
 	// set send delay ms to 10ms, to avoid audio delay. NOTE: do not set it to 0, otherwise, it would set to default value: 260ms
 	if audioTrack.cTrack != nil {
@@ -85,4 +98,17 @@ func (track *LocalAudioTrack) SetSendDelayMs(delayMs int) int {
 	}
 	C.agora_local_audio_track_set_send_delay_ms(track.cTrack, C.int(delayMs))
 	return 0
+}
+// to create direct audio track,no need to set send delay ms
+// its will push all data to sd-rtn. and it will encode possible more data to sd-rtn.
+func NewDirectCustomAudioTrackPcm(pcmSender *AudioPcmDataSender) *LocalAudioTrack {
+	cTrack := C.agora_service_create_direct_custom_audio_track_pcm(agoraService.service, pcmSender.cSender)
+	if cTrack == nil {
+		return nil
+	}
+	pcmSender.audioScenario = AudioScenarioAiServer
+	return &LocalAudioTrack{
+		cTrack: cTrack,
+		audioScenario: AudioScenarioAiServer,
+	}
 }
