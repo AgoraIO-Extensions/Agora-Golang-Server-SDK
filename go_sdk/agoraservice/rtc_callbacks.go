@@ -23,7 +23,7 @@ func goOnConnected(cCon unsafe.Pointer, cConInfo *C.struct__rtc_conn_info, reaso
 	}
 	// get conn from handle
 	con := agoraService.getConFromHandle(cCon, ConTypeCCon)
-	if con == nil || con.handler == nil || con.handler.OnConnected == nil {
+	if con == nil || con.handler == nil {
 		return
 	}
 	GoRtcConnectionInfo(cConInfo, &con.connInfo)
@@ -38,7 +38,7 @@ func goOnDisconnected(cCon unsafe.Pointer, cConInfo *C.struct__rtc_conn_info, re
 	}
 	// get conn from handle
 	con := agoraService.getConFromHandle(cCon, ConTypeCCon)
-	if con == nil || con.handler == nil || con.handler.OnDisconnected == nil {
+	if con == nil || con.handler == nil {
 		return
 	}
 	GoRtcConnectionInfo(cConInfo, &con.connInfo)
@@ -55,7 +55,7 @@ func goOnConnecting(cCon unsafe.Pointer, cConInfo *C.struct__rtc_conn_info, reas
 	}
 	// get conn from handle
 	con := agoraService.getConFromHandle(cCon, ConTypeCCon)
-	if con == nil || con.handler == nil || con.handler.OnConnecting == nil {
+	if con == nil || con.handler == nil {
 		return
 	}
 	GoRtcConnectionInfo(cConInfo, &con.connInfo)
@@ -71,7 +71,7 @@ func goOnReconnecting(cCon unsafe.Pointer, cConInfo *C.struct__rtc_conn_info, re
 	}
 	// get conn from handle
 	con := agoraService.getConFromHandle(cCon, ConTypeCCon)
-	if con == nil || con.handler == nil || con.handler.OnReconnecting == nil {
+	if con == nil || con.handler == nil {
 		return
 	}
 	GoRtcConnectionInfo(cConInfo, &con.connInfo)
@@ -88,7 +88,7 @@ func goOnReconnected(cCon unsafe.Pointer, cConInfo *C.struct__rtc_conn_info, rea
 	}
 	// get conn from handle
 	con := agoraService.getConFromHandle(cCon, ConTypeCCon)
-	if con == nil || con.handler == nil || con.handler.OnReconnected == nil {
+	if con == nil || con.handler == nil {
 		return
 	}
 	GoRtcConnectionInfo(cConInfo, &con.connInfo)
@@ -104,7 +104,7 @@ func goOnConnectionLost(cCon unsafe.Pointer, cConInfo *C.struct__rtc_conn_info) 
 	}
 	// get conn from handle
 	con := agoraService.getConFromHandle(cCon, ConTypeCCon)
-	if con == nil || con.handler == nil || con.handler.OnConnectionLost == nil {
+	if con == nil || con.handler == nil {
 		return
 	}
 	GoRtcConnectionInfo(cConInfo, &con.connInfo)
@@ -120,7 +120,7 @@ func goOnConnectionFailure(cCon unsafe.Pointer, cConInfo *C.struct__rtc_conn_inf
 	}
 	// get conn from handle
 	con := agoraService.getConFromHandle(cCon, ConTypeCCon)
-	if con == nil || con.handler == nil || con.handler.OnConnectionFailure == nil {
+	if con == nil || con.handler == nil {
 		return
 	}
 	GoRtcConnectionInfo(cConInfo, &con.connInfo)
@@ -136,7 +136,7 @@ func goOnTokenPrivilegeWillExpire(cCon unsafe.Pointer, ctoken *C.char) {
 	}
 	// get conn from handle
 	con := agoraService.getConFromHandle(cCon, ConTypeCCon)
-	if con == nil || con.handler == nil || con.handler.OnTokenPrivilegeWillExpire == nil {
+	if con == nil || con.handler == nil {
 		return
 	}
 	// note： best practise is never reelase handler until app is exiting
@@ -151,7 +151,7 @@ func goOnTokenPrivilegeDidExpire(cCon unsafe.Pointer) {
 	}
 	// get conn from handle
 	con := agoraService.getConFromHandle(cCon, ConTypeCCon)
-	if con == nil || con.handler == nil || con.handler.OnTokenPrivilegeDidExpire == nil {
+	if con == nil || con.handler == nil {
 		return
 	}
 	// note： best practise is never reelase handler until app is exiting
@@ -166,7 +166,7 @@ func goOnUserJoined(cCon unsafe.Pointer, uid *C.char) {
 	}
 	// get conn from handle
 	con := agoraService.getConFromHandle(cCon, ConTypeCCon)
-	if con == nil || con.handler == nil || con.handler.OnUserJoined == nil {
+	if con == nil || con.handler == nil {
 		return
 	}
 	// note： best practise is never reelase handler until app is exiting
@@ -181,7 +181,7 @@ func goOnUserOffline(cCon unsafe.Pointer, uid *C.char, reason C.int) {
 	}
 	// get conn from handle
 	con := agoraService.getConFromHandle(cCon, ConTypeCCon)
-	if con == nil || con.handler == nil || con.handler.OnUserLeft == nil {
+	if con == nil || con.handler == nil {
 		return
 	}
 	// note： best practise is never reelase handler until app is exiting
@@ -196,7 +196,7 @@ func goOnError(cCon unsafe.Pointer, err C.int, msg *C.char) {
 	}
 	// get conn from handle
 	con := agoraService.getConFromHandle(cCon, ConTypeCCon)
-	if con == nil || con.handler == nil || con.handler.OnError == nil {
+	if con == nil || con.handler == nil {
 		return
 	}
 	// note： best practise is never reelase handler until app is exiting
@@ -211,7 +211,7 @@ func goOnStreamMessageError(cCon unsafe.Pointer, uid *C.char, streamId C.int, er
 	}
 	// get conn from handle
 	con := agoraService.getConFromHandle(cCon, ConTypeCCon)
-	if con == nil || con.handler == nil || con.handler.OnStreamMessageError == nil {
+	if con == nil || con.handler == nil {
 		return
 	}
 	// note： best practise is never reelase handler until app is exiting
@@ -308,7 +308,6 @@ func goOnUserVideoTrackStateChanged(cLocalUser unsafe.Pointer, uid *C.char, cRem
 	con.localUserObserver.OnUserVideoTrackStateChanged(con.GetLocalUser(), C.GoString(uid), con.NewRemoteVideoTrack(cRemoteVideoTrack), int(state), int(reason), int(elapsed))
 }
 
-
 //export goOnAudioVolumeIndication
 func goOnAudioVolumeIndication(cLocalUser unsafe.Pointer, Volumes *C.struct__audio_volume_info, speakerNumber C.uint, totalVolume C.int) {
 	//validity check
@@ -320,7 +319,6 @@ func goOnAudioVolumeIndication(cLocalUser unsafe.Pointer, Volumes *C.struct__aud
 	if con == nil || con.localUserObserver == nil || con.localUserObserver.OnAudioVolumeIndication == nil {
 		return
 	}
-
 
 	// item := C.GoBytes(unsafe.Pointer(Volumes), C.int(unsafe.Sizeof(Volumes))) and assign to a list
 	//todo?? move to file end
@@ -339,7 +337,6 @@ func goOnAudioVolumeIndication(cLocalUser unsafe.Pointer, Volumes *C.struct__aud
 	con.localUserObserver.OnAudioVolumeIndication(con.GetLocalUser(), frames, int(speakerNumber), int(totalVolume))
 }
 
-
 //export goOnAudioPublishStateChanged
 func goOnAudioPublishStateChanged(cLocalUser unsafe.Pointer, channel *C.char, oldState C.int, newState C.int, elapseSinceLastState C.int) {
 	//validity check
@@ -353,6 +350,7 @@ func goOnAudioPublishStateChanged(cLocalUser unsafe.Pointer, channel *C.char, ol
 	}
 	con.localUserObserver.OnAudioPublishStateChanged(con.GetLocalUser(), C.GoString(channel), int(oldState), int(newState), int(elapseSinceLastState))
 }
+
 //export goOnAudioMetadataReceived
 func goOnAudioMetadataReceived(cLocalUser unsafe.Pointer, uid *C.char, metaData *C.char, length C.size_t) {
 	//validity check
@@ -365,8 +363,9 @@ func goOnAudioMetadataReceived(cLocalUser unsafe.Pointer, uid *C.char, metaData 
 		return
 	}
 	// note： best practise is never reelase handler until app is exiting
-	con.localUserObserver.OnAudioMetaDataReceived(con.GetLocalUser(), C.GoString(uid), C.GoBytes(unsafe.Pointer(metaData),C.int(length)))
+	con.localUserObserver.OnAudioMetaDataReceived(con.GetLocalUser(), C.GoString(uid), C.GoBytes(unsafe.Pointer(metaData), C.int(length)))
 }
+
 //export goOnLocalAudioTrackStatistics
 func goOnLocalAudioTrackStatistics(cLocalUser unsafe.Pointer, stats *C.struct__local_audio_stats) {
 	//validity check
@@ -380,6 +379,7 @@ func goOnLocalAudioTrackStatistics(cLocalUser unsafe.Pointer, stats *C.struct__l
 	}
 	con.localUserObserver.OnLocalAudioTrackStatistics(con.GetLocalUser(), GoLocalAudioStats(stats))
 }
+
 //export goOnRemoteAudioTrackStatistics
 func goOnRemoteAudioTrackStatistics(cLocalUser unsafe.Pointer, uid *C.char, stats *C.struct__remote_audio_stats) {
 	//validity check
@@ -393,6 +393,7 @@ func goOnRemoteAudioTrackStatistics(cLocalUser unsafe.Pointer, uid *C.char, stat
 	}
 	con.localUserObserver.OnRemoteAudioTrackStatistics(con.GetLocalUser(), C.GoString(uid), GoRemoteAudioStats(stats))
 }
+
 //export goOnLocalVideoTrackStatistics
 func goOnLocalVideoTrackStatistics(cLocalUser unsafe.Pointer, stats *C.struct__local_video_track_stats) {
 	//validity check
@@ -406,6 +407,7 @@ func goOnLocalVideoTrackStatistics(cLocalUser unsafe.Pointer, stats *C.struct__l
 	}
 	con.localUserObserver.OnLocalVideoTrackStatistics(con.GetLocalUser(), GoLocalVideoStats(stats))
 }
+
 //export goOnRemoteVideoTrackStatistics
 func goOnRemoteVideoTrackStatistics(cLocalUser unsafe.Pointer, uid *C.char, stats *C.struct__remote_video_track_stats) {
 	//validity check
@@ -419,6 +421,7 @@ func goOnRemoteVideoTrackStatistics(cLocalUser unsafe.Pointer, uid *C.char, stat
 	}
 	con.localUserObserver.OnRemoteVideoTrackStatistics(con.GetLocalUser(), C.GoString(uid), GoRemoteVideoStats(stats))
 }
+
 //export goOnEncryptionError
 func goOnEncryptionError(cCon unsafe.Pointer, errorType C.int) {
 	//validity check
