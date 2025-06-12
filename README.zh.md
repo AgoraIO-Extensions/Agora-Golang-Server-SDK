@@ -548,5 +548,14 @@ s->setBool("rtc.local_ap_low_level",true);
 s->setBool("rtc.enable_nasa2", true);
 s->setParameters("{\"rtc.vos_list\":[\"10.62.0.95:4701\"]}");
 s->setParameters("{\"rtc.local_ap_list\":[\"10.62.0.95\"]}");
+
+## 如何使用ai server/ai client？
+-- 如何做打断：调用localUser.UnpublishAudio(track)
+-- 在推送的时候，调用localUser.PublishAudio(track)，可以多次调用也可以的，没有啥影响。
+-- pub/unpub：api调用是在0～1ms，callback在：1~2ms内！
+-- upub：api是在0～1ms，callback在：1~2ms内！
+
+## Ai server/ai client如何使用
+-- 1、ai server：在init之后，调用aiService.InitAiServer()，然后调用aiService.StartAiServer()，即可启动ai server。
 			
 

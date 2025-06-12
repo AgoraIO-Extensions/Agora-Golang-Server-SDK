@@ -140,16 +140,16 @@ func main() {
 		Width:             320,
 		Height:            240,
 		Framerate:         30,
-		Bitrate:           500,
-		MinBitrate:        100,
+		Bitrate:           1000,
+		MinBitrate:        400,
 		OrientationMode:   agoraservice.OrientationModeAdaptive,
-		DegradePreference: 0,
+		DegradePreference: 2,
 	})
 	track.SetEnabled(true)
 	localUser.PublishVideo(track)
 
 	// for yuv test
-	/*
+	
 	w := 352
 	h := 288
 	dataSize := w * h * 3 / 2
@@ -179,7 +179,7 @@ func main() {
 		})
 		time.Sleep(33 * time.Millisecond)
 	}
-	*/
+	/*
 	// rgag colos space type test
 	w := 360
 	h := 720
@@ -208,18 +208,18 @@ func main() {
 			Stride:    w,
 			Height:    h,
 			Timestamp: 0,
-			/*
+			
 			// for rgba with pure background color test
 			ColorSpace: agoraservice.ColorSpaceType{
 				MatrixId:    1,
 				PrimariesId: 1,
 				RangeId:     2, //or 2,
 				TransferId:  1,
-			},*/
+			},
 		})
 		time.Sleep(33 * time.Millisecond)
 	}
-
+*/
 	//release now
 	
 

@@ -89,7 +89,7 @@ const (
 type AgoraService struct {
 	inited  bool
 	service unsafe.Pointer
-	isLowDelay bool
+	
 	isSteroEncodeMode bool
 	audioScenario AudioScenario
 	// mediaFactory         unsafe.Pointer
@@ -104,7 +104,6 @@ func newAgoraService() *AgoraService {
 	return &AgoraService{
 		inited:  false,
 		service: nil,
-		isLowDelay: false,
 		isSteroEncodeMode: false,
 		audioScenario: AudioScenarioChorus,
 	}
@@ -174,7 +173,7 @@ func Initialize(cfg *AgoraServiceConfig) int {
 		agoraParam.SetParameters("{\"rtc.audio.enable_user_silence_packet\": true}")
 	}
 
-	agoraService.isLowDelay = cfg.AudioScenario == AudioScenarioChorus
+	
 	agoraService.isSteroEncodeMode = (cfg.EnableSteroEncodeMode > 0)
 	agoraService.audioScenario = cfg.AudioScenario
 	//added by wei for stero encode mode

@@ -61,15 +61,16 @@ func NewAudioConsumer(pcmSender *AudioPcmDataSender, sampleRate int, channels in
 		samplesPerChannel: sampleRate / 100 ,
 		isInitialized:     true,
 		lastConsumeedTime: 0,
-		isDirectMode: false,
 		directDataLen: 0,
 	}
+	
 
-	if pcmSender.audioScenario == AudioScenarioAiServer {
-		consumer.isDirectMode = true
-	}
+	fmt.Printf("NewAudioConsumer, audioScenario: %d, isDirectMode: %d\n", pcmSender.audioScenario, consumer.IsDirectMode())
 
 	return consumer
+}
+func (ac *AudioConsumer) IsDirectMode() bool {
+	return ac.pcmSender.audioScenario == AudioScenarioAiServer
 }
 // 暂时不处理非10ms整数的情况
 func (ac *AudioConsumer) directPush(data []byte) {
@@ -96,10 +97,11 @@ func (ac *AudioConsumer) undirectPush(data []byte) {
 }
 
 func (ac *AudioConsumer) PushPCMData(data []byte) {
+	fmt.Printf("PushPCMData data len: %d, isInitialized: %d, isDirectMode: %d\n", len(data), ac.isInitialized, ac.isDirectMode)
 	if !ac.isInitialized || data == nil || len(data) == 0 {
 		return
 	}
-	if ac.isDirectMode {
+	if ac.IsDirectMode() {
 		ac.directPush(data)
 	} else {
 		ac.undirectPush(data)
@@ -126,7 +128,7 @@ func (ac *AudioConsumer) calculateCurWantPackets() int {
 	toBeSentPackets := expectedTotalPackets - ac.consumedPackets
 
 	dataLen := 0
-	if ac.isDirectMode {
+	if ac.IsDirectMode() {
 		dataLen = ac.directDataLen
 	} else {
 		dataLen = ac.buffer.Len()
@@ -227,7 +229,7 @@ func (ac *AudioConsumer) Consume() int {
 	if !ac.isInitialized {
 		return -1
 	}
-	if ac.isDirectMode {
+	if ac.IsDirectMode() {
 		return ac.directConsume()
 	} else {
 		return ac.undirectConsume()
@@ -236,7 +238,7 @@ func (ac *AudioConsumer) Consume() int {
 
 // Len returns the current buffer length
 func (ac *AudioConsumer) Len() int {
-	if ac.isDirectMode {
+	if ac.IsDirectMode() {
 		return ac.directDataLen;
 	} else {
 		return ac.buffer.Len()
@@ -261,7 +263,7 @@ func (ac *AudioConsumer) IsPushToRtcCompleted() int {
 	}
 	// no need to lock, because this function is only called in the main thread
 	remain_size := 0
-	if ac.isDirectMode {
+	if ac.IsDirectMode() {
 		remain_size = ac.directDataLen
 	} else {
 		remain_size = ac.buffer.Len()

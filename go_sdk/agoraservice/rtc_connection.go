@@ -14,6 +14,8 @@ import "C"
 import (
 	"strconv"
 	"unsafe"
+	"fmt"
+	//"sync/atomic"
 )
 
 type RtcConnectionInfo struct {
@@ -269,6 +271,9 @@ type LocalUserObserver struct {
 	OnRemoteAudioTrackStatistics func(localUser *LocalUser, uid string, stats *RemoteAudioTrackStats)
 	OnLocalVideoTrackStatistics func(localUser *LocalUser, stats *LocalVideoTrackStats)
 	OnRemoteVideoTrackStatistics func(localUser *LocalUser, uid string, stats *RemoteVideoTrackStats)	
+	// added on 2025-06-09
+	OnAudioTrackPublishSuccess func(localUser *LocalUser, audioTrack *LocalAudioTrack)
+	OnAudioTrackUnpublished func(localUser *LocalUser, audioTrack *LocalAudioTrack)
 }
 
 type AudioFrameObserver struct {
@@ -396,14 +401,16 @@ func NewRtcConnection(cfg *RtcConnectionConfig) *RtcConnection {
 	ret.localUser = &LocalUser{
 		connection: ret,
 		cLocalUser: C.agora_rtc_conn_get_local_user(ret.cConnection),
+		audioTrack: nil,
 	}
 	ret.parameter = &AgoraParameter{
 		cParameter: C.agora_rtc_conn_get_agora_parameter(ret.cConnection),
 	}
 
-	if agoraService.isLowDelay {
-		ret.localUser.SetAudioScenario(AudioScenarioChorus)
-	}
+	// re set audio scenario now
+	ret.localUser.SetAudioScenario(agoraService.audioScenario)
+	fmt.Printf("______set audio scenario to %d\n", agoraService.audioScenario)
+	
 
 	// for stero encoding mode
 	if agoraService.isSteroEncodeMode  {
@@ -781,8 +788,8 @@ func (conn *RtcConnection) enableSteroEncodeMode() int {
 	agoraParameterHandler.SetParameters("{\"che.audio.agc.enable\":false}")
 	//  // "HEAAC_2ch" is case 78,but no need to set it for ai senario so disable it
 	// in ai senario, we only want stero encoded audio, but really for speech so disable 78 
-	// agoraParameterHandler.SetParameters("{\"che.audio.custom_payload_type\":78}")
-	// and set bitrate to 32000
+	agoraParameterHandler.SetParameters("{\"che.audio.custom_payload_type\":122}")
+	// and set bitrate to 32000,but not work in here! so move to other place
 	//agoraParameterHandler.SetParameters("{\"che.audio.custom_bitrate\":32000}")
 	return 0
     

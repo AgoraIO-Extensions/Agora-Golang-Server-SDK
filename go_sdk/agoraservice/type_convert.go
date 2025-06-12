@@ -122,6 +122,9 @@ func CLocalUserObserver() *C.struct__local_user_observer {
 	ret.on_remote_audio_track_statistics = (*[0]byte)(C.cgo_on_remote_audio_track_statistics)
 	ret.on_local_video_track_statistics = (*[0]byte)(C.cgo_on_local_video_track_statistics)
 	ret.on_remote_video_track_statistics = (*[0]byte)(C.cgo_on_remote_video_track_statistics)
+	// added on 2025-06-09
+	ret.on_audio_track_publish_success = (*[0]byte)(C.cgo_on_audio_track_publish_success)
+	ret.on_audio_track_unpublished = (*[0]byte)(C.cgo_on_audio_track_unpublished)
 	return ret
 }
 
