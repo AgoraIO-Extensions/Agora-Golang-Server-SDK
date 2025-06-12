@@ -21,6 +21,7 @@ type LocalUser struct {
 	connection *RtcConnection
 	cLocalUser unsafe.Pointer
 	audioTrack *LocalAudioTrack
+	publishFlag bool
 }
 
 type VideoSubscriptionOptions struct {
@@ -191,10 +192,19 @@ func (localUser *LocalUser) PublishAudio(track *LocalAudioTrack) int {
 		localUser.audioTrack = track
 	} 
 	fmt.Printf("______publish audio track id %d, old id %d, cTrack %p, old cTrack %p\n", track.id, localUser.audioTrack.id, track.cTrack, localUser.audioTrack.cTrack)
+
+	if localUser.publishFlag == true {
+	    return 0
+	}
 	
 	// 将内部保持的cTrack赋值给track
 	track.cTrack = localUser.audioTrack.cTrack
-	return int(C.agora_local_user_publish_audio(localUser.cLocalUser, track.cTrack))
+	ret := int(C.agora_local_user_publish_audio(localUser.cLocalUser, track.cTrack))
+	localUser.publishFlag = true
+	if ret != 0 {
+		localUser.publishFlag = false
+	}
+	return ret
 	
 }
 
@@ -253,8 +263,16 @@ func (localUser *LocalUser) UnpublishAudio(track *LocalAudioTrack) int {
 	if localUser.cLocalUser == nil {
 		return -1
 	}
+	if localUser.publishFlag == false {
+		return 0
+	}
 
-	return int(C.agora_local_user_unpublish_audio(localUser.cLocalUser, track.cTrack))
+	ret := int(C.agora_local_user_unpublish_audio(localUser.cLocalUser, track.cTrack))
+	localUser.publishFlag = false
+	if ret != 0 {
+		localUser.publishFlag = true
+	}
+	return ret
 }
 
 func (localUser *LocalUser) PublishVideo(track *LocalVideoTrack) int {

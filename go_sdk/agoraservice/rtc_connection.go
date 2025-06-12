@@ -402,6 +402,7 @@ func NewRtcConnection(cfg *RtcConnectionConfig) *RtcConnection {
 		connection: ret,
 		cLocalUser: C.agora_rtc_conn_get_local_user(ret.cConnection),
 		audioTrack: nil,
+		publishFlag: false,
 	}
 	ret.parameter = &AgoraParameter{
 		cParameter: C.agora_rtc_conn_get_agora_parameter(ret.cConnection),
