@@ -49,6 +49,10 @@ func NewCustomAudioTrackPcm(pcmSender *AudioPcmDataSender) *LocalAudioTrack {
 		audioTrack.SetSendDelayMs(10)
 		audioTrack.SetEnabled(true)
 	}
+	// check the audioScenario, if it is aiServer, set the max buffered audio frame number to 100000
+	if audioScenario != AudioScenarioAiServer {
+		audioTrack.SetMaxBufferedAudioFrameNumber(100000)
+	}
 	return audioTrack
 }
 
