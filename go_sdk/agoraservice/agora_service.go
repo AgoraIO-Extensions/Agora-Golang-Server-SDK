@@ -89,8 +89,9 @@ const (
 type AgoraService struct {
 	inited  bool
 	service unsafe.Pointer
-	isLowDelay bool
+	
 	isSteroEncodeMode bool
+	audioScenario AudioScenario
 	// mediaFactory         unsafe.Pointer
 	consByCCon                  sync.Map
 	consByCLocalUser            sync.Map
@@ -103,8 +104,8 @@ func newAgoraService() *AgoraService {
 	return &AgoraService{
 		inited:  false,
 		service: nil,
-		isLowDelay: false,
 		isSteroEncodeMode: false,
+		audioScenario: AudioScenarioChorus,
 	}
 }
 
@@ -172,8 +173,9 @@ func Initialize(cfg *AgoraServiceConfig) int {
 		agoraParam.SetParameters("{\"rtc.audio.enable_user_silence_packet\": true}")
 	}
 
-	agoraService.isLowDelay = cfg.AudioScenario == AudioScenarioChorus
+	
 	agoraService.isSteroEncodeMode = (cfg.EnableSteroEncodeMode > 0)
+	agoraService.audioScenario = cfg.AudioScenario
 	//added by wei for stero encode mode
 	if cfg.EnableSteroEncodeMode > 0 {
 		agoraParam.SetParameters("{\"che.audio.custom_bitrate\":32000}")
@@ -188,7 +190,6 @@ func Initialize(cfg *AgoraServiceConfig) int {
 		}
 		C.agora_service_set_log_file(agoraService.service, logPath,
 			C.uint(logSize))
-		C.agora_service_set_log_filter(agoraService.service, 12)
 	}
 	agoraService.inited = true
 	return 0

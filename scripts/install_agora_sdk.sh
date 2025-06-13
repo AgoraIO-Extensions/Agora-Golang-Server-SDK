@@ -8,9 +8,17 @@ PACKAGE_HOME=$(
 UNAME_S=`uname -s`
 OS=unknown
 
+
 #ver2.2.4
 linux_sdk="https://download.agora.io/sdk/release/agora_rtc_sdk-x86_64-linux-gnu-v4.4.32-20250425_144419-675648-aed-0521.zip"
 mac_sdk="https://download.agora.io/sdk/release/agora_sdk_mac_v4.4.32_24464_FULL_20250522_1619_711331-aed.zip"
+
+#version 2.2.9 for aiqos 
+linux_sdk="https://download.agora.io/sdk/release/agora_rtc_sdk-x86_64-linux-gnu-v4.4.32-20250528_175520-720646-aed.zip"
+mac_sdk="https://download.agora.io/sdk/release/agora_sdk_mac_v4.4.32_24517_FULL_20250528_1905_720662-aed.zip"
+
+linux_sdk="https://download.agora.io/sdk/release/agora_rtc_sdk-x86_64-linux-gnu-v4.4.32-20250612_142144-741749-aed.zip"
+mac_sdk="https://download.agora.io/sdk/release/agora_sdk_mac_v4.4.32_24654_FULL_20250612_1503_741767-aed.zip"
 
 #ver2.2.1
 #linux_sdk="https://download.agora.io/sdk/release/agora_rtc_sdk-x86_64-linux-gnu-v4.4.31-20241223_111509-491956-aed.zip"

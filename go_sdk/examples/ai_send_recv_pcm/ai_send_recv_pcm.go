@@ -10,24 +10,26 @@ import (
 	"os/signal"
 	"time"
 	"strconv"
-
+	"runtime"
 	agoraservice "github.com/AgoraIO-Extensions/Agora-Golang-Server-SDK/v2/go_sdk/agoraservice"
 
 	rtctokenbuilder "github.com/AgoraIO/Tools/DynamicKey/AgoraDynamicKey/go/src/rtctokenbuilder2"
 )
 
 func PushFileToConsumer(file *os.File, audioConsumer *agoraservice.AudioConsumer, chunk int) {
-	buffer := make([]byte, chunk)
+	buffer := make([]byte, chunk*100)  // 1s data
 	for {
 		readLen, err := file.Read(buffer)
-		if err != nil || readLen < chunk {
+		if err != nil {
 			fmt.Printf("read up to EOF,cur read: %d", readLen)
 			file.Seek(0, 0)
-			break
+			return
 		}
-		audioConsumer.PushPCMData(buffer)
+		// round to integer of chunk
+		packLen := readLen / chunk
+		audioConsumer.PushPCMData(buffer[:packLen*chunk])
+		fmt.Println("PushPCMData done:", packLen*chunk)
 	}
-	buffer = nil
 }
 func ReadFileToConsumer(file *os.File, consumer *agoraservice.AudioConsumer, interval int, done chan bool, chunk int) {
 	for {
@@ -37,6 +39,7 @@ func ReadFileToConsumer(file *os.File, consumer *agoraservice.AudioConsumer, int
 			return
 		default:
 			len := consumer.Len()
+			fmt.Printf("ReadFileToConsumer len: %d, chunk: %d, interval: %d\n", len, chunk, interval)
 			if len < chunk*interval {
 				PushFileToConsumer(file, consumer, chunk)
 			}
@@ -59,11 +62,61 @@ func ConsumeAudio(audioConsumer *agoraservice.AudioConsumer, interval int, done 
 	}
 }
 
+func LoopbackAudio(audioQueue *agoraservice.Queue, audioConsumer *agoraservice.AudioConsumer, done chan bool) {
+	for {
+		select {
+		case <-done:
+			fmt.Println("LoopbackAudio done")
+			return
+		default:
+			AudioFrame := audioQueue.Dequeue()
+			if AudioFrame != nil {
+				//fmt.Printf("AudioFrame: %d\n", time.Now().UnixMilli())
+				if frame, ok := AudioFrame.(*agoraservice.AudioFrame); ok {
+					frame.RenderTimeMs = 0
+					audioConsumer.PushPCMData(frame.Buffer)
+				}
+			}
+			//time.Sleep(10 * time.Millisecond)
+		}
+	}
+}
+
+
+func SendTTSDataToClient(samplerate int, audioConsumer *agoraservice.AudioConsumer, file *os.File, done chan bool, audioSendEvent chan struct{}, fallackEvent chan struct{}, localUser *agoraservice.LocalUser, track *agoraservice.LocalAudioTrack) {
+	for {
+		select {
+		case <-done:
+			fmt.Println("SendAudioToClient done")
+			return
+		case <-fallackEvent:
+		
+		case <-audioSendEvent:
+			// read 1s data from file
+			buffer := make([]byte, samplerate*2*2)  // 2s data
+			readLen, err := file.Read(buffer)
+			if err != nil {
+				fmt.Printf("read up to EOF,cur read: %d", readLen)
+				file.Seek(0, 0)
+				continue
+			}
+			audioConsumer.PushPCMData(buffer[:readLen])
+			// and seek to the begin of the file
+			file.Seek(0, 0)
+			fmt.Println("SendTTSDataToClient done")
+		default:
+			time.Sleep(40 * time.Millisecond)
+			audioConsumer.Consume()
+		}
+	}
+}
+
 func main() {
 	bStop := new(bool)
 	*bStop = false
 	// start pprof
 	go func() {
+		runtime.SetBlockProfileRate(1) 
 		http.ListenAndServe("localhost:6060", nil)
 	}()
 	// catch ternimal signal
@@ -97,6 +150,11 @@ func main() {
 	    samplerate, _ = strconv.Atoi(argus[4]) // strconv is in the "strconv" package, which is a standard package in Go's library.
 	}
 
+	// mode: 1 loopback, 0 playout music
+	mode := 0
+	if len(argus) > 5 {
+		mode, _ = strconv.Atoi(argus[5])
+	}
 
 	// get environment variable
 	if appid == "" {
@@ -124,19 +182,21 @@ func main() {
 	}
 	svcCfg := agoraservice.NewAgoraServiceConfig()
 	svcCfg.AppId = appid
-	// eanbe callback when muted
-	svcCfg.ShouldCallbackWhenMuted = 1
+	
+	// set senario to ai_server
+	svcCfg.AudioScenario = agoraservice.AudioScenarioAiServer
 
 	agoraservice.Initialize(svcCfg)
 	defer agoraservice.Release()
 	mediaNodeFactory := agoraservice.NewMediaNodeFactory()
 	defer mediaNodeFactory.Release()
-	agoraParam := agoraservice.GetAgoraParameter()
-	// 用来做验证：chorus模式下的延迟和抖动之间的关系
-	agoraParam.SetParameters("{\"che.audio.rsfec\":[1, 0]}")
-	agoraParam.SetParameters("{\"che.audio.custom_bitrate\":32000}")
-	agoraParam.SetParameters("{\"che.audio.max_target_delay\":100}")
-	
+
+	sender := mediaNodeFactory.NewAudioPcmDataSender()
+	defer sender.Release()
+	track := agoraservice.NewCustomAudioTrackPcm(sender)
+	defer track.Release()
+
+
 
 	conCfg := agoraservice.RtcConnectionConfig{
 		AutoSubscribeAudio: true,
@@ -146,10 +206,15 @@ func main() {
 	}
 	conSignal := make(chan struct{})
 	OnDisconnectedSign := make(chan struct{})
+
+	audioQueue := agoraservice.NewQueue(10)
+
 	conHandler := &agoraservice.RtcConnectionObserver{
 		OnConnected: func(con *agoraservice.RtcConnection, info *agoraservice.RtcConnectionInfo, reason int) {
 			// do something
 			fmt.Printf("Connected, reason %d\n", reason)
+			//NOTE： Must  unpublish,and then update the track, and then publish the track!!!!
+		
 			conSignal <- struct{}{}
 		},
 		OnDisconnected: func(con *agoraservice.RtcConnection, info *agoraservice.RtcConnectionInfo, reason int) {
@@ -179,10 +244,52 @@ func main() {
 			fmt.Println("user left, " + uid)
 		},
 	}
+/* 	framecount := 0 
+ 	var frame_diff int64
+	last_frame_time := time.Now().UnixMilli()
+	start_frame_time := time.Now().UnixMilli()  */
+	audioSendEvent := make(chan struct{})
+	fallackEvent := make(chan struct{})
+	interruptEvent := make(chan struct{})
+
+	filename := "./ai_server_recv_pcm.pcm"
+	pcm_file, err := os.Create(filename)
+	if err != nil {
+		fmt.Printf("Error creating file: %v\n", err)
+		return
+	}
+	defer pcm_file.Close()
+	
+	
 	audioObserver := &agoraservice.AudioFrameObserver{
 		OnPlaybackAudioFrameBeforeMixing: func(localUser *agoraservice.LocalUser, channelId string, userId string, frame *agoraservice.AudioFrame, vadResulatState agoraservice.VadState, vadResultFrame *agoraservice.AudioFrame) bool {
 			// do something
 			//fmt.Printf("Playback audio frame before mixing, from userId %s, far :%d,rms:%d, pitch: %d\n", userId, frame.FarFieldFlag, frame.Rms, frame.Pitch)
+		/* 	if framecount == 0 {
+				last_frame_time = time.Now().UnixMilli()
+				start_frame_time = last_frame_time
+			}
+			framecount++
+			now := time.Now().UnixMilli()
+			frame_diff = now - last_frame_time
+			last_frame_time = now
+			//fmt.Printf("frame_diff: %d\n", frame_diff)
+			if framecount % 100 == 0 { // evry 100 frames
+				frame_diff = now - start_frame_time
+				//fmt.Printf("******** frame :%d, duration: %d, avg frame time: %f\n", framecount, frame_diff, float64(frame_diff)/100)
+				start_frame_time = now
+			} */
+
+			pcm_file.Write(frame.Buffer)
+			
+			if mode == 1 {
+				frame.RenderTimeMs = 0
+				sender.SendAudioPcmData(frame)
+				// loopback
+				//audioQueue.Enqueue(frame)
+				
+			}
+			
 			return true
 		},
 	}
@@ -193,6 +300,8 @@ func main() {
 
 	localStreamId, _ := con.CreateDataStream(false, false)
 
+	event_count := 0
+
 	//added by wei for localuser observer
 	localUserObserver := &agoraservice.LocalUserObserver{
 		OnStreamMessage: func(localUser *agoraservice.LocalUser, uid string, streamId int, data []byte) {
@@ -201,7 +310,7 @@ func main() {
 			//con.SendStreamMessage(streamId, data)
 			con.SendStreamMessage(localStreamId, data)
 		},
-
+		
 		OnAudioVolumeIndication: func(localUser *agoraservice.LocalUser, audioVolumeInfo []*agoraservice.AudioVolumeInfo, speakerNumber int, totalVolume int) {
 			// do something
 			fmt.Printf("*****Audio volume indication, speaker number %d\n", speakerNumber)
@@ -225,11 +334,26 @@ func main() {
 			fmt.Printf("*****User video track state changed, uid %s\n", uid)
 		},
 		OnAudioMetaDataReceived: func(localUser *agoraservice.LocalUser, uid string, metaData []byte) {
-			fmt.Printf("*****User audio meta data received, uid %s, meta: %s\n", uid, string(metaData))
-			//ret := "abc"
-			//retbytes := []byte(ret)	
+			fmt.Printf("*****User audio meta data received, uid %s, meta: %s, event_count: %d\n", uid, string(metaData), event_count)
 			
+			event_count++
+
+			if event_count   == 10 {
+				fallackEvent <- struct{}{}
+			}  else if event_count %2 == 0  {
+				
+				audioSendEvent <- struct{}{}
+			} else  {  // simulate to interrupt audio
+				interruptEvent <- struct{}{}
+			} 
+
 			localUser.SendAudioMetaData(metaData)
+		},
+		OnAudioTrackPublishSuccess: func(localUser *agoraservice.LocalUser, audioTrack *agoraservice.LocalAudioTrack) {
+			fmt.Printf("*****Audio track publish success, time %d\n", time.Now().UnixMilli())
+		},
+		OnAudioTrackUnpublished: func(localUser *agoraservice.LocalUser, audioTrack *agoraservice.LocalAudioTrack) {
+			fmt.Printf("*****Audio track unpublished, time %d\n", time.Now().UnixMilli())
 		},
 	}
 
@@ -239,32 +363,37 @@ func main() {
 
 	// sender := con.NewPcmSender()
 	// defer sender.Release()
-	sender := mediaNodeFactory.NewAudioPcmDataSender()
-	defer sender.Release()
-	track := agoraservice.NewCustomAudioTrackPcm(sender)
-	defer track.Release()
+
 
 	localUser := con.GetLocalUser()
-	
-	// for lixiang test
-	localUser.SetAudioScenario(agoraservice.AudioScenarioGameStreaming)
-	localUser.SetAudioEncoderConfiguration(&agoraservice.AudioEncoderConfiguration{AudioProfile: int(agoraservice.AudioProfileMusicHighQualityStereo)})
-
-	// end lixiang 
-	con.Connect(token, channelName, userId)
-	<-conSignal
-
-	end := time.Now().UnixMilli()
-	fmt.Printf("Connect cost %d ms\n", end-start)
 
 	localUser = con.GetLocalUser()
 	localUser.SetPlaybackAudioFrameBeforeMixingParameters(1, 16000)
 	localUser.RegisterLocalUserObserver(localUserObserver)
 
 	localUser.RegisterAudioFrameObserver(audioObserver, 0, nil)
+	
+	// for test!!
+	localUser.PublishAudio(track)
+	// end for test!!
+	
+	con.Connect(token, channelName, userId)
+	<-conSignal
 
+	end := time.Now().UnixMilli()
+	fmt.Printf("Connect cost %d ms\n", end-start)
+
+	
+
+	start_publish := time.Now().UnixMilli()
 	track.SetEnabled(true)
 	localUser.PublishAudio(track)
+	end_publish := time.Now().UnixMilli()
+	fmt.Printf("Publish audio cost %d ms\n", end_publish-start_publish)
+	//time.Sleep(1000 * time.Millisecond)
+	//localUser.UnpublishAudio(track)
+	start_publish = time.Now().UnixMilli()
+	fmt.Printf("Unpublish audio cost %d ms\n", start_publish-end_publish)
 
 	file, err := os.Open(filepath)
 	if err != nil {
@@ -295,8 +424,67 @@ func main() {
 		    # “Timer”的触发间隔，可以和业务已有的timer间隔一致，也可以根据业务需求调整，推荐在40～80ms之间
 
 	*/
-	go ReadFileToConsumer(file, audioConsumer, 50, done, samplerate*2/100)
-	go ConsumeAudio(audioConsumer, 50, done)
+	if mode == 0 {
+		go ReadFileToConsumer(file, audioConsumer, 50, done, samplerate*2/100)
+		go ConsumeAudio(audioConsumer, 50, done)
+	} else if mode == 2 {
+		//go SendTTSDataToClient(samplerate, audioConsumer, file, done, audioSendEvent, fallackEvent, localUser, track)
+		go func() {
+			//consturt a audio frame
+			buffer := make([]byte, samplerate*2*2)  // 2s data
+			bytesPerFrame := (samplerate/100)*2*1  // 10ms , mono
+			frame := &agoraservice.AudioFrame{
+				Buffer: nil,
+				RenderTimeMs: 0,
+				SamplesPerChannel: samplerate/100,
+				BytesPerSample: 2,
+				Channels: 1,
+				SamplesPerSec: samplerate,
+				Type: agoraservice.AudioFrameTypePCM16,
+			}
+			for {
+				select {
+				case <-done:
+					fmt.Println("SendAudioToClient done")
+					return
+				case <-fallackEvent:
+					fmt.Println("?????? fallackEvent")
+					
+					localUser.UpdateAudioTrack(agoraservice.AudioScenarioDefault)
+
+				case <-interruptEvent:
+					fmt.Println("?????? interruptEvent")
+					localUser.InterruptAudio(audioConsumer)
+					
+				case <-audioSendEvent:
+					// read 1s data from file
+					localUser.PublishAudio(track)
+					
+					readLen, err := file.Read(buffer)
+					if err != nil {
+						fmt.Printf("read up to EOF,cur read: %d", readLen)
+						file.Seek(0, 0)
+						continue
+					}
+					frame.Buffer = buffer[:readLen]
+					packnum := readLen/bytesPerFrame
+					frame.SamplesPerChannel	= (samplerate/100)*packnum
+					sender.SendAudioPcmData(frame)
+
+					//audioConsumer.PushPCMData(frame.Buffer)
+					// and seek to the begin of the file
+					file.Seek(0, 0)
+					fmt.Println("SendTTSDataToClient done")
+				default:
+					time.Sleep(40 * time.Millisecond)
+					audioConsumer.Consume()
+				}
+			}
+		}()
+	} else {
+		//go LoopbackAudio(audioQueue, audioConsumer, done)
+		fmt.Printf("len: %d\n", audioQueue.Size())
+	}
 
 
 	//release operation:cancel defer release,try manual release

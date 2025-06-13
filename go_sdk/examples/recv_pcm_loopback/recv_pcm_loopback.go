@@ -74,24 +74,31 @@ func main() {
 	defer mediaNodeFactory.Release()
 
 	var sender *agoraservice.AudioPcmDataSender = nil
-	audioChan := make(chan *agoraservice.AudioFrame, 10)
-	audioModel := 0 // 0: direct, 1: channel
+	
+	audioModel := 1 // 0: direct, 1: channel
 
-	// a go routine to send audio data to channel
-	if audioModel == 1 {
-		go func() {
-			defer close(audioChan)
-			for frame := range audioChan {
-				if frame == nil {
-					fmt.Println("audioChan closed")
-					return
-				}
-				if sender != nil {
-					sender.SendAudioPcmData(frame)
+	pcmQueue := agoraservice.NewQueue(10)
+	audioRoutine := func() {
+		for !*bStop {
+			AudioFrame := pcmQueue.Dequeue()
+			if AudioFrame != nil {
+				//fmt.Printf("AudioFrame: %d\n", time.Now().UnixMilli())
+				if frame, ok := AudioFrame.(*agoraservice.AudioFrame); ok {
+					frame.RenderTimeMs = 0
+					ret := sender.SendAudioPcmData(frame)
+					if ret != 0 {
+						fmt.Printf("Send audio pcm data failed, error code %d\n", ret)
+					}
 				}
 			}
-		}()
+		}
+		fmt.Printf("AudioRoutine end\n")
 	}
+	
+
+	// a go routine to send audio data to channel
+
+	go audioRoutine()
 
 	conCfg := agoraservice.RtcConnectionConfig{
 		AutoSubscribeAudio: true,
@@ -139,7 +146,8 @@ func main() {
 			// do something
 			//fmt.Printf("Playback audio frame before mixing, from userId %s\n", userId)
 			if audioModel == 1 {
-				audioChan <- frame
+				pcmQueue.Enqueue(frame)
+				fmt.Printf("Enqueue audio frame, size %d\n", pcmQueue.Size())
 			}
 			if audioModel == 0 {
 				if sender != nil {
@@ -252,6 +260,7 @@ func main() {
 		time.Sleep(40 * time.Millisecond)
 	}
 	//end of added by wei for loop back
+	fmt.Printf("stop now.....\n")
 
 	//release operation:cancel defer release,try manual release
 

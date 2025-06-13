@@ -99,8 +99,8 @@ void cgo_on_user_video_track_state_changed(AGORA_HANDLE agora_local_user, user_i
 }
 
 extern void goOnAudioPublishStateChanged(void* agora_local_user, const char* channelid, int oldstate, int newstate, int elapseSinceLastState);
-void  cgo_on_audio_publish_state_changed(AGORA_HANDLE agora_rtc_conn, const char* channelid, int oldstate, int newstate, int elapseSinceLastState) {
-  goOnAudioPublishStateChanged(agora_rtc_conn, channelid, oldstate, newstate, elapseSinceLastState);
+void  cgo_on_audio_publish_state_changed(AGORA_HANDLE agora_local_user, const char* channelid, int oldstate, int newstate, int elapseSinceLastState) {
+  goOnAudioPublishStateChanged(agora_local_user, channelid, oldstate, newstate, elapseSinceLastState);
   
 }
 
@@ -138,4 +138,12 @@ void cgo_on_remote_video_track_statistics(AGORA_HANDLE agora_local_user, user_id
 extern void goOnEncryptionError(void* agora_rtc_conn, int error_type);
 void cgo_on_encryption_error(AGORA_HANDLE agora_rtc_conn, int error_type) {
   goOnEncryptionError(agora_rtc_conn, error_type);
+}
+extern void goOnAudioTrackPublishSuccess(void* agora_local_user, void* agora_local_audio_track);
+void cgo_on_audio_track_publish_success(AGORA_HANDLE agora_local_user, AGORA_HANDLE agora_local_audio_track) {
+  goOnAudioTrackPublishSuccess(agora_local_user, agora_local_audio_track);
+}
+extern void goOnAudioTrackUnpublished(void* agora_local_user, void* agora_local_audio_track);
+void cgo_on_audio_track_unpublished(AGORA_HANDLE agora_local_user, AGORA_HANDLE agora_local_audio_track) {
+  goOnAudioTrackUnpublished(agora_local_user, agora_local_audio_track);
 }

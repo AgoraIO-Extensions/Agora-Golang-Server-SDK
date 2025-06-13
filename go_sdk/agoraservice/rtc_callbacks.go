@@ -13,6 +13,7 @@ package agoraservice
 import "C"
 import (
 	"unsafe"
+	"fmt"
 )
 
 //export goOnConnected
@@ -342,10 +343,12 @@ func goOnAudioVolumeIndication(cLocalUser unsafe.Pointer, Volumes *C.struct__aud
 
 //export goOnAudioPublishStateChanged
 func goOnAudioPublishStateChanged(cLocalUser unsafe.Pointer, channel *C.char, oldState C.int, newState C.int, elapseSinceLastState C.int) {
+	fmt.Printf("goOnAudioPublishStateChanged: %d, %d, %d\n", oldState, newState, elapseSinceLastState)
 	//validity check
 	if cLocalUser == nil {
 		return
 	}
+	
 	// get conn from handle
 	con := agoraService.getConFromHandle(cLocalUser, ConTypeCLocalUser)
 	if con == nil || con.localUserObserver == nil || con.localUserObserver.OnAudioPublishStateChanged == nil {
@@ -431,4 +434,33 @@ func goOnEncryptionError(cCon unsafe.Pointer, errorType C.int) {
 		return
 	}
 	con.handler.OnEncryptionError(con, int(errorType))
+}
+
+//export goOnAudioTrackPublishSuccess
+func goOnAudioTrackPublishSuccess(cLocalUser unsafe.Pointer, cLocalAudioTrack unsafe.Pointer) {
+	//validity check
+	fmt.Printf("goOnAudioTrackPublishSuccess: %v\n", cLocalUser)
+	if cLocalUser == nil {
+		return
+	}
+	// get conn from handle
+	con := agoraService.getConFromHandle(cLocalUser, ConTypeCLocalUser)
+	if con == nil || con.localUserObserver == nil || con.localUserObserver.OnAudioTrackPublishSuccess == nil {
+		return
+	}
+	con.localUserObserver.OnAudioTrackPublishSuccess(con.GetLocalUser(), nil)
+}
+//export goOnAudioTrackUnpublished
+func goOnAudioTrackUnpublished(cLocalUser unsafe.Pointer, cLocalAudioTrack unsafe.Pointer) {
+	fmt.Printf("goOnAudioTrackPublishSuccess: %v\n", cLocalUser)
+	//validity check
+	if cLocalUser == nil {
+		return
+	}
+	// get conn from handle
+	con := agoraService.getConFromHandle(cLocalUser, ConTypeCLocalUser)
+	if con == nil || con.localUserObserver == nil || con.localUserObserver.OnAudioTrackUnpublished == nil {
+		return
+	}
+	con.localUserObserver.OnAudioTrackUnpublished(con.GetLocalUser(), nil)
 }

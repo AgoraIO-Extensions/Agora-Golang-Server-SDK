@@ -4,24 +4,54 @@ package agoraservice
 // #include "agora_service.h"
 // #include "agora_audio_track.h"
 import "C"
-import "unsafe"
+import (
+	"fmt"
+	"time"
+	"unsafe"
+)
 
 type LocalAudioTrack struct {
 	cTrack unsafe.Pointer
+	audioScenario AudioScenario
+	id int64 // assigend when create and never change!!
+	pcmSender *AudioPcmDataSender  //and never change!!
 }
 
 func NewCustomAudioTrackPcm(pcmSender *AudioPcmDataSender) *LocalAudioTrack {
-	cTrack := C.agora_service_create_custom_audio_track_pcm(agoraService.service, pcmSender.cSender)
+	if agoraService == nil || agoraService.service == nil {
+		return nil
+	}
+	var cTrack unsafe.Pointer = nil
+	audioScenario := agoraService.audioScenario
+
+	fmt.Printf("NewCustomAudioTrackPcm, audioScenario: %d, pcmSender.audioScenario: %d\n", audioScenario, pcmSender.audioScenario)
+	if audioScenario == AudioScenarioAiServer {
+		cTrack  = C.agora_service_create_direct_custom_audio_track_pcm(agoraService.service, pcmSender.cSender)
+	} else {
+		cTrack = C.agora_service_create_custom_audio_track_pcm(agoraService.service, pcmSender.cSender)
+	}
+	
 	if cTrack == nil {
 		return nil
 	}
 	audioTrack := &LocalAudioTrack{
 		cTrack: cTrack,
+		audioScenario: audioScenario,
+		id: time.Now().UnixMilli(),
+		pcmSender: pcmSender,
 	}
+	pcmSender.audioScenario = audioScenario
+
+	fmt.Printf("NewCustomAudioTrackPcm, audioTrack.audioScenario: %d, audioTrack.pcmSender.audioScenario: %d, pcmSender.audioScenario: %d\n", audioTrack.audioScenario, audioTrack.pcmSender.audioScenario, pcmSender.audioScenario)
 
 	// set send delay ms to 10ms, to avoid audio delay. NOTE: do not set it to 0, otherwise, it would set to default value: 260ms
 	if audioTrack.cTrack != nil {
 		audioTrack.SetSendDelayMs(10)
+		audioTrack.SetEnabled(true)
+	}
+	// check the audioScenario, if it is aiServer, set the max buffered audio frame number to 100000
+	if audioScenario != AudioScenarioAiServer {
+		audioTrack.SetMaxBufferedAudioFrameNumber(100000)
 	}
 	return audioTrack
 }
@@ -31,8 +61,12 @@ func NewCustomAudioTrackEncoded(encodedAudioSender *AudioEncodedFrameSender, mix
 	if cTrack == nil {
 		return nil
 	}
+	audioScenario := agoraService.audioScenario
 	return &LocalAudioTrack{
 		cTrack: cTrack,
+		audioScenario: audioScenario,
+		id: time.Now().UnixMilli(),
+		pcmSender: nil,
 	}
 }
 
@@ -85,4 +119,18 @@ func (track *LocalAudioTrack) SetSendDelayMs(delayMs int) int {
 	}
 	C.agora_local_audio_track_set_send_delay_ms(track.cTrack, C.int(delayMs))
 	return 0
+}
+// to create direct audio track,no need to set send delay ms
+// its will push all data to sd-rtn. and it will encode possible more data to sd-rtn.
+func NewDirectCustomAudioTrackPcm(pcmSender *AudioPcmDataSender) *LocalAudioTrack {
+	
+	cTrack := C.agora_service_create_direct_custom_audio_track_pcm(agoraService.service, pcmSender.cSender)
+	if cTrack == nil {
+		return nil
+	}
+	pcmSender.audioScenario = AudioScenarioAiServer
+	return &LocalAudioTrack{
+		cTrack: cTrack,
+		audioScenario: AudioScenarioAiServer,
+	}
 }
