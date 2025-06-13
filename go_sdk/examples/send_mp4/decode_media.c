@@ -13,6 +13,10 @@
 #include <stdlib.h>
 #include "decode_media.h"
 
+
+// history
+// 2025-06-13: fix memory leak when pop packet, by zhourui@agora
+
 #define MAX_AUDIO_CHANNELS 10
 #define AVSYNC_MAX_AUDIO_SIZE 5000
 #define AVSYNC_MAX_VIDEO_SIZE 5000
@@ -127,10 +131,6 @@ int resample_audio(DecodeContext *decode_ctx, AVFrame *frame) {
     }
     decode_ctx->buffer_size = buf_size;
     decode_ctx->buffer = (uint8_t *)av_malloc(decode_ctx->buffer_size);
-    if (!decode_ctx->buffer) {
-        av_log(NULL, AV_LOG_ERROR, "Can't allocate buffer\n");
-        return AVERROR(ENOMEM);
-    }
     av_samples_fill_arrays(decode_ctx->samples, NULL, decode_ctx->buffer, decode_ctx->dst_ch_layout.nb_channels, dst_nb_samples, decode_ctx->dst_sample_fmt, 1);
   }
   decode_ctx->actual_buffer_size = buf_size;
@@ -168,7 +168,6 @@ int init_sws(DecodeContext *decode_ctx) {
   int ret = av_image_alloc(decode_ctx->dst_data, decode_ctx->dst_linesize, 
       decode_ctx->dst_width, decode_ctx->dst_height, decode_ctx->dst_pix_fmt, 1);
   if (ret < 0) {
-    av_freep(&decode_ctx->dst_data[0]);
     av_log(NULL, AV_LOG_ERROR, "Can't allocate image\n");
     return ret;
   }
@@ -370,31 +369,76 @@ void push_packet(MediaDecoder *d, MediaPacket *pkt) {
 }
 
 MediaPacket *pop_packet(MediaDecoder *d) {
-  if (d->read_error == 0) {
+    // If the queue is empty, return NULL
+    if (!d->head_pkt.next) {
+        return NULL;
+    }
+
+    // If read error occurs, pop the packet directly without synchronization check
+    if (d->read_error != 0) {
+        MediaPacket *pkt_node = d->head_pkt.next;
+        d->head_pkt.next = pkt_node->next;
+        if (d->video_tail_pkt == pkt_node) {
+            d->video_tail_pkt = &d->head_pkt;
+        }
+        if (d->audio_tail_pkt == pkt_node) {
+            d->audio_tail_pkt = &d->head_pkt;
+        }
+        pkt_node->next = NULL; // Clear the next pointer to prevent accidental access
+        return pkt_node;
+    }
+
+    // Check if there are video and audio streams
+    int has_video_stream = (d->video_ctx.stream_index >= 0);
+    int has_audio_stream = (d->audio_ctx.stream_index >= 0);
+    
+    // If there is only one stream type, pop the packet directly without synchronization check
+    if (!has_video_stream || !has_audio_stream) {
+        MediaPacket *pkt_node = d->head_pkt.next;
+        d->head_pkt.next = pkt_node->next;
+        if (d->video_tail_pkt == pkt_node) {
+            d->video_tail_pkt = &d->head_pkt;
+        }
+        if (d->audio_tail_pkt == pkt_node) {
+            d->audio_tail_pkt = &d->head_pkt;
+        }
+        pkt_node->next = NULL;
+        av_log(NULL, AV_LOG_DEBUG, "Single stream mode, popping packet directly\n");
+        return pkt_node;
+    }
+
+    // Double stream synchronization logic
     int64_t video_size = 0, audio_size = 0;
     int video_exist = 0, audio_exist = 0;
+    
     if (d->video_tail_pkt != &d->head_pkt) {
-      video_exist = 1;
-      video_size = d->video_tail_pkt->pts - d->head_pkt.next->pts;
+        video_exist = 1;
+        video_size = d->video_tail_pkt->pts - d->head_pkt.next->pts;
     }
     if (d->audio_tail_pkt != &d->head_pkt) {
-      audio_exist = 1;
-      audio_size = d->audio_tail_pkt->pts - d->head_pkt.next->pts;
+        audio_exist = 1;
+        audio_size = d->audio_tail_pkt->pts - d->head_pkt.next->pts;
     }
-    if ((!video_exist && audio_size < AVSYNC_MAX_AUDIO_SIZE) ||
-        (!audio_exist && video_size < AVSYNC_MAX_VIDEO_SIZE)) {
-      return NULL;
+    
+    // Only skip when both streams exist and the buffer is insufficient
+    if (video_exist && audio_exist) {
+        if (video_size < AVSYNC_MAX_VIDEO_SIZE && audio_size < AVSYNC_MAX_AUDIO_SIZE) {
+            av_log(NULL, AV_LOG_DEBUG, "Both streams buffer insufficient, video_size %ld, audio_size %ld\n", video_size, audio_size);
+            return NULL;
+        }
     }
-  }
-  MediaPacket *pkt_node = d->head_pkt.next;
-  d->head_pkt.next = pkt_node->next;
-  if (d->video_tail_pkt == pkt_node) {
-    d->video_tail_pkt = &d->head_pkt;
-  }
-  if (d->audio_tail_pkt == pkt_node) {
-    d->audio_tail_pkt = &d->head_pkt;
-  }
-  return pkt_node;
+
+    // Pop the packet
+    MediaPacket *pkt_node = d->head_pkt.next;
+    d->head_pkt.next = pkt_node->next;
+    if (d->video_tail_pkt == pkt_node) {
+        d->video_tail_pkt = &d->head_pkt;
+    }
+    if (d->audio_tail_pkt == pkt_node) {
+        d->audio_tail_pkt = &d->head_pkt;
+    }
+    pkt_node->next = NULL;
+    return pkt_node;
 }
 
 int get_packet(void *decoder, MediaPacket **packet) {
@@ -448,6 +492,7 @@ int get_packet(void *decoder, MediaPacket **packet) {
       }
     }
   }
+  
   if (d->head_pkt.next == NULL) {
     return d->read_error;
   }
@@ -499,8 +544,9 @@ int h264_to_annexb(void *decoder, MediaPacket **packet) {
 
   int ret = av_bsf_send_packet(d->bsf, pkt);
   if (ret < 0) {
-      av_packet_free(&pkt);
       free_packet(packet);
+      av_log(NULL, AV_LOG_ERROR, "Error submitting a packet for filtering: %s\n",
+              av_err2str(ret));
       return ret;
   }
 
@@ -573,7 +619,6 @@ int decode_packet(void *decoder, MediaPacket *packet, MediaFrame *frame) {
   av_packet_unref(pkt);
 
   if (result < 0) {
-      av_packet_unref(pkt);
       av_log(NULL, AV_LOG_ERROR, "Error submitting a packet for decoding\n");
       return result;
   }
@@ -587,7 +632,6 @@ int decode_packet(void *decoder, MediaPacket *packet, MediaFrame *frame) {
       } else if (result == AVERROR(EAGAIN)) {
           break;
       } else if (result < 0) {
-          av_packet_unref(pkt);
           av_log(NULL, AV_LOG_ERROR, "Error decoding frame\n");
           return result;
       }
@@ -595,7 +639,6 @@ int decode_packet(void *decoder, MediaPacket *packet, MediaFrame *frame) {
       if (media_type == AVMEDIA_TYPE_VIDEO) {
         int ret = resize_video(decode_ctx, fr);
         if (ret < 0) {
-          av_packet_unref(pkt);
           av_log(NULL, AV_LOG_ERROR, "Error resize video, code %d\n", ret);
           return ret;
         }
@@ -611,7 +654,6 @@ int decode_packet(void *decoder, MediaPacket *packet, MediaFrame *frame) {
       } else if (media_type == AVMEDIA_TYPE_AUDIO) {
         int ret = resample_audio(decode_ctx, fr);
         if (ret < 0) {
-          av_packet_unref(pkt);
           av_log(NULL, AV_LOG_ERROR, "Error resample audio, code %d\n", ret);
           return ret;
         }
@@ -692,7 +734,6 @@ int get_frame(void *decoder, MediaFrame *frame) {
       av_packet_unref(pkt);
 
       if (result < 0) {
-          av_packet_unref(pkt);
           av_log(NULL, AV_LOG_ERROR, "Error submitting a packet for decoding\n");
           return result;
       }
@@ -708,7 +749,6 @@ int get_frame(void *decoder, MediaFrame *frame) {
               result = 0;
               break;
           } else if (result < 0) {
-              av_packet_unref(pkt);
               av_log(NULL, AV_LOG_ERROR, "Error decoding frame\n");
               return result;
           }
@@ -716,7 +756,6 @@ int get_frame(void *decoder, MediaFrame *frame) {
           if (media_type == AVMEDIA_TYPE_VIDEO) {
             int ret = resize_video(decode_ctx, fr);
             if (ret < 0) {
-              av_packet_unref(pkt);
               av_log(NULL, AV_LOG_ERROR, "Error resize video, code %d\n", ret);
               return ret;
             }
@@ -732,7 +771,6 @@ int get_frame(void *decoder, MediaFrame *frame) {
           } else if (media_type == AVMEDIA_TYPE_AUDIO) {
             int ret = resample_audio(decode_ctx, fr);
             if (ret < 0) {
-              av_packet_unref(pkt);
               av_log(NULL, AV_LOG_ERROR, "Error resample audio, code %d\n", ret);
               return ret;
             }
@@ -757,21 +795,39 @@ void close_media_file(void *decoder) {
     MediaDecoder *d = (MediaDecoder *)decoder;
     deinit_decoder(&d->video_ctx);
     deinit_decoder(&d->audio_ctx);
+    // free video packets and audio packets
+    int video_count = 0;
+    int audio_count = 0;
+    while (d->video_tail_pkt) {
+      MediaPacket *pkt = d->video_tail_pkt;
+      d->video_tail_pkt = pkt->next;
+      av_packet_free(&pkt->pkt);
+      free(pkt);
+      video_count++;
+    }
+    while (d->audio_tail_pkt) {
+      MediaPacket *pkt = d->audio_tail_pkt;
+      d->audio_tail_pkt = pkt->next;
+      av_packet_free(&pkt->pkt);
+      free(pkt);
+      audio_count++;
+    }
+    av_log(NULL, AV_LOG_WARNING, "Free %d video packets, %d audio packets\n", video_count, audio_count);
     // free avsync
+    int count = 0;
     while (d->head_pkt.next) {
       MediaPacket *pkt = d->head_pkt.next;
       d->head_pkt.next = pkt->next;
       av_packet_free(&pkt->pkt);
       free(pkt);
+      count++;
     }
+    av_log(NULL, AV_LOG_WARNING, "Free %d packets\n", count);
     // free bitstream filter
     if (d->bsf) {
       av_bsf_free(&d->bsf);
     }
     avformat_close_input(&d->fmt_ctx);
     av_packet_free(&d->pkt);
-    if (d->video_ctx.dst_data[0]) {
-        av_freep(&d->video_ctx.dst_data[0]);
-    }
     free(d);
 }
