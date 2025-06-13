@@ -33,11 +33,37 @@ func CAgoraServiceConfig(cfg *AgoraServiceConfig) *C.struct__agora_service_confi
 	ret.audio_scenario = C.int(cfg.AudioScenario)
 	ret.use_string_uid = CIntFromBool(cfg.UseStringUid)
 	ret.domain_limit = C.int(cfg.DomainLimit)
+
+	// set log  related parameters
+	if cfg.LogPath != "" {
+		ret.log_file_path = C.CString(cfg.LogPath)
+	}
+	
+	ret.log_file_size_kb = C.uint32_t(cfg.LogSize)
+	ret.log_level = C.int(cfg.LogLevel)
+	
+	if cfg.ConfigDir != "" {
+		ret.config_dir = C.CString(cfg.ConfigDir)
+	}
+	if cfg.DataDir != "" {
+		ret.data_dir = C.CString(cfg.DataDir)
+	}
+
+
 	return ret
 }
 
 func FreeCAgoraServiceConfig(cfg *C.struct__agora_service_config) {
 	C.free(unsafe.Pointer(cfg.app_id))
+	if cfg.log_file_path != nil {
+	C.free(unsafe.Pointer(cfg.log_file_path))
+	}
+	if cfg.config_dir != nil {
+		C.free(unsafe.Pointer(cfg.config_dir))
+	}
+	if cfg.data_dir != nil {
+		C.free(unsafe.Pointer(cfg.data_dir))
+	}
 	C.free(unsafe.Pointer(cfg))
 }
 
