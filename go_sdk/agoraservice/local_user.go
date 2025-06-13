@@ -229,29 +229,49 @@ func (localUser *LocalUser) UpdateAudioTrack(senario AudioScenario) int {
 		return 0
 	}
 	// 如果senario不一样，则释放cTrack,重新创建一个新的cTrack，然后做assign
-	// never change the id of the track
+
+	//1. disable,and unpublish the track
+	localUser.audioTrack.SetEnabled(false)
+	localUser.UnpublishAudio(localUser.audioTrack)
+	//2. never change the id of the track,but only release the cTrack
 	localUser.audioTrack.Release()
-	
+
+	//3. update the audioScenario
 	localUser.audioTrack.audioScenario = senario
 	localUser.audioTrack.cTrack = nil
 	//ToDo：回退交给客户来做会更好，用最佳实践的方式来
 	//原因是因为客户选择的回退策略，不一定是chorus，而是其他策略！！这样我们固定策略，会限制客户
+	//4. create a new cTrack
 	var cTrack unsafe.Pointer = nil
+	var isAiServer bool = false
 	if senario == AudioScenarioAiServer {
+		isAiServer = true
+	}
+	if isAiServer {
 		cTrack  = C.agora_service_create_direct_custom_audio_track_pcm(agoraService.service, localUser.audioTrack.pcmSender.cSender)
 	} else {
 		cTrack = C.agora_service_create_custom_audio_track_pcm(agoraService.service, localUser.audioTrack.pcmSender.cSender)
 	}
+
+	//5. assign the new cTrack
 	localUser.audioTrack.cTrack = cTrack
 
-	localUser.audioTrack.SetEnabled(true)
+	//6. set properties to new cTrack
 	localUser.audioTrack.SetSendDelayMs(10)
+	if isAiServer == false {
+		localUser.audioTrack.SetMaxBufferedAudioFrameNumber(100000) //up to 16min,100000 frames
+	}
 	localUser.SetAudioScenario(senario)
+
+	//7. update the properties of pcmsender
 	//update pcmsender's info
 	localUser.audioTrack.pcmSender.audioScenario = senario
 	//update agoraService's info
 	agoraService.audioScenario = senario
-	
+
+	//8. publish the track
+	localUser.audioTrack.SetEnabled(true)
+	localUser.PublishAudio(localUser.audioTrack)
 	
 	fmt.Printf("______update audio track id %d, old id %d, cTrack %p, old cTrack %p\n", localUser.audioTrack.id, localUser.audioTrack.id, localUser.audioTrack.cTrack, localUser.audioTrack.cTrack)
 	
@@ -349,15 +369,20 @@ func (localUser *LocalUser) InterruptAudio(audioConsumer *AudioConsumer) int {
 	if audioConsumer != nil {
 		audioConsumer.Clear()
 	}
-	localUser.UnpublishAudio(localUser.audioTrack)
+	
 	
 	// 根据不同的audioScenario, 做不同的处理
+	
 	if localUser.audioTrack.audioScenario == AudioScenarioAiServer {
-		// 如果是aiServer, 则需要做打断操作
+		// for aiServer, we need to unpublish the track
+		localUser.UnpublishAudio(localUser.audioTrack)
+
+		// and publish the track again
+		localUser.PublishAudio(localUser.audioTrack)
 		
 	} else {
-		// 如果是chorus, 则需要做打断操作
-		//localUser.audioTrack.ClearSenderBuffer()
+		// and other scenarios, we need to clear the buffer of the track
+		localUser.audioTrack.ClearSenderBuffer()
 	}
 	return 0
 }
