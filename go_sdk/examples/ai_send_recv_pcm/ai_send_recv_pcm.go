@@ -83,12 +83,14 @@ func LoopbackAudio(audioQueue *agoraservice.Queue, audioConsumer *agoraservice.A
 }
 
 
-func SendTTSDataToClient(samplerate int, audioConsumer *agoraservice.AudioConsumer, file *os.File, done chan bool, audioSendEvent chan struct{}) {
+func SendTTSDataToClient(samplerate int, audioConsumer *agoraservice.AudioConsumer, file *os.File, done chan bool, audioSendEvent chan struct{}, fallackEvent chan struct{}, localUser *agoraservice.LocalUser, track *agoraservice.LocalAudioTrack) {
 	for {
 		select {
 		case <-done:
 			fmt.Println("SendAudioToClient done")
 			return
+		case <-fallackEvent:
+		
 		case <-audioSendEvent:
 			// read 1s data from file
 			buffer := make([]byte, samplerate*2*2)  // 2s data
@@ -212,10 +214,7 @@ func main() {
 			// do something
 			fmt.Printf("Connected, reason %d\n", reason)
 			//NOTE： Must  unpublish,and then update the track, and then publish the track!!!!
-		/* 	localUser := con.GetLocalUser()
-			localUser.UnpublishAudio(track)
-			localUser.UpdateAudioTrack(7)
-			localUser.PublishAudio(track) */
+		
 			conSignal <- struct{}{}
 		},
 		OnDisconnected: func(con *agoraservice.RtcConnection, info *agoraservice.RtcConnectionInfo, reason int) {
@@ -245,11 +244,13 @@ func main() {
 			fmt.Println("user left, " + uid)
 		},
 	}
-	framecount := 0
-/* 	var frame_diff int64
+/* 	framecount := 0 
+ 	var frame_diff int64
 	last_frame_time := time.Now().UnixMilli()
-	start_frame_time := time.Now().UnixMilli() */
+	start_frame_time := time.Now().UnixMilli()  */
 	audioSendEvent := make(chan struct{})
+	fallackEvent := make(chan struct{})
+	interruptEvent := make(chan struct{})
 
 	filename := "./ai_server_recv_pcm.pcm"
 	pcm_file, err := os.Create(filename)
@@ -288,13 +289,7 @@ func main() {
 				//audioQueue.Enqueue(frame)
 				
 			}
-			if mode == 2 {
-			    if framecount  == 1 {  // every 5s to send a chunk data to client 
-			        // trigger a event to send a chunk data to client 
-			        fmt.Println("send a chunk data to client")
-			        audioSendEvent <- struct{}{}
-			    }
-			}
+			
 			return true
 		},
 	}
@@ -344,21 +339,12 @@ func main() {
 			event_count++
 
 			if event_count   == 10 {
-			/* 	fmt.Printf("??????*****change track to chorus, %d\n", time.Now().UnixMilli())
-				localUser.UnpublishAudio(track)
-				localUser.UpdateAudioTrack(agoraservice.AudioScenarioDefault)
-				localUser.PublishAudio(track)  */
-			} 
-			if event_count %2 == 0 && event_count != 10 {
-				// can do more publish and no side effect!!
-				localUser.PublishAudio(track)
-				//localUser.PublishAudio(track)
-				//localUser.PublishAudio(track)
-				//localUser.PublishAudio(track)
+				fallackEvent <- struct{}{}
+			}  else if event_count %2 == 0  {
+				
 				audioSendEvent <- struct{}{}
 			} else  {  // simulate to interrupt audio
-				fmt.Printf("********unpublish audio, %d\n", time.Now().UnixMilli())
-				localUser.UnpublishAudio(track)
+				interruptEvent <- struct{}{}
 			} 
 
 			localUser.SendAudioMetaData(metaData)
@@ -442,7 +428,59 @@ func main() {
 		go ReadFileToConsumer(file, audioConsumer, 50, done, samplerate*2/100)
 		go ConsumeAudio(audioConsumer, 50, done)
 	} else if mode == 2 {
-		go SendTTSDataToClient(samplerate, audioConsumer, file, done, audioSendEvent)
+		//go SendTTSDataToClient(samplerate, audioConsumer, file, done, audioSendEvent, fallackEvent, localUser, track)
+		go func() {
+			//consturt a audio frame
+			buffer := make([]byte, samplerate*2*2)  // 2s data
+			bytesPerFrame := (samplerate/100)*2*1  // 10ms , mono
+			frame := &agoraservice.AudioFrame{
+				Buffer: nil,
+				RenderTimeMs: 0,
+				SamplesPerChannel: samplerate/100,
+				BytesPerSample: 2,
+				Channels: 1,
+				SamplesPerSec: samplerate,
+				Type: agoraservice.AudioFrameTypePCM16,
+			}
+			for {
+				select {
+				case <-done:
+					fmt.Println("SendAudioToClient done")
+					return
+				case <-fallackEvent:
+					fmt.Println("?????? fallackEvent")
+					
+					localUser.UpdateAudioTrack(agoraservice.AudioScenarioDefault)
+
+				case <-interruptEvent:
+					fmt.Println("?????? interruptEvent")
+					localUser.InterruptAudio(audioConsumer)
+					
+				case <-audioSendEvent:
+					// read 1s data from file
+					localUser.PublishAudio(track)
+					
+					readLen, err := file.Read(buffer)
+					if err != nil {
+						fmt.Printf("read up to EOF,cur read: %d", readLen)
+						file.Seek(0, 0)
+						continue
+					}
+					frame.Buffer = buffer[:readLen]
+					packnum := readLen/bytesPerFrame
+					frame.SamplesPerChannel	= (samplerate/100)*packnum
+					sender.SendAudioPcmData(frame)
+
+					//audioConsumer.PushPCMData(frame.Buffer)
+					// and seek to the begin of the file
+					file.Seek(0, 0)
+					fmt.Println("SendTTSDataToClient done")
+				default:
+					time.Sleep(40 * time.Millisecond)
+					audioConsumer.Consume()
+				}
+			}
+		}()
 	} else {
 		//go LoopbackAudio(audioQueue, audioConsumer, done)
 		fmt.Printf("len: %d\n", audioQueue.Size())
