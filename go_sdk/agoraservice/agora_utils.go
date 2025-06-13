@@ -82,7 +82,7 @@ func (ac *AudioConsumer) directPush(data []byte) {
 	ac.directDataLen += len(data) // not equal to the actual packets, because the data may not be 10ms aligned	
 	ac.mu.Unlock()
 
-	fmt.Printf("directPush data len: %d, directDataLen: %d\n", len(data),ac.directDataLen)
+	//fmt.Printf("directPush data len: %d, directDataLen: %d\n", len(data),ac.directDataLen)
 	
 	ac.pcmSender.SendAudioPcmData(ac.frame)
 }
@@ -97,7 +97,7 @@ func (ac *AudioConsumer) undirectPush(data []byte) {
 }
 
 func (ac *AudioConsumer) PushPCMData(data []byte) {
-	fmt.Printf("PushPCMData data len: %d, isInitialized: %d, isDirectMode: %d\n", len(data), ac.isInitialized, ac.isDirectMode)
+	//fmt.Printf("PushPCMData data len: %d, isInitialized: %d, isDirectMode: %d\n", len(data), ac.isInitialized, ac.IsDirectMode())
 	if !ac.isInitialized || data == nil || len(data) == 0 {
 		return
 	}
