@@ -379,6 +379,10 @@ type RtcConnection struct {
 	// vad related for the connection
 	enableVad         int
 	audioVadManager  *AudioVadManager
+
+	// capabilities observer
+	cCapObserverHandle unsafe.Pointer
+	cCapabilitiesObserver *C.struct__capabilites_observer
 }
 
 func NewRtcConnection(cfg *RtcConnectionConfig) *RtcConnection {
@@ -411,8 +415,8 @@ func NewRtcConnection(cfg *RtcConnectionConfig) *RtcConnection {
 	// re set audio scenario now
 	ret.localUser.SetAudioScenario(agoraService.audioScenario)
 	fmt.Printf("______set audio scenario to %d\n", agoraService.audioScenario)
-	
 
+	
 	// for stero encoding mode
 	if agoraService.isSteroEncodeMode  {
 	    ret.enableSteroEncodeMode()
@@ -421,6 +425,19 @@ func NewRtcConnection(cfg *RtcConnectionConfig) *RtcConnection {
 	// save to sync map
 	agoraService.setConFromHandle(ret.cConnection, ret, ConTypeCCon)
 	agoraService.setConFromHandle(ret.localUser.cLocalUser, ret, ConTypeCLocalUser)
+
+	// for any senario, we can handle the capabilities changed event
+	// register capabilities observer for any senario: that means we need to handle the capabilities changed event
+	// and the senario for each connection can be updated not only fallback from ai server to default but also
+	// can upgrade from default to ai server
+	// 2025-06-13, weihongqin@agora
+	ret.cCapabilitiesObserver = CCapatilitiesObserver()
+	ret.cCapObserverHandle = C.agora_local_user_capabilities_observer_create(ret.cCapabilitiesObserver)
+	C.agora_local_user_register_capabilities_observer(ret.localUser.cLocalUser, ret.cCapObserverHandle)
+
+	fmt.Printf("______register capabilities observer: clocaluser %v, cconHandle %v, capHandle %v\n", ret.localUser.cLocalUser, ret.cConnection, ret.cCapObserverHandle)
+
+
 
 	return ret
 }
@@ -454,6 +471,10 @@ func (conn *RtcConnection) Release() {
 	// agoraService.remoteVideoRWMutex.Unlock()
 
 	localUser := conn.localUser
+
+	if conn.cCapObserverHandle != nil {
+		C.agora_local_user_unregister_capabilities_observer(localUser.cLocalUser, conn.cCapObserverHandle)
+	}
 	if conn.cAudioObserver != nil {
 		C.agora_local_user_unregister_audio_frame_observer(localUser.cLocalUser)
 	}
@@ -501,6 +522,15 @@ func (conn *RtcConnection) Release() {
 	if conn.cHandler != nil {
 		FreeCRtcConnectionObserver(conn.cHandler)
 		conn.cHandler = nil
+	}
+	if conn.cCapabilitiesObserver != nil {
+		FreeCCapatilitiesObserver(conn.cCapabilitiesObserver)
+		conn.cCapabilitiesObserver = nil
+	}
+	if conn.cCapObserverHandle != nil {
+		//C.agora_local_user_unregister_capabilities_observer(conn.localUser.cLocalUser, conn.cCapObserverHandle)
+		C.agora_local_user_capabilities_observer_destory(conn.cCapObserverHandle)
+		conn.cCapObserverHandle = nil
 	}
 	conn.parameter = nil
 	conn.localUser = nil
@@ -836,4 +866,12 @@ func (conn *RtcConnection) EnableEncryption(enable int, config *EncryptionConfig
 
 	ret := C.agora_rtc_conn_enable_encryption(conn.cConnection, C.int(enable), &cConfig)
 	return int(ret)
+}
+func (conn *RtcConnection) handleCapabilitiesChanged(caps *C.struct__capabilities, size C.int) int {
+	if conn.cConnection == nil || conn.cCapabilitiesObserver == nil {
+		return -1
+	}
+	capabilityType := int(caps.capability_type)
+	fmt.Printf("_________handleCapabilitiesChanged, size: %d, type: %d\n", size, capabilityType)	
+	return -1
 }
