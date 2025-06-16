@@ -464,3 +464,35 @@ func goOnAudioTrackUnpublished(cLocalUser unsafe.Pointer, cLocalAudioTrack unsaf
 	}
 	con.localUserObserver.OnAudioTrackUnpublished(con.GetLocalUser(), nil)
 }
+
+//export goOnCapabilitiesChanged
+func goOnCapabilitiesChanged(cCapObserverHandle unsafe.Pointer, caps *C.struct__capabilities, size C.int) {
+	//validity check
+	fmt.Printf("goOnCapabilitiesChanged, size: %d, cCapObserverHandle: %v\n", size, cCapObserverHandle)
+	if cCapObserverHandle == nil {
+		return
+	}
+	var con *RtcConnection = nil
+	// get con from  handle
+	var found bool = false
+	agoraService.consByCCon.Range(func(key, value interface{}) bool {
+		con = value.(*RtcConnection)
+		fmt.Printf("goOnCapabilitiesChanged, con: %v, cCapObserverHandle: %v\n", cCapObserverHandle, con.cCapObserverHandle)
+		if con.cCapObserverHandle == cCapObserverHandle {
+			found = true
+			return false
+		}
+		return true
+	})
+
+	fmt.Printf("goOnCapabilitiesChanged, found: %v, con: %v\n", found, con)
+	if !found {
+		con = nil
+	}
+	
+	fmt.Printf("goOnCapabilitiesChanged, size: %d, con: %v\n", size, con)
+	if con == nil  {
+		return
+	}
+	con.handleCapabilitiesChanged(caps, size)
+}
