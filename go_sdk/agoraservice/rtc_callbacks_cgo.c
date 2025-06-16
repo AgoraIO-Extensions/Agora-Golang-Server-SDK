@@ -147,3 +147,8 @@ extern void goOnAudioTrackUnpublished(void* agora_local_user, void* agora_local_
 void cgo_on_audio_track_unpublished(AGORA_HANDLE agora_local_user, AGORA_HANDLE agora_local_audio_track) {
   goOnAudioTrackUnpublished(agora_local_user, agora_local_audio_track);
 }
+
+extern void goOnCapabilitiesChanged(void* agora_local_user, struct  _capabilities* caps, int size);
+void cgo_on_capabilities_changed(AGORA_HANDLE agora_local_user, const capabilities* caps, int size) {
+  goOnCapabilitiesChanged(agora_local_user, (struct _capabilities*)caps, size);
+}
