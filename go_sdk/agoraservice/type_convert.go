@@ -157,7 +157,6 @@ func CLocalUserObserver() *C.struct__local_user_observer {
 func FreeCLocalUserObserver(handler *C.struct__local_user_observer) {
 	C.free(unsafe.Pointer(handler))
 }
-
 func CAudioFrameObserver() *C.struct__audio_frame_observer {
 	ret := (*C.struct__audio_frame_observer)(C.malloc(C.sizeof_struct__audio_frame_observer))
 	C.memset(unsafe.Pointer(ret), 0, C.sizeof_struct__audio_frame_observer)
@@ -390,4 +389,15 @@ func GoRemoteVideoStats(stats *C.struct__remote_video_track_stats) *RemoteVideoT
 		PublishDuration: uint64(stats.publishDuration), // ms
 	}
 	return ret
+}
+
+func CCapatilitiesObserver() *C.struct__capabilites_observer {
+	ret := (*C.struct__capabilites_observer)(C.malloc(C.sizeof_struct__capabilites_observer))
+	C.memset(unsafe.Pointer(ret), 0, C.sizeof_struct__capabilites_observer)
+	ret.on_capabilities_changed = (*[0]byte)(C.cgo_on_capabilities_changed)
+	return ret
+}
+
+func FreeCCapatilitiesObserver(observer *C.struct__capabilites_observer) {
+	C.free(unsafe.Pointer(observer))
 }
