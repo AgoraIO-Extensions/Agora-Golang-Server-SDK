@@ -182,6 +182,9 @@ func main() {
 	}
 	svcCfg := agoraservice.NewAgoraServiceConfig()
 	svcCfg.AppId = appid
+	svcCfg.LogPath = "./agora_rtc_log/agorasdk.log"
+	svcCfg.ConfigDir = "./agora_rtc_log"
+	svcCfg.DataDir = "./agora_rtc_log"
 	
 	// set senario to ai_server
 	svcCfg.AudioScenario = agoraservice.AudioScenarioAiServer
