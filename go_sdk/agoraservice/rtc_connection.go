@@ -435,7 +435,7 @@ func NewRtcConnection(cfg *RtcConnectionConfig) *RtcConnection {
 	ret.cCapObserverHandle = C.agora_local_user_capabilities_observer_create(ret.cCapabilitiesObserver)
 	C.agora_local_user_register_capabilities_observer(ret.localUser.cLocalUser, ret.cCapObserverHandle)
 
-	fmt.Printf("______register capabilities observer: clocaluser %v, cconHandle %v, capHandle %v\n", ret.localUser.cLocalUser, ret.cConnection, ret.cCapObserverHandle)
+	//fmt.Printf("______register capabilities observer: clocaluser %v, cconHandle %v, capHandle %v\n", ret.localUser.cLocalUser, ret.cConnection, ret.cCapObserverHandle)
 
 
 
@@ -871,7 +871,58 @@ func (conn *RtcConnection) handleCapabilitiesChanged(caps *C.struct__capabilitie
 	if conn.cConnection == nil || conn.cCapabilitiesObserver == nil {
 		return -1
 	}
-	capabilityType := int(caps.capability_type)
-	fmt.Printf("_________handleCapabilitiesChanged, size: %d, type: %d\n", size, capabilityType)	
-	return -1
+
+
+	var fallback bool = true
+
+	// 获取数组起始地址
+	capsPtr := unsafe.Pointer(caps)
+	// 计算每个元素的大小
+	elemSize := unsafe.Sizeof(C.struct__capabilities{})
+
+	// 遍历数组
+	for i := 0; i < int(size); i++ {
+		// 计算当前元素的地址
+		curCapPtr := (*C.struct__capabilities)(unsafe.Pointer(uintptr(capsPtr) + uintptr(i)*elemSize))
+
+		// 打印基本信息
+		fmt.Printf("Capability[%d] - Type: %d\n", i, curCapPtr.capability_type)
+
+		// 获取并打印 item_map 信息
+		if curCapPtr.item_map != nil {
+			itemMap := (*C.struct__capability_item_map)(unsafe.Pointer(curCapPtr.item_map))
+
+			// 遍历 item_map 中的每个 item
+			for j := 0; j < int(itemMap.size); j++ {
+				item := (*C.struct__capability_item)(unsafe.Pointer(uintptr(unsafe.Pointer(itemMap.item)) + uintptr(j)*unsafe.Sizeof(C.struct__capability_item{})))
+
+				// 打印 item 的详细信息
+				itemName := ""
+				if item.name != nil {
+					itemName = C.GoString(item.name)
+				}
+				fmt.Printf("  Item[%d] - ID: %d, Name: %s\n", j, item.id, itemName)
+
+			}
+		}
+	
+		// check fabll back or not
+		if curCapPtr.capability_type == 19  && curCapPtr.item_map != nil {
+			itemMap := (*C.struct__capability_item_map)(unsafe.Pointer(curCapPtr.item_map))
+			for j := 0; j < int(itemMap.size); j++ {
+				item := (*C.struct__capability_item)(unsafe.Pointer(uintptr(unsafe.Pointer(itemMap.item)) + uintptr(j)*unsafe.Sizeof(C.struct__capability_item{})))
+				
+				itemName := ""
+				if item.name != nil {
+					itemName = C.GoString(item.name)
+				}
+				if itemName == "SUPPORT"  && item.id == 0 {
+					fallback = false
+				}
+			}
+		}
+	}
+	fmt.Printf("*********fallback: %v\n", fallback)
+	return 0
 }
+

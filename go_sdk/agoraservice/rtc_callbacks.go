@@ -468,7 +468,7 @@ func goOnAudioTrackUnpublished(cLocalUser unsafe.Pointer, cLocalAudioTrack unsaf
 //export goOnCapabilitiesChanged
 func goOnCapabilitiesChanged(cCapObserverHandle unsafe.Pointer, caps *C.struct__capabilities, size C.int) {
 	//validity check
-	fmt.Printf("goOnCapabilitiesChanged, size: %d, cCapObserverHandle: %v\n", size, cCapObserverHandle)
+	//fmt.Printf("goOnCapabilitiesChanged, size: %d, cCapObserverHandle: %v\n", size, cCapObserverHandle)
 	if cCapObserverHandle == nil {
 		return
 	}
@@ -477,7 +477,7 @@ func goOnCapabilitiesChanged(cCapObserverHandle unsafe.Pointer, caps *C.struct__
 	var found bool = false
 	agoraService.consByCCon.Range(func(key, value interface{}) bool {
 		con = value.(*RtcConnection)
-		fmt.Printf("goOnCapabilitiesChanged, con: %v, cCapObserverHandle: %v\n", cCapObserverHandle, con.cCapObserverHandle)
+		//fmt.Printf("goOnCapabilitiesChanged, con: %v, cCapObserverHandle: %v\n", cCapObserverHandle, con.cCapObserverHandle)
 		if con.cCapObserverHandle == cCapObserverHandle {
 			found = true
 			return false
@@ -485,12 +485,12 @@ func goOnCapabilitiesChanged(cCapObserverHandle unsafe.Pointer, caps *C.struct__
 		return true
 	})
 
-	fmt.Printf("goOnCapabilitiesChanged, found: %v, con: %v\n", found, con)
+	//fmt.Printf("goOnCapabilitiesChanged, found: %v, con: %v\n", found, con)
 	if !found {
 		con = nil
 	}
 	
-	fmt.Printf("goOnCapabilitiesChanged, size: %d, con: %v\n", size, con)
+	//fmt.Printf("goOnCapabilitiesChanged, size: %d, con: %v\n", size, con)
 	if con == nil  {
 		return
 	}
