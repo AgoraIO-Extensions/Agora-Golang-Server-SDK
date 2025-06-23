@@ -115,6 +115,9 @@ import (
   -- 增加了一个Dequeue，用于线程安全的chan机制。参考： sendrcvpcmyuv done
 
 ## todo：2025.05.31 ai_server senario 版本
+-- 增加了log/data/config 目录，用于存放日志，数据，配置文件
+-- 支持ai_server senario + 支持direct custom audio track
+-- 支持对aiqosmissing模式下的通知：所谓aiqosmissing，就是当端侧的版本不支持aiqos能力的时候（是版本，不是端侧所选择的具体senario），需要通过aiqosmissing来通知服务端，服务端在这个会有OnAIQoSCapabilityMissing，在这个回调中，开发者可以返回期望设置的senario，sdk会自动切换到这个senario。如果开发者不希望自动切换，可以返回-1.然后开发者可以自己调用localuse.UpdateAudioTrack(senario)来做切换！
 
 -- server端：需要用directAudioTrack来做推送，不再用customAudioTrack；也不需要按照10ms的速率来发送，就是有多少就发送多少
 -- server端：不在需要audioConsumer，或者在audioconsumer内部做对senario的适配，这样能做兼容
@@ -127,6 +130,8 @@ DirectCustomAudioTrackPcm：
 - 是否可以用在别的senario？==如果用在别的senario，需要按照10ms来推。否则不太推荐。
 - ai client目前不限制
 - 打断需要用unpub 机制
+-- 增加对日志的管理
+-- 增加能力协商
 
 --设计思想
 -- 1. 对外来说，并没有customAudioTrack和DirectAudioTrack的区别，都是AudioTrack，只是内部根据senario的不同而做不同的实现；
@@ -143,7 +148,14 @@ pub/unpub: 只是api调用，大概是0～1ms；
 
 --测试结果： 0603
   -1. 不能在onplaybackbeformixing中，直接调用sendpcmdata，否则会block！原来的版本是可以的。参考/recv_pcm_loopback
+  -2. 能力协商的case：
+    case1: server 先加入，别的另外加入？
+    case2: server后加入，别的先加入？
 
+## 2025.06.26 发布 2.2.9
+-- 增加了log/data/config 目录，用于存放日志，数据，配置文件
+-- 支持ai_server senario + 支持direct custom audio track
+-- 支持对aiqosmissing模式下的通知：所谓aiqosmissing，就是当端侧的版本不支持aiqos能力的时候（是版本，不是端侧所选择的具体senario），需要通过aiqosmissing来通知服务端，服务端在这个会有OnAIQoSCapabilityMissing，在这个回调中，开发者可以返回期望设置的senario，sdk会自动切换到这个senario。如果开发者不希望自动切换，可以返回-1.然后开发者可以自己调用localuse.UpdateAudioTrack(senario)来做切换！
 
 ## 2025.05.26 发布 2.2.8
 -- 修改：修改一个bug，在立体声模式下，编码码率不生效的bug
@@ -557,5 +569,9 @@ s->setParameters("{\"rtc.local_ap_list\":[\"10.62.0.95\"]}");
 
 ## Ai server/ai client如何使用
 -- 1、ai server：在init之后，调用aiService.InitAiServer()，然后调用aiService.StartAiServer()，即可启动ai server。
+
+## 有关AudioFrameObserver
+-- playbackbeforemixing 和playbackAudioFrame是可以同时触发的，但不建议这样使用，因为这样会导致回调的频率很高，从而影响性能。
+-- onMixed 不会触发：因为server sdk并没有采集，所以不会触发。在sever sdk可以用onPlaybackAudioFrame来获取。
 			
 

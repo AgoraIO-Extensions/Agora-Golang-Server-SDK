@@ -104,6 +104,11 @@ import (
   - if you don't use VAD, and your glibc version is between 2.16 and 2.27, you can disable VAD by rename **audio_vad.go** file in go_sdk/agoraserver/ to **audio_vad.go.bak**
 
 # Change log
+## 2025.06.26 release 2.2.9
+-- Added log/data/config directory for log/data and config files
+-- Added: ai_server senario, and direct custom audio track
+-- Supports notification for aiqosmissing mode: aiqosmissing refers to when the client-side version does not support aiqos capabilities (it's the version, not the specific scenario chosen by the client-side), which needs to notify the server through aiqosmissing. The server will have OnAIQoSCapabilityMissing in this callback, where developers can return the expected scenario setting, and the SDK will automatically switch to this scenario. If the developer does not want automatic switching, they can return -1. Then the developer can call localuse.UpdateAudioTrack(senario) to switch!
+
 ## 2025.05.26 release 2.2.8
 --  fix: fix a bug in sterom mode, the custome bitrate is not work
 --  update: update mac sdk version to 4.4.32
