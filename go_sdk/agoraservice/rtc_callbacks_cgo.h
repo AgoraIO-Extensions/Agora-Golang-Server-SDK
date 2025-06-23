@@ -104,3 +104,6 @@ extern void cgo_on_encryption_error(AGORA_HANDLE agora_rtc_conn, int error_type)
 // added on 2025-06-09
 extern void cgo_on_audio_track_publish_success(AGORA_HANDLE agora_local_user, AGORA_HANDLE agora_local_audio_track );
 extern void cgo_on_audio_track_unpublished(AGORA_HANDLE agora_local_user, AGORA_HANDLE agora_local_audio_track);
+
+// added on 2025-06-13
+extern void cgo_on_capabilities_changed(AGORA_HANDLE agora_local_user, const capabilities* caps, int size);

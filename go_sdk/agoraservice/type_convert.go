@@ -33,11 +33,37 @@ func CAgoraServiceConfig(cfg *AgoraServiceConfig) *C.struct__agora_service_confi
 	ret.audio_scenario = C.int(cfg.AudioScenario)
 	ret.use_string_uid = CIntFromBool(cfg.UseStringUid)
 	ret.domain_limit = C.int(cfg.DomainLimit)
+
+	// set log  related parameters
+	if cfg.LogPath != "" {
+		ret.log_file_path = C.CString(cfg.LogPath)
+	}
+	
+	ret.log_file_size_kb = C.uint32_t(cfg.LogSize)
+	ret.log_level = C.int(cfg.LogLevel)
+	
+	if cfg.ConfigDir != "" {
+		ret.config_dir = C.CString(cfg.ConfigDir)
+	}
+	if cfg.DataDir != "" {
+		ret.data_dir = C.CString(cfg.DataDir)
+	}
+
+
 	return ret
 }
 
 func FreeCAgoraServiceConfig(cfg *C.struct__agora_service_config) {
 	C.free(unsafe.Pointer(cfg.app_id))
+	if cfg.log_file_path != nil {
+	C.free(unsafe.Pointer(cfg.log_file_path))
+	}
+	if cfg.config_dir != nil {
+		C.free(unsafe.Pointer(cfg.config_dir))
+	}
+	if cfg.data_dir != nil {
+		C.free(unsafe.Pointer(cfg.data_dir))
+	}
 	C.free(unsafe.Pointer(cfg))
 }
 
@@ -131,7 +157,6 @@ func CLocalUserObserver() *C.struct__local_user_observer {
 func FreeCLocalUserObserver(handler *C.struct__local_user_observer) {
 	C.free(unsafe.Pointer(handler))
 }
-
 func CAudioFrameObserver() *C.struct__audio_frame_observer {
 	ret := (*C.struct__audio_frame_observer)(C.malloc(C.sizeof_struct__audio_frame_observer))
 	C.memset(unsafe.Pointer(ret), 0, C.sizeof_struct__audio_frame_observer)
@@ -364,4 +389,15 @@ func GoRemoteVideoStats(stats *C.struct__remote_video_track_stats) *RemoteVideoT
 		PublishDuration: uint64(stats.publishDuration), // ms
 	}
 	return ret
+}
+
+func CCapatilitiesObserver() *C.struct__capabilites_observer {
+	ret := (*C.struct__capabilites_observer)(C.malloc(C.sizeof_struct__capabilites_observer))
+	C.memset(unsafe.Pointer(ret), 0, C.sizeof_struct__capabilites_observer)
+	ret.on_capabilities_changed = (*[0]byte)(C.cgo_on_capabilities_changed)
+	return ret
+}
+
+func FreeCCapatilitiesObserver(observer *C.struct__capabilites_observer) {
+	C.free(unsafe.Pointer(observer))
 }

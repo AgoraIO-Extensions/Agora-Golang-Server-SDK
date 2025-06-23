@@ -64,6 +64,8 @@ type AgoraServiceConfig struct {
 	LogPath string
 	// LogSize is the rtc log file size in Byte.
 	LogSize int
+	// LogLevel is the rtc log level.
+	LogLevel int
 	// version 2.1.6
 	DomainLimit int
 	// version 2.2.1
@@ -73,6 +75,10 @@ type AgoraServiceConfig struct {
 	ShouldCallbackWhenMuted int
 	// version  2.2.1
 	EnableSteroEncodeMode int
+	// version 2.2.9 and later, if not set, use default path	
+	ConfigDir string
+	// version 2.2.9 and later, if not set, use default path
+	DataDir string
 }
 
 // const def for map type
@@ -121,11 +127,14 @@ func NewAgoraServiceConfig() *AgoraServiceConfig {
 		ChannelProfile:       ChannelProfileLiveBroadcasting,
 		AudioScenario:        AudioScenarioChorus,
 		UseStringUid:         false,
-		LogPath:              "./agora_rtc_log/agorasdk.log",
+		LogPath:              "",  // format like: "./agora_rtc_log/agorasdk.log"
 		LogSize:              1024 * 1024,
+		LogLevel: 0,
 		DomainLimit: 0, // default to 0
 		ShouldCallbackWhenMuted: 0, // default to 0, no callback when muted
 		EnableSteroEncodeMode: 0, // default to 0,i.e default to mono encode mode
+		ConfigDir: "",   // format like: "./agora_rtc_log"
+		DataDir: "",     // format like: "./agora_rtc_log", should ensure the directory exists
 	}
 }
 
@@ -181,16 +190,6 @@ func Initialize(cfg *AgoraServiceConfig) int {
 		agoraParam.SetParameters("{\"che.audio.custom_bitrate\":32000}")
 	}
 
-	if cfg.LogPath != "" {
-		logPath := C.CString(cfg.LogPath)
-		defer C.free(unsafe.Pointer(logPath))
-		logSize := 512 * 1024
-		if cfg.LogSize > 0 {
-			logSize = cfg.LogSize
-		}
-		C.agora_service_set_log_file(agoraService.service, logPath,
-			C.uint(logSize))
-	}
 	agoraService.inited = true
 	return 0
 }
