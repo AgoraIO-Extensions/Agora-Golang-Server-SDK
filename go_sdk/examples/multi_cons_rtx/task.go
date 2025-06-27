@@ -495,12 +495,15 @@ func (taskCtx *TaskContext) startTask() {
 		role = agoraservice.ClientRoleAudience
 	}
 
+	scenario := globalCtx.audioSenario
+	
+
 	con := agoraservice.NewRtcConnection(&agoraservice.RtcConnectionConfig{
 		AutoSubscribeAudio: cfg.recvPcm ,
 		AutoSubscribeVideo: cfg.recvYuv || cfg.recvEncodedVideo,
 		ClientRole:         role, //agoraservice.ClientRoleBroadcaster,
 		ChannelProfile:     agoraservice.ChannelProfileLiveBroadcasting,
-	})
+	}, scenario)
 	taskCtx.con = con
 	defer taskCtx.releaseTask()
 	fmt.Printf("task %d config.role: %d, rtc role: %d, channelname: %s\n", id, cfg.role, role, channelName)
@@ -509,7 +512,7 @@ func (taskCtx *TaskContext) startTask() {
 		// create audio track
 		taskCtx.audioPcmSender = globalCtx.mediaNodeFactory.NewAudioPcmDataSender()
 		// defer taskCtx.audioPcmSender.Release()
-		taskCtx.audioTrack = agoraservice.NewCustomAudioTrackPcm(taskCtx.audioPcmSender)
+		taskCtx.audioTrack = agoraservice.NewCustomAudioTrackPcm(taskCtx.audioPcmSender, scenario)
 		// defer taskCtx.audioTrack.Release()
 	}
 	if cfg.sendEncodedAudio {

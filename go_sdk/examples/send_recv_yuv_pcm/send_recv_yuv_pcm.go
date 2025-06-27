@@ -300,7 +300,8 @@ func main() {
 	fmt.Printf("start audioRoutine: %v, videoRoutine: %v\n", audioRoutine, videoRoutine)
 
 	// step0: create connection
-	con := agoraservice.NewRtcConnection(&conCfg)
+	scenario := svcCfg.AudioScenario
+	con := agoraservice.NewRtcConnection(&conCfg, scenario)
 
 	localUser := con.GetLocalUser()
 	con.RegisterObserver(conHandler)
@@ -312,7 +313,7 @@ func main() {
 
 	// step2: register audio frame observer and audio track
 	localUser.SetPlaybackAudioFrameBeforeMixingParameters(1, 16000)
-	audioTrack := agoraservice.NewCustomAudioTrackPcm(pcmsender)
+	audioTrack := agoraservice.NewCustomAudioTrackPcm(pcmsender, scenario)
 	localUser.RegisterAudioFrameObserver(audioObserver, 1, nil)
 
 	//localuserobserver

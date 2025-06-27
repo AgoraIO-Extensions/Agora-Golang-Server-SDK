@@ -327,11 +327,9 @@ func original_main() {
 	agoraservice.Initialize(svcCfg)
 
 	mediaNodeFactory := agoraservice.NewMediaNodeFactory()
-
 	sender := mediaNodeFactory.NewAudioPcmDataSender()
 
-	track := agoraservice.NewCustomAudioTrackPcm(sender)
-
+	
 	// generate stero vad
 
 	//agoraservice.EnableExtension("agora.builtin", "agora_audio_label_generator", "", true)
@@ -435,7 +433,15 @@ func original_main() {
 			return true
 		},
 	}
-	con := agoraservice.NewRtcConnection(&conCfg)
+
+	scenario := svcCfg.AudioScenario
+	con := agoraservice.NewRtcConnection(&conCfg, scenario)
+	
+
+	track := agoraservice.NewCustomAudioTrackPcm(sender, scenario)
+
+	
+
 
 	localUser := con.GetLocalUser()
 

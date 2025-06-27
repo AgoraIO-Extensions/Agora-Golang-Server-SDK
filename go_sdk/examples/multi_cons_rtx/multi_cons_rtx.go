@@ -29,6 +29,7 @@ type GlobalContext struct {
 	waitTasks         *sync.WaitGroup
 	tasks             []*TaskContext
 	taskStopSignal    chan int
+	audioSenario      agoraservice.AudioScenario
 }
 
 type TaskConfig struct {
@@ -110,6 +111,7 @@ func globalInit() *GlobalContext {
 		waitTasks:         &sync.WaitGroup{},
 		tasks:             nil,
 		taskStopSignal:    make(chan int, 100),
+		audioSenario:      svcCfg.AudioScenario,
 	}
 }
 

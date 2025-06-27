@@ -423,7 +423,7 @@ MediaPacket *pop_packet(MediaDecoder *d) {
     // Only skip when both streams exist and the buffer is insufficient
     if (video_exist && audio_exist) {
         if (video_size < AVSYNC_MAX_VIDEO_SIZE && audio_size < AVSYNC_MAX_AUDIO_SIZE) {
-            av_log(NULL, AV_LOG_DEBUG, "Both streams buffer insufficient, video_size %ld, audio_size %ld\n", video_size, audio_size);
+            av_log(NULL, AV_LOG_DEBUG, "Both streams buffer insufficient, video_size %lld, audio_size %lld\n", video_size, audio_size);
             return NULL;
         }
     }

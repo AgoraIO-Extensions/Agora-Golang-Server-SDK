@@ -93,7 +93,9 @@ func main() {
 	// 		fmt.Printf("Playback audio frame before mixing, from userId %s\n", userId)
 	// 	},
 	// }
-	con := agoraservice.NewRtcConnection(&conCfg)
+
+	scenario := svcCfg.AudioScenario
+	con := agoraservice.NewRtcConnection(&conCfg, scenario)
 	defer con.Release()
 
 	localUser := con.GetLocalUser()
@@ -102,7 +104,7 @@ func main() {
 	localUser.SetPlaybackAudioFrameBeforeMixingParameters(1, 16000)
 	audioSender := mediaNodeFactory.NewAudioPcmDataSender()
 	defer audioSender.Release()
-	audioTrack := agoraservice.NewCustomAudioTrackPcm(audioSender)
+	audioTrack := agoraservice.NewCustomAudioTrackPcm(audioSender, scenario)
 	defer audioTrack.Release()
 
 	videoSender := mediaNodeFactory.NewVideoEncodedImageSender()

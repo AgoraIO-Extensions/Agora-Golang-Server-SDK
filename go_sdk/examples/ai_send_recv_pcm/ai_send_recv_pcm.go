@@ -195,8 +195,7 @@ func main() {
 
 	sender := mediaNodeFactory.NewAudioPcmDataSender()
 	defer sender.Release()
-	track := agoraservice.NewCustomAudioTrackPcm(sender)
-	defer track.Release()
+	
 
 	conCfg := agoraservice.RtcConnectionConfig{
 		AutoSubscribeAudio: true,
@@ -206,6 +205,17 @@ func main() {
 	}
 	conSignal := make(chan struct{})
 	OnDisconnectedSign := make(chan struct{})
+
+
+	//NOTE: you can set senario here, and every connection has its own senario, which can diff from the service config
+	// and can diff from each other
+	// but recommend to use the same senario for a connection and related audio track
+	scenario := svcCfg.AudioScenario
+
+	con := agoraservice.NewRtcConnection(&conCfg, scenario)
+	defer con.Release()
+	track := agoraservice.NewCustomAudioTrackPcm(sender, scenario)
+	defer track.Release()
 
 	audioQueue := agoraservice.NewQueue(10)
 
@@ -301,8 +311,7 @@ func main() {
 	}
 	start := time.Now().UnixMilli()
 
-	con := agoraservice.NewRtcConnection(&conCfg)
-	defer con.Release()
+	
 
 	localStreamId, _ := con.CreateDataStream(false, false)
 
@@ -451,7 +460,7 @@ func main() {
 				case <-fallackEvent:
 					fmt.Println("?????? fallackEvent")
 
-					localUser.UpdateAudioTrack(agoraservice.AudioScenarioDefault)
+					localUser.UpdateAudioSenario(agoraservice.AudioScenarioDefault)
 
 				case <-interruptEvent:
 					fmt.Println("?????? interruptEvent")
