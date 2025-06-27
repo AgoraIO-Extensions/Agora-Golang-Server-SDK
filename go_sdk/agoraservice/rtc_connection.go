@@ -61,6 +61,15 @@ type RtcConnectionObserver struct {
 	OnError                    func(con *RtcConnection, err int, msg string)
 	OnStreamMessageError       func(con *RtcConnection, uid string, streamId int, errCode int, missed int, cached int)
 	OnEncryptionError          func(con *RtcConnection, err int)
+	//date: 2025-06-27
+	// Triggered when the following two conditions are both met:
+	// 1. The developer sets the connection's scenario to AudioScenarioAiServer.
+	// 2. The version of the SDK on the client side does not support aiqos.
+	// If triggered, it means the client-side version does not support aiqos, and the developer needs to decide to reset the server-side scenario.
+	// How should the developer handle it when the callback is triggered?
+	// 1. If set return value to -1, it means the SDK internally does not handle the scenario incompatibility.
+	// 2. If set return value to a valid scenario, it means the SDK internally automatically falls back to the scenario returned, ensuring compatibility.
+	// how to use it: can ref to examples/ai_send_recv_pcm/ai_send_recv_pcm.go
 	OnAIQoSCapabilityMissing   func(con *RtcConnection, defaultFallbackSenario int) int
 }
 
@@ -382,9 +391,15 @@ type RtcConnection struct {
 	// capabilities observer
 	cCapObserverHandle    unsafe.Pointer
 	cCapabilitiesObserver *C.struct__capabilites_observer
+
+	// audio scenario
+	audioScenario AudioScenario
 }
 
-func NewRtcConnection(cfg *RtcConnectionConfig) *RtcConnection {
+// NOTE: date：2025-06-27
+// add audioScenario param, to set the audio scenario for a connection
+// and it can diff from the service config, and can diff from each other
+func NewRtcConnection(cfg *RtcConnectionConfig, audioScenario AudioScenario) *RtcConnection {
 	cCfg := CRtcConnectionConfig(cfg)
 	defer FreeCRtcConnectionConfig(cCfg)
 
@@ -400,6 +415,7 @@ func NewRtcConnection(cfg *RtcConnectionConfig) *RtcConnection {
 		// remoteEncodedVideoReceivers: make(map[*VideoEncodedImageReceiver]*videoEncodedImageReceiverInner),
 		enableVad:       0,
 		audioVadManager: nil,
+		audioScenario:   audioScenario,
 	}
 	ret.localUser = &LocalUser{
 		connection:  ret,
@@ -412,8 +428,8 @@ func NewRtcConnection(cfg *RtcConnectionConfig) *RtcConnection {
 	}
 
 	// re set audio scenario now
-	ret.localUser.SetAudioScenario(agoraService.audioScenario)
-	fmt.Printf("______set audio scenario to %d\n", agoraService.audioScenario)
+	ret.localUser.SetAudioScenario(audioScenario)
+	fmt.Printf("______set audio scenario to %d\n", audioScenario)
 
 	// for stero encoding mode
 	if agoraService.isSteroEncodeMode {
@@ -429,9 +445,13 @@ func NewRtcConnection(cfg *RtcConnectionConfig) *RtcConnection {
 	// and the senario for each connection can be updated not only fallback from ai server to default but also
 	// can upgrade from default to ai server
 	// 2025-06-13, weihongqin@agora
-	ret.cCapabilitiesObserver = CCapatilitiesObserver()
-	ret.cCapObserverHandle = C.agora_local_user_capabilities_observer_create(ret.cCapabilitiesObserver)
-	C.agora_local_user_register_capabilities_observer(ret.localUser.cLocalUser, ret.cCapObserverHandle)
+	// register capabilities observer only for audio scenario is AudioScenarioAiServer
+	// and it is an inner observer, so developer can not unregister it
+	if ret.audioScenario == AudioScenarioAiServer {
+		ret.cCapabilitiesObserver = CCapatilitiesObserver()
+		ret.cCapObserverHandle = C.agora_local_user_capabilities_observer_create(ret.cCapabilitiesObserver)
+		C.agora_local_user_register_capabilities_observer(ret.localUser.cLocalUser, ret.cCapObserverHandle)
+	}
 
 	//fmt.Printf("______register capabilities observer: clocaluser %v, cconHandle %v, capHandle %v\n", ret.localUser.cLocalUser, ret.cConnection, ret.cCapObserverHandle)
 
@@ -922,11 +942,11 @@ func (conn *RtcConnection) handleCapabilitiesChanged(caps *C.struct__capabilitie
 	}
 	fmt.Printf("*********fallback: %v\n", fallback)
 	// call conectionobserver to notify
-	if conn.cHandler != nil && conn.localUserObserver != nil && conn.handler.OnAIQoSCapabilityMissing != nil {
+	if fallback && conn.cHandler != nil && conn.handler.OnAIQoSCapabilityMissing != nil {
 		userDefinedSenario := conn.handler.OnAIQoSCapabilityMissing(conn, int(AudioScenarioChorus))
 		if userDefinedSenario >= 0 {
 			fmt.Printf("onAIQoSCapabilityMissing, userDefinedSenario: %d\n", userDefinedSenario)
-			conn.localUser.UpdateAudioTrack(AudioScenario(userDefinedSenario))
+			conn.localUser.UpdateAudioSenario(AudioScenario(userDefinedSenario))
 		}
 	}
 	return 0
