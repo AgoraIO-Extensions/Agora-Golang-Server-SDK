@@ -17,12 +17,15 @@ type LocalAudioTrack struct {
 	pcmSender *AudioPcmDataSender  //and never change!!
 }
 
-func NewCustomAudioTrackPcm(pcmSender *AudioPcmDataSender) *LocalAudioTrack {
+// NOTE: date：2025-06-27
+// add audioScenario_of_connection param, to set the audio scenario for the audio track
+// recommend to use the same audio scenario for the connection and related audio track
+func NewCustomAudioTrackPcm(pcmSender *AudioPcmDataSender, audioScenario_of_connection AudioScenario) *LocalAudioTrack {
 	if agoraService == nil || agoraService.service == nil {
 		return nil
 	}
 	var cTrack unsafe.Pointer = nil
-	audioScenario := agoraService.audioScenario
+	audioScenario := audioScenario_of_connection
 
 	fmt.Printf("NewCustomAudioTrackPcm, audioScenario: %d, pcmSender.audioScenario: %d\n", audioScenario, pcmSender.audioScenario)
 	if audioScenario == AudioScenarioAiServer {
@@ -61,7 +64,8 @@ func NewCustomAudioTrackEncoded(encodedAudioSender *AudioEncodedFrameSender, mix
 	if cTrack == nil {
 		return nil
 	}
-	audioScenario := agoraService.audioScenario
+	//audioScenario := agoraService.audioScenario
+	audioScenario := AudioScenarioChorus
 	return &LocalAudioTrack{
 		cTrack: cTrack,
 		audioScenario: audioScenario,
