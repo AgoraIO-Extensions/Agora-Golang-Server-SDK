@@ -187,8 +187,9 @@ func main() {
 		},
 	}
 	start := time.Now().UnixMilli()
+	scenario := svcCfg.AudioScenario
 
-	con := agoraservice.NewRtcConnection(&conCfg)
+	con := agoraservice.NewRtcConnection(&conCfg, scenario)
 	defer con.Release()
 
 	localStreamId, _ := con.CreateDataStream(false, false)
@@ -241,7 +242,7 @@ func main() {
 	// defer sender.Release()
 	sender := mediaNodeFactory.NewAudioPcmDataSender()
 	defer sender.Release()
-	track := agoraservice.NewCustomAudioTrackPcm(sender)
+	track := agoraservice.NewCustomAudioTrackPcm(sender, scenario)
 	defer track.Release()
 
 	localUser := con.GetLocalUser()

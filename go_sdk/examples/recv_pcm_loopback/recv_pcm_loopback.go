@@ -158,7 +158,9 @@ func main() {
 		},
 	}
 
-	con := agoraservice.NewRtcConnection(&conCfg)
+	scenario := svcCfg.AudioScenario
+
+	con := agoraservice.NewRtcConnection(&conCfg, scenario)
 
 	//added by wei for localuser observer
 	localUserObserver := &agoraservice.LocalUserObserver{
@@ -199,7 +201,7 @@ func main() {
 	// defer sender.Release()
 	sender = mediaNodeFactory.NewAudioPcmDataSender()
 
-	track := agoraservice.NewCustomAudioTrackPcm(sender)
+	track := agoraservice.NewCustomAudioTrackPcm(sender, scenario)
 
 	localUser := con.GetLocalUser()
 	//localUser.SetAudioScenario(agoraservice.AudioScenarioChorus)

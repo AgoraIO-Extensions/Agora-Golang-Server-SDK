@@ -132,7 +132,8 @@ func main() {
 			return true
 		},
 	}
-	con := agoraservice.NewRtcConnection(&conCfg)
+	scenario := svcCfg.AudioScenario
+	con := agoraservice.NewRtcConnection(&conCfg, scenario)
 	defer con.Release()
 
 	localUser := con.GetLocalUser()
