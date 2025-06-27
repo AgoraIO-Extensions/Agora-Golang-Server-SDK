@@ -216,7 +216,7 @@ func (localUser *LocalUser) PublishAudio(track *LocalAudioTrack) int {
 // 然后调用UpdateAudioTrack
 // 然后在做pcmsender的更新senario
 // 然后调用PublishAudio
-func (localUser *LocalUser) UpdateAudioTrack(senario AudioScenario) int {
+func (localUser *LocalUser) UpdateAudioSenario(senario AudioScenario) int {
 	if localUser.cLocalUser == nil {
 		return -1
 	}
@@ -224,6 +224,12 @@ func (localUser *LocalUser) UpdateAudioTrack(senario AudioScenario) int {
 	if localUser.audioTrack == nil {	
 		return 0
 	}
+	// update the connection's senario
+	if localUser.connection.audioScenario != senario {
+		localUser.connection.audioScenario = senario
+		localUser.SetAudioScenario(senario)
+	}
+	
 	// 如果senario是一样的，则不做任何操作
 	if localUser.audioTrack.audioScenario == senario {
 		return 0
@@ -266,8 +272,8 @@ func (localUser *LocalUser) UpdateAudioTrack(senario AudioScenario) int {
 	//7. update the properties of pcmsender
 	//update pcmsender's info
 	localUser.audioTrack.pcmSender.audioScenario = senario
-	//update agoraService's info
-	agoraService.audioScenario = senario
+	//update connection's info
+	localUser.connection.audioScenario = senario
 
 	//8. publish the track
 	localUser.audioTrack.SetEnabled(true)
