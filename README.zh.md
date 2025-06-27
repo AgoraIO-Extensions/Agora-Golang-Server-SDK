@@ -156,6 +156,13 @@ pub/unpub: 只是api调用，大概是0～1ms；
 -- 增加了log/data/config 目录，用于存放日志，数据，配置文件
 -- 支持ai_server senario + 支持direct custom audio track
 -- 支持对aiqosmissing模式下的通知：所谓aiqosmissing，就是当端侧的版本不支持aiqos能力的时候（是版本，不是端侧所选择的具体senario），需要通过aiqosmissing来通知服务端，服务端在这个会有OnAIQoSCapabilityMissing，在这个回调中，开发者可以返回期望设置的senario，sdk会自动切换到这个senario。如果开发者不希望自动切换，可以返回-1.然后开发者可以自己调用localuse.UpdateAudioTrack(senario)来做切换！
+-- 支持connection级别的设置senario，也就是说在一个进程内，connection可以设置为不同的senario，比如一个connection设置为ai_server，另一个connection设置为chorus
+-- 支持customerAudioTrack根据senario来做创建
+-- 打断：localUser.InterruptAudio(audioconsumer*)，这个api是用于打断ai对话的。建议在做ai打断的时候，用这个新的方式来实现！
+-- UpdateAudioSenario：LocalUser.UpdateAudioSenario,用来更新connection的senario以及和conncection关联的audioTrack的senario。通常不需要主动调用！
+NOTE：customAudioTrack创建参数里面的senario需要和connection创建参数的senario保持一致！！否则audioTrack的行为可能和预期不符合！
+
+
 
 ## 2025.05.26 发布 2.2.8
 -- 修改：修改一个bug，在立体声模式下，编码码率不生效的bug
