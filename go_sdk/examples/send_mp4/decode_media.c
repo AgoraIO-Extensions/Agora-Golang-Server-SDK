@@ -16,6 +16,7 @@
 
 // history
 // 2025-06-13: fix memory leak when pop packet, by zhourui@agora
+// 2025-07-01: fix crash when close media file, by zhourui@agora
 
 #define MAX_AUDIO_CHANNELS 10
 #define AVSYNC_MAX_AUDIO_SIZE 5000
@@ -423,7 +424,7 @@ MediaPacket *pop_packet(MediaDecoder *d) {
     // Only skip when both streams exist and the buffer is insufficient
     if (video_exist && audio_exist) {
         if (video_size < AVSYNC_MAX_VIDEO_SIZE && audio_size < AVSYNC_MAX_AUDIO_SIZE) {
-            av_log(NULL, AV_LOG_DEBUG, "Both streams buffer insufficient, video_size %lld, audio_size %lld\n", video_size, audio_size);
+            av_log(NULL, AV_LOG_DEBUG, "Both streams buffer insufficient, video_size %ld, audio_size %ld\n", video_size, audio_size);
             return NULL;
         }
     }
@@ -484,9 +485,11 @@ int get_packet(void *decoder, MediaPacket **packet) {
           push_packet(d, mpkt);
       } else {
         av_packet_free(&pkt);
+        pkt = NULL;
       }
     } else {
       av_packet_free(&pkt);
+      pkt = NULL;
       if (result != AVERROR(EAGAIN)) {
         d->read_error = result;
       }
@@ -554,6 +557,7 @@ int h264_to_annexb(void *decoder, MediaPacket **packet) {
   ret = av_bsf_receive_packet(d->bsf, pkt_bsf);
   if (ret == AVERROR(EAGAIN)) {
     av_packet_free(&pkt_bsf);
+    pkt_bsf = NULL;
     free_packet(packet);
     return 0;
   } else if (ret < 0) {
@@ -562,6 +566,7 @@ int h264_to_annexb(void *decoder, MediaPacket **packet) {
                   "Error applying bitstream filters to a packet: %s\n",
                   av_err2str(ret));
       av_packet_free(&pkt_bsf);
+      pkt_bsf = NULL;
       free_packet(packet);
       return ret;
   }
@@ -575,6 +580,7 @@ int h264_to_annexb(void *decoder, MediaPacket **packet) {
   }
   if (pkt) {
     av_packet_free(&pkt);
+    pkt = NULL;
   }
   (*packet)->pkt = pkt_bsf;
   (*packet)->pts = pkt_bsf->pts * 1000 * av_q2d(pkt_bsf->time_base);
@@ -587,6 +593,7 @@ int free_packet(MediaPacket **packet) {
   }
   if ((*packet)->pkt) {
     av_packet_free(&(*packet)->pkt);
+    (*packet)->pkt = NULL;
   }
   free(*packet);
   *packet = NULL;
@@ -795,31 +802,15 @@ void close_media_file(void *decoder) {
     MediaDecoder *d = (MediaDecoder *)decoder;
     deinit_decoder(&d->video_ctx);
     deinit_decoder(&d->audio_ctx);
-    // free video packets and audio packets
-    int video_count = 0;
-    int audio_count = 0;
-    while (d->video_tail_pkt) {
-      MediaPacket *pkt = d->video_tail_pkt;
-      d->video_tail_pkt = pkt->next;
-      av_packet_free(&pkt->pkt);
-      free(pkt);
-      video_count++;
-    }
-    while (d->audio_tail_pkt) {
-      MediaPacket *pkt = d->audio_tail_pkt;
-      d->audio_tail_pkt = pkt->next;
-      av_packet_free(&pkt->pkt);
-      free(pkt);
-      audio_count++;
-    }
-    av_log(NULL, AV_LOG_WARNING, "Free %d video packets, %d audio packets\n", video_count, audio_count);
     // free avsync
     int count = 0;
     while (d->head_pkt.next) {
       MediaPacket *pkt = d->head_pkt.next;
       d->head_pkt.next = pkt->next;
       av_packet_free(&pkt->pkt);
+      pkt->pkt = NULL;
       free(pkt);
+      pkt = NULL;
       count++;
     }
     av_log(NULL, AV_LOG_WARNING, "Free %d packets\n", count);
@@ -829,5 +820,7 @@ void close_media_file(void *decoder) {
     }
     avformat_close_input(&d->fmt_ctx);
     av_packet_free(&d->pkt);
+    d->pkt = NULL;
     free(d);
+    d = NULL;
 }

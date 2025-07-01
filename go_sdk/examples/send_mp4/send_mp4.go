@@ -33,10 +33,21 @@ func main() {
 		fmt.Println("Application terminated")
 	}()
 
+	// get parameter from arguments： appid, channel_name
+
+	argus := os.Args
+	if len(argus) < 4 {
+		fmt.Println("Please input appid, channel name")
+		return
+	}
+	appid := argus[1]
+	channelName := argus[2]
+	filePath := argus[3]
+
 	// get environment variable
-	appid := os.Getenv("AGORA_APP_ID")
+
 	cert := os.Getenv("AGORA_APP_CERTIFICATE")
-	channelName := "gosdktest"
+
 	userId := "0"
 	if appid == "" {
 		fmt.Println("Please set AGORA_APP_ID environment variable, and AGORA_APP_CERTIFICATE if needed")
@@ -123,7 +134,7 @@ func main() {
 	videoTrack.SetEnabled(true)
 	localUser.PublishVideo(videoTrack)
 
-	fn := C.CString("../test_data/test_avsync.mp4")
+	fn := C.CString(filePath)
 	defer C.free(unsafe.Pointer(fn))
 	decoder := C.open_media_file(fn)
 	if decoder == nil {
@@ -131,6 +142,7 @@ func main() {
 		return
 	}
 	defer C.close_media_file(decoder)
+
 
 	var cPkt *C.struct__MediaPacket = nil
 	cFrame := C.struct__MediaFrame{}
@@ -221,4 +233,5 @@ func main() {
 			C.free_packet(&cPkt)
 		}
 	}
+
 }
