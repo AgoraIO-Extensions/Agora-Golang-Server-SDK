@@ -11,6 +11,7 @@ import (
 	"runtime"
 	"strconv"
 	"time"
+	"unsafe"
 
 	agoraservice "github.com/AgoraIO-Extensions/Agora-Golang-Server-SDK/v2/go_sdk/agoraservice"
 
@@ -108,6 +109,15 @@ func SendTTSDataToClient(samplerate int, audioConsumer *agoraservice.AudioConsum
 			audioConsumer.Consume()
 		}
 	}
+}
+
+func calculateEnergyFast(data []byte) uint64 {
+    var energy uint64
+    samples := unsafe.Slice((*int16)(unsafe.Pointer(&data[0])), len(data)/2)
+    for _, s := range samples {
+        energy += uint64(s) * uint64(s)
+    }
+    return energy
 }
 
 func main() {
@@ -278,6 +288,8 @@ func main() {
 		OnPlaybackAudioFrameBeforeMixing: func(localUser *agoraservice.LocalUser, channelId string, userId string, frame *agoraservice.AudioFrame, vadResulatState agoraservice.VadState, vadResultFrame *agoraservice.AudioFrame) bool {
 			// do something
 			//fmt.Printf("Playback audio frame before mixing, from userId %s, far :%d,rms:%d, pitch: %d\n", userId, frame.FarFieldFlag, frame.Rms, frame.Pitch)
+			energy := calculateEnergyFast(frame.Buffer)
+			fmt.Printf("energy: %d, rms: %d, ravg: %f, framecount: %d\n", energy, frame.Rms,float64(energy)/float64(frame.SamplesPerChannel),framecount)
 			if framecount == 0 {
 				last_frame_time = time.Now().UnixMilli()
 				start_frame_time = last_frame_time
