@@ -104,6 +104,8 @@ import (
   - if you don't use VAD, and your glibc version is between 2.16 and 2.27, you can disable VAD by rename **audio_vad.go** file in go_sdk/agoraserver/ to **audio_vad.go.bak**
 
 # Change log
+## 2025.07.02 release 2.2.10
+-- remove： Removed the setting of scenario in the enableSteroEncodeMode function, as this scenario can be passed as a parameter in NewRtcConnection, making it no longer necessary to set within enableSteroEncodeMode.
 ## 2025.07.01 release 2.2.9
 -- Added log/data/config directory for log/data and config files
 -- Added: ai_server senario, and direct custom audio track
