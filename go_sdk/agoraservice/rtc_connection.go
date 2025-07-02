@@ -825,8 +825,12 @@ func (conn *RtcConnection) enableSteroEncodeMode() int {
 	//set private parameter
 	localUser := conn.localUser
 
-	// change audio senario, by wei for stero encodeing
-	localUser.SetAudioScenario(AudioScenarioGameStreaming)
+	
+	// remove set senario to gs here, as it can pass senario as a parameter in NewRtcConnection
+	// only force profile to stero encoding profile and force codec to opus here!
+	// the default codec for musicstandstero is HAAC, no need for audio only senario
+	// the HAAC is valid or better for muisic+audio combination senario
+	// localUser.SetAudioScenario(AudioScenarioGameStreaming)
 	localUser.SetAudioEncoderConfiguration(&AudioEncoderConfiguration{AudioProfile: int(AudioProfileMusicStandardStereo)})
 
 	// fill pirvate parameter
