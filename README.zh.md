@@ -155,6 +155,9 @@ pub/unpub: 只是api调用，大概是0～1ms；
 done:
 --1. publish和unplbish中增加了一个bool判断当前的状态，允许多次pub/unpub。
 
+## 2025.07.02 发布 2.2.10
+-- remove： 去除了在enableSteroEncodeMode函数中设置senraio的代码，因为这个senario的设置，可以在NewRtcConnection中作为一个参数传入，不在需要在这个enableSteroEncodeMode中设置。
+
 ## 2025.07.01 发布 2.2.9（re-update)
 -- 增加了log/data/config 目录，用于存放日志，数据，配置文件
 -- 支持ai_server senario + 支持direct custom audio track
