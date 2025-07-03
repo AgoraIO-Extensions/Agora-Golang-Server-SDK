@@ -343,7 +343,7 @@ func goOnAudioVolumeIndication(cLocalUser unsafe.Pointer, Volumes *C.struct__aud
 
 //export goOnAudioPublishStateChanged
 func goOnAudioPublishStateChanged(cLocalUser unsafe.Pointer, channel *C.char, oldState C.int, newState C.int, elapseSinceLastState C.int) {
-	fmt.Printf("goOnAudioPublishStateChanged: %d, %d, %d\n", oldState, newState, elapseSinceLastState)
+	//fmt.Printf("goOnAudioPublishStateChanged: %d, %d, %d\n", oldState, newState, elapseSinceLastState)
 	//validity check
 	if cLocalUser == nil {
 		return

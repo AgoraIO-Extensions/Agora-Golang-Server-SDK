@@ -191,7 +191,7 @@ func (localUser *LocalUser) PublishAudio(track *LocalAudioTrack) int {
 	if localUser.audioTrack == nil {
 		localUser.audioTrack = track
 	} 
-	fmt.Printf("______publish audio track id %d, old id %d, cTrack %p, old cTrack %p\n", track.id, localUser.audioTrack.id, track.cTrack, localUser.audioTrack.cTrack)
+	//fmt.Printf("______publish audio track id %d, old id %d, cTrack %p, old cTrack %p\n", track.id, localUser.audioTrack.id, track.cTrack, localUser.audioTrack.cTrack)
 
 	if localUser.publishFlag == true {
 	    return 0
