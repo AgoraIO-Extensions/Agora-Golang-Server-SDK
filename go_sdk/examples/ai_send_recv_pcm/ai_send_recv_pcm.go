@@ -325,7 +325,7 @@ func main() {
 
 			}
 			// 3: 做方波信号的echo
-			threshold_value := -40
+			threshold_value := -25
 			if mode == 3 {
 				if frame.Rms > threshold_value {
 					// from trough to peak​​ now
