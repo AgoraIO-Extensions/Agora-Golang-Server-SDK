@@ -275,6 +275,7 @@ func main() {
 	audioSendEvent := make(chan struct{})
 	fallackEvent := make(chan struct{})
 	interruptEvent := make(chan struct{})
+	
 
 	filename := "./ai_server_recv_pcm.pcm"
 	pcm_file, err := os.Create(filename)
@@ -284,31 +285,37 @@ func main() {
 	}
 	defer pcm_file.Close()
 
+	is_square_wave_inpeak := false
+	square_wave_count := 0
+	
+
 	audioObserver := &agoraservice.AudioFrameObserver{
 		OnPlaybackAudioFrameBeforeMixing: func(localUser *agoraservice.LocalUser, channelId string, userId string, frame *agoraservice.AudioFrame, vadResulatState agoraservice.VadState, vadResultFrame *agoraservice.AudioFrame) bool {
 			// do something
 			//fmt.Printf("Playback audio frame before mixing, from userId %s, far :%d,rms:%d, pitch: %d\n", userId, frame.FarFieldFlag, frame.Rms, frame.Pitch)
-			energy := calculateEnergyFast(frame.Buffer)
-			fmt.Printf("energy: %d, rms: %d, ravg: %f, framecount: %d\n", energy, frame.Rms,float64(energy)/float64(frame.SamplesPerChannel),framecount)
-			if framecount == 0 {
-				last_frame_time = time.Now().UnixMilli()
-				start_frame_time = last_frame_time
-			}
-			framecount++
+			//energy := calculateEnergyFast(frame.Buffer)
+			//fmt.Printf("energy: %d, rms: %d, ravg: %f, framecount: %d\n", energy, frame.Rms,float64(energy)/float64(frame.SamplesPerChannel),framecount)
 			now := time.Now().UnixMilli()
-			frame_diff = now - last_frame_time
-			last_frame_time = now
-			//fmt.Printf("frame_diff: %d\n", frame_diff)
-			if framecount%100 == 0 { // evry 100 frames
-				frame_diff = now - start_frame_time
-				fmt.Printf("******** frame :%d, duration: %d, avg frame time: %f\n", framecount, frame_diff, float64(frame_diff)/100)
-				start_frame_time = now
-			}
-			if framecount % 400 == 0 {
-				audioSendEvent <- struct{}{}
-			}
+			if mode != 3 {
+				if framecount == 0 {
+					last_frame_time = time.Now().UnixMilli()
+					start_frame_time = last_frame_time
+				}
+				framecount++
+				frame_diff = now - last_frame_time
+				last_frame_time = now
+				//fmt.Printf("frame_diff: %d\n", frame_diff)
+				if framecount%100 == 0 { // evry 100 frames
+					frame_diff = now - start_frame_time
+					fmt.Printf("******** frame :%d, duration: %d, avg frame time: %f\n", framecount, frame_diff, float64(frame_diff)/100)
+					start_frame_time = now
+				}
+				if framecount % 400 == 0  && mode != 3 {
+					audioSendEvent <- struct{}{}
+				}
 
-			pcm_file.Write(frame.Buffer)
+				pcm_file.Write(frame.Buffer)
+			}
 
 			if mode == 1 {
 				frame.RenderTimeMs = 0
@@ -316,6 +323,29 @@ func main() {
 				// loopback
 				//audioQueue.Enqueue(frame)
 
+			}
+			// 3: 做方波信号的echo
+			threshold_value := -40
+			if mode == 3 {
+				if frame.Rms > threshold_value {
+					// from trough to peak​​ now
+					if is_square_wave_inpeak == false {
+						fmt.Printf("????????#####$$$$$$$ square_wave IN peak now: %d, through count: %d\n", now, square_wave_count)
+						is_square_wave_inpeak = true
+						// just from trough to peak, should trigger a event
+						localUser.InterruptAudio(nil)
+						audioSendEvent <- struct{}{}
+						square_wave_count = 0
+					}
+					square_wave_count++
+				} else {
+					if is_square_wave_inpeak == true {
+						fmt.Printf("????????#####$$$$$$$square_wave OUT  now: %d, peak count: %d\n", now, square_wave_count)
+						is_square_wave_inpeak = false
+						square_wave_count = 0
+					}
+					square_wave_count++
+				}
 			}
 
 			return true
@@ -449,11 +479,15 @@ func main() {
 	if mode == 0 {
 		go ReadFileToConsumer(file, audioConsumer, 50, done, samplerate*2/100)
 		go ConsumeAudio(audioConsumer, 50, done)
-	} else if mode == 2 {
+	} else if mode == 2 || mode == 3 {
 		//go SendTTSDataToClient(samplerate, audioConsumer, file, done, audioSendEvent, fallackEvent, localUser, track)
 		go func() {
 			//consturt a audio frame
-			buffer := make([]byte, samplerate*2*20)     // max to 20s data
+			leninsecond := 20
+			if mode == 3 {
+				leninsecond = 5
+			}
+			buffer := make([]byte, samplerate*2*leninsecond)     // max to 20s data
 			bytesPerFrame := (samplerate / 100) * 2 * 1 // 10ms , mono
 			frame := &agoraservice.AudioFrame{
 				Buffer:            nil,
