@@ -6,14 +6,11 @@ package agoraservice
 import "C"
 import (
 	"fmt"
-	"time"
 	"unsafe"
 )
 
 type LocalAudioTrack struct {
 	cTrack unsafe.Pointer
-	audioScenario AudioScenario
-	id int64 // assigend when create and never change!!
 	pcmSender *AudioPcmDataSender  //and never change!!
 }
 
@@ -39,13 +36,11 @@ func NewCustomAudioTrackPcm(pcmSender *AudioPcmDataSender, audioScenario_of_conn
 	}
 	audioTrack := &LocalAudioTrack{
 		cTrack: cTrack,
-		audioScenario: audioScenario,
-		id: time.Now().UnixMilli(),
 		pcmSender: pcmSender,
 	}
 	pcmSender.audioScenario = audioScenario
 
-	fmt.Printf("NewCustomAudioTrackPcm, audioTrack.audioScenario: %d, audioTrack.pcmSender.audioScenario: %d, pcmSender.audioScenario: %d\n", audioTrack.audioScenario, audioTrack.pcmSender.audioScenario, pcmSender.audioScenario)
+	fmt.Printf("NewCustomAudioTrackPcm, scenario: %d\n", audioScenario)
 
 	// set send delay ms to 10ms, to avoid audio delay. NOTE: do not set it to 0, otherwise, it would set to default value: 260ms
 	if audioTrack.cTrack != nil {
@@ -64,12 +59,9 @@ func NewCustomAudioTrackEncoded(encodedAudioSender *AudioEncodedFrameSender, mix
 	if cTrack == nil {
 		return nil
 	}
-	//audioScenario := agoraService.audioScenario
-	audioScenario := AudioScenarioChorus
+	
 	return &LocalAudioTrack{
 		cTrack: cTrack,
-		audioScenario: audioScenario,
-		id: time.Now().UnixMilli(),
 		pcmSender: nil,
 	}
 }
@@ -132,9 +124,9 @@ func NewDirectCustomAudioTrackPcm(pcmSender *AudioPcmDataSender) *LocalAudioTrac
 	if cTrack == nil {
 		return nil
 	}
-	pcmSender.audioScenario = AudioScenarioAiServer
+
 	return &LocalAudioTrack{
 		cTrack: cTrack,
-		audioScenario: AudioScenarioAiServer,
+		pcmSender: pcmSender,
 	}
 }

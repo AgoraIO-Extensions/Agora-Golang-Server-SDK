@@ -1224,7 +1224,6 @@ func (conn *RtcConnection) UpdateAudioSenario(scenario AudioScenario) int {
 	conn.UnpublishAudio()
 
 	//5. update the audioScenario
-	conn.audioTrack.audioScenario = scenario
 	conn.audioTrack.Release()
 	conn.audioTrack.cTrack = nil
 	
