@@ -529,6 +529,7 @@ func (conn *RtcConnection) Release() {
 	if conn.cConnection == nil {
 		return
 	}
+	conn.UnregisterObserver()
 	// delete from sync map
 	agoraService.deleteConFromHandle(conn.cConnection, ConTypeCCon)
 	agoraService.deleteConFromHandle(conn.localUser.cLocalUser, ConTypeCLocalUser)
@@ -689,7 +690,10 @@ func (conn *RtcConnection) Connect(token string, channel string, uid string) int
 	defer C.free(unsafe.Pointer(cUid))
 	return int(C.agora_rtc_conn_connect(conn.cConnection, cToken, cChannel, cUid))
 }
-
+// date: 2025-07-04
+// add a function to disconnect the connection
+// and it will unpublish all tracks and unregister all observers
+// and then do really disconnect, no need to call unregister observer manually
 func (conn *RtcConnection) Disconnect() int {
 	if conn.cConnection == nil {
 		return -1
@@ -711,8 +715,8 @@ func (conn *RtcConnection) Disconnect() int {
 	//3 and then do really disconnect
 	ret := int(C.agora_rtc_conn_disconnect(conn.cConnection))
 
-	//3. unregister rtc connection observer, maybe move to release ??toDo
-	conn.UnregisterObserver()
+	//3. unregister rtc connection observer，yeah
+
 	return ret
 }
 
