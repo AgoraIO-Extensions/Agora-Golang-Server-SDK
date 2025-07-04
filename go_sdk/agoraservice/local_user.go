@@ -17,7 +17,6 @@ import (
 )
 
 type LocalUser struct {
-	connection *RtcConnection
 	cLocalUser unsafe.Pointer
 	publishFlag bool
 }
@@ -38,41 +37,7 @@ type VideoSubscriptionOptions struct {
 	EncodedFrameOnly bool
 }
 
-func (localUser *LocalUser) GetRtcConnection() *RtcConnection {
-	return localUser.connection
-}
 
-func (localUser *LocalUser) RegisterLocalUserObserver(observer *LocalUserObserver) int {
-	return localUser.connection.registerLocalUserObserver(observer)
-}
-
-func (localUser *LocalUser) UnregisterLocalUserObserver() int {
-	return localUser.connection.unregisterLocalUserObserver()
-}
-
-func (localUser *LocalUser) RegisterAudioFrameObserver(observer *AudioFrameObserver,enableVad int, vadConfigure *AudioVadConfigV2) int {
-	return localUser.connection.registerAudioFrameObserver(observer, enableVad, vadConfigure)
-}
-
-func (localUser *LocalUser) UnregisterAudioFrameObserver() int {
-	return localUser.connection.unregisterAudioFrameObserver()
-}
-
-func (localUser *LocalUser) RegisterVideoFrameObserver(observer *VideoFrameObserver) int {
-	return localUser.connection.registerVideoFrameObserver(observer)
-}
-
-func (localUser *LocalUser) UnregisterVideoFrameObserver() int {
-	return localUser.connection.unregisterVideoFrameObserver()
-}
-
-func (localUser *LocalUser) RegisterVideoEncodedFrameObserver(observer *VideoEncodedFrameObserver) int {
-	return localUser.connection.registerVideoEncodedFrameObserver(observer)
-}
-
-func (localUser *LocalUser) UnregisterVideoEncodedFrameObserver() int {
-	return localUser.connection.unregisterVideoEncodedFrameObserver()
-}
 
 func (localUser *LocalUser) SetUserRole(role int) int {
 	if localUser.cLocalUser == nil {
