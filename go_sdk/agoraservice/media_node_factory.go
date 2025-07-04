@@ -9,7 +9,7 @@ type MediaNodeFactory struct {
 	cFactory unsafe.Pointer
 }
 
-func NewMediaNodeFactory() *MediaNodeFactory {
+func newMediaNodeFactory() *MediaNodeFactory {
 	factory := C.agora_service_create_media_node_factory(agoraService.service)
 	if factory == nil {
 		return nil
@@ -19,7 +19,7 @@ func NewMediaNodeFactory() *MediaNodeFactory {
 	}
 }
 
-func (factory *MediaNodeFactory) Release() {
+func (factory *MediaNodeFactory) release() {
 	if factory.cFactory == nil {
 		return
 	}
