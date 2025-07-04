@@ -364,6 +364,16 @@ type RtcConnectionConfig struct {
 	VideoRecvMediaPacket bool
 }
 
+type RtcConnectionPublishConfig struct {
+	AudioProfile AudioProfile
+	AudioScenario AudioScenario
+	IsPublishAudio bool  //default to true
+	IsPublishVideo bool  // default to false
+	AudioPublishType AudioPublishType  // 0: no publish, 1: pcm, 2: encoded pcm. default to 1
+	VideoPublishType VideoPublishType  // 0: no publish, 1: yuv, 2: encoded image. default to 0
+	VideoEncodedImageSenderOptions *VideoEncodedImageSenderOptions
+}
+
 type RtcConnection struct {
 	cConnection unsafe.Pointer
 	connInfo    RtcConnectionInfo
@@ -394,14 +404,45 @@ type RtcConnection struct {
 
 	// audio scenario
 	audioScenario AudioScenario
+	audioProfile  AudioProfile
+
+	// publish option
+	publishConfig *RtcConnectionPublishConfig
+
+	// track & sender
+	audioTrack *LocalAudioTrack
+	videoTrack *LocalVideoTrack
+	audioSender *AudioPcmDataSender
+	videoSender *VideoFrameSender
+	encodedAudioSender *AudioEncodedFrameSender
+	encodedVideoSender *VideoEncodedImageSender
+	
+}
+
+func NewRtcConPublishConfig() *RtcConnectionPublishConfig {
+	return &RtcConnectionPublishConfig{
+		AudioProfile: AudioProfileDefault,
+		AudioScenario: AudioScenarioAiServer,
+		IsPublishAudio: true,
+		IsPublishVideo: false,
+		AudioPublishType: AudioPublishTypePcm,
+		VideoPublishType: VideoPublishTypeNoPublish,
+		VideoEncodedImageSenderOptions: &VideoEncodedImageSenderOptions{
+			CcMode:    VideoSendCcDisabled, // should check todo???
+			CodecType: VideoCodecTypeH264,
+		},
+	}
 }
 
 // NOTE: date：2025-06-27
 // add audioScenario param, to set the audio scenario for a connection
 // and it can diff from the service config, and can diff from each other
-func NewRtcConnection(cfg *RtcConnectionConfig, audioScenario AudioScenario) *RtcConnection {
+func NewRtcConnection(cfg *RtcConnectionConfig, publishConfig *RtcConnectionPublishConfig) *RtcConnection {
 	cCfg := CRtcConnectionConfig(cfg)
 	defer FreeCRtcConnectionConfig(cCfg)
+
+	audioScenario := publishConfig.AudioScenario
+	audioProfile := publishConfig.AudioProfile
 
 	ret := &RtcConnection{
 		cConnection: C.agora_rtc_conn_create(agoraService.service, cCfg),
@@ -416,11 +457,11 @@ func NewRtcConnection(cfg *RtcConnectionConfig, audioScenario AudioScenario) *Rt
 		enableVad:       0,
 		audioVadManager: nil,
 		audioScenario:   audioScenario,
+		audioProfile:    audioProfile,
+		publishConfig:   publishConfig,
 	}
 	ret.localUser = &LocalUser{
-		connection:  ret,
 		cLocalUser:  C.agora_rtc_conn_get_local_user(ret.cConnection),
-		audioTrack:  nil,
 		publishFlag: false,
 	}
 	ret.parameter = &AgoraParameter{
@@ -428,8 +469,10 @@ func NewRtcConnection(cfg *RtcConnectionConfig, audioScenario AudioScenario) *Rt
 	}
 
 	// re set audio scenario now
+	ret.localUser.SetAudioEncoderConfiguration(&AudioEncoderConfiguration{AudioProfile: int(audioProfile)})
+
 	ret.localUser.SetAudioScenario(audioScenario)
-	fmt.Printf("______set audio scenario to %d\n", audioScenario)
+	fmt.Printf("______set audio scenario to %d, audio profile to %d\n", audioScenario,audioProfile)
 
 	// for stero encoding mode
 	if agoraService.isSteroEncodeMode {
@@ -455,8 +498,32 @@ func NewRtcConnection(cfg *RtcConnectionConfig, audioScenario AudioScenario) *Rt
 
 	//fmt.Printf("______register capabilities observer: clocaluser %v, cconHandle %v, capHandle %v\n", ret.localUser.cLocalUser, ret.cConnection, ret.cCapObserverHandle)
 
+	// create  track
+	if publishConfig.IsPublishAudio {
+		if publishConfig.AudioPublishType == AudioPublishTypePcm {
+			ret.audioSender = agoraService.mediaFactory.NewAudioPcmDataSender()
+			ret.audioTrack = NewCustomAudioTrackPcm(ret.audioSender, ret.audioScenario)
+		} else if publishConfig.AudioPublishType == AudioPublishTypeEncodedPcm {
+			ret.encodedAudioSender = agoraService.mediaFactory.NewAudioEncodedFrameSender()
+			ret.audioTrack = NewCustomAudioTrackEncoded(ret.encodedAudioSender, AudioTrackMixDisabled)
+		}
+		ret.audioTrack.SetEnabled(true)
+	}
+	if publishConfig.IsPublishVideo {
+		if publishConfig.VideoPublishType == VideoPublishTypeYuv {
+			ret.videoSender = agoraService.mediaFactory.NewVideoFrameSender()
+			ret.videoTrack =  NewCustomVideoTrackFrame(ret.videoSender)
+		} else if publishConfig.VideoPublishType == VideoPublishTypeEncodedImage {
+			ret.encodedVideoSender = agoraService.mediaFactory.NewVideoEncodedImageSender()
+			ret.videoTrack = NewCustomVideoTrackEncoded(ret.encodedVideoSender, ret.publishConfig.VideoEncodedImageSenderOptions)
+		}
+	}
+	
+
 	return ret
 }
+
+
 
 func (conn *RtcConnection) Release() {
 	if conn.cConnection == nil {
@@ -550,13 +617,48 @@ func (conn *RtcConnection) Release() {
 	}
 	conn.parameter = nil
 	conn.localUser = nil
-	localUser.connection = nil
 	localUser.cLocalUser = nil
 	localUser = nil
 	conn.handler = nil
 	conn.localUserObserver = nil
 	conn.audioObserver = nil
 	conn.videoObserver = nil
+
+	// finally to release all tracks
+	if conn.audioTrack != nil {
+		conn.audioTrack.Release()
+		conn.audioTrack = nil
+	}
+	if conn.videoTrack != nil {
+		conn.videoTrack.Release()
+		conn.videoTrack = nil
+	}
+
+	// finally to release all senders
+	if conn.audioSender != nil {
+		conn.audioSender.Release()
+		conn.audioSender = nil
+	}
+	if conn.videoSender != nil {
+		conn.videoSender.Release()
+		conn.videoSender = nil
+	}
+	if conn.encodedAudioSender != nil {
+		conn.encodedAudioSender.Release()
+		conn.encodedAudioSender = nil
+	}
+	if conn.encodedVideoSender != nil {
+		conn.encodedVideoSender.Release()
+		conn.encodedVideoSender = nil
+	}
+
+	// and set all to nil
+	conn.audioTrack = nil
+	conn.videoTrack = nil
+	conn.audioSender = nil
+	conn.videoSender = nil
+	conn.encodedAudioSender = nil
+	conn.encodedVideoSender = nil
 }
 
 func (conn *RtcConnection) GetLocalUser() *LocalUser {
@@ -592,7 +694,26 @@ func (conn *RtcConnection) Disconnect() int {
 	if conn.cConnection == nil {
 		return -1
 	}
-	return int(C.agora_rtc_conn_disconnect(conn.cConnection))
+	// date: 2025-07-04
+	//1. unpublish all tracks
+	conn.UnpublishAudio()
+	conn.UnpublishVideo()
+
+	//2. unregister all observers, but except rtc connection observer
+	conn.UnregisterAudioFrameObserver()
+	conn.UnregisterVideoFrameObserver()
+	conn.UnregisterVideoEncodedFrameObserver()
+	conn.UnregisterAudioEncodedFrameObserver()
+
+	conn.UnregisterLocalUserObserver()
+	
+
+	//3 and then do really disconnect
+	ret := int(C.agora_rtc_conn_disconnect(conn.cConnection))
+
+	//3. unregister rtc connection observer, maybe move to release ??toDo
+	conn.UnregisterObserver()
+	return ret
 }
 
 func (conn *RtcConnection) RenewToken(token string) int {
@@ -658,7 +779,7 @@ func (conn *RtcConnection) UnregisterObserver() int {
 	return 0
 }
 
-func (conn *RtcConnection) registerLocalUserObserver(handler *LocalUserObserver) int {
+func (conn *RtcConnection) RegisterLocalUserObserver(handler *LocalUserObserver) int {
 	if conn.cConnection == nil || handler == nil {
 		return -1
 	}
@@ -667,7 +788,7 @@ func (conn *RtcConnection) registerLocalUserObserver(handler *LocalUserObserver)
 		return 0
 	}
 	// unregister old observer
-	conn.unregisterLocalUserObserver()
+	conn.UnregisterLocalUserObserver()
 
 	// register new observer
 	conn.localUserObserver = handler
@@ -678,7 +799,7 @@ func (conn *RtcConnection) registerLocalUserObserver(handler *LocalUserObserver)
 	return 0
 }
 
-func (conn *RtcConnection) unregisterLocalUserObserver() int {
+func (conn *RtcConnection) UnregisterLocalUserObserver() int {
 	// check if need to unregister
 	if conn.cConnection == nil {
 		return 0
@@ -692,7 +813,7 @@ func (conn *RtcConnection) unregisterLocalUserObserver() int {
 	return 0
 }
 
-func (conn *RtcConnection) registerAudioFrameObserver(observer *AudioFrameObserver, enableVad int, vadConfigure *AudioVadConfigV2) int {
+func (conn *RtcConnection) RegisterAudioFrameObserver(observer *AudioFrameObserver, enableVad int, vadConfigure *AudioVadConfigV2) int {
 	if conn.cConnection == nil || observer == nil {
 		return -1
 	}
@@ -701,7 +822,7 @@ func (conn *RtcConnection) registerAudioFrameObserver(observer *AudioFrameObserv
 		return 0
 	}
 	// unregister old observer
-	conn.unregisterAudioFrameObserver()
+	conn.UnregisterAudioFrameObserver()
 
 	// re-assign vad related
 	conn.enableVad = enableVad
@@ -717,7 +838,7 @@ func (conn *RtcConnection) registerAudioFrameObserver(observer *AudioFrameObserv
 	return 0
 }
 
-func (conn *RtcConnection) unregisterAudioFrameObserver() int {
+func (conn *RtcConnection) UnregisterAudioFrameObserver() int {
 	// check if need to unregister
 	if conn.cConnection == nil {
 		return 0
@@ -738,7 +859,7 @@ func (conn *RtcConnection) unregisterAudioFrameObserver() int {
 	return 0
 }
 
-func (conn *RtcConnection) registerVideoFrameObserver(observer *VideoFrameObserver) int {
+func (conn *RtcConnection) RegisterVideoFrameObserver(observer *VideoFrameObserver) int {
 	if conn.cConnection == nil || observer == nil {
 		return -1
 	}
@@ -747,7 +868,7 @@ func (conn *RtcConnection) registerVideoFrameObserver(observer *VideoFrameObserv
 		return 0
 	}
 	// unregister old observer
-	conn.unregisterVideoFrameObserver()
+	conn.UnregisterVideoFrameObserver()
 
 	conn.videoObserver = observer
 	if conn.cVideoObserver == nil {
@@ -759,7 +880,7 @@ func (conn *RtcConnection) registerVideoFrameObserver(observer *VideoFrameObserv
 	return 0
 }
 
-func (conn *RtcConnection) unregisterVideoFrameObserver() int {
+func (conn *RtcConnection) UnregisterVideoFrameObserver() int {
 	// check if need to unregister
 	if conn.cConnection == nil {
 		return 0
@@ -776,7 +897,7 @@ func (conn *RtcConnection) unregisterVideoFrameObserver() int {
 	return 0
 }
 
-func (conn *RtcConnection) registerVideoEncodedFrameObserver(observer *VideoEncodedFrameObserver) int {
+func (conn *RtcConnection) RegisterVideoEncodedFrameObserver(observer *VideoEncodedFrameObserver) int {
 	if conn.cConnection == nil || observer == nil {
 		return -1
 	}
@@ -785,7 +906,7 @@ func (conn *RtcConnection) registerVideoEncodedFrameObserver(observer *VideoEnco
 		return 0
 	}
 	// unregister old observer
-	conn.unregisterVideoEncodedFrameObserver()
+	conn.UnregisterVideoEncodedFrameObserver()
 
 	conn.encodedVideoObserver = observer
 	if conn.cEncodedVideoObserver == nil {
@@ -797,7 +918,7 @@ func (conn *RtcConnection) registerVideoEncodedFrameObserver(observer *VideoEnco
 	return 0
 }
 
-func (conn *RtcConnection) unregisterVideoEncodedFrameObserver() int {
+func (conn *RtcConnection) UnregisterVideoEncodedFrameObserver() int {
 	// check if need to unregister
 	if conn.cConnection == nil {
 		return 0
@@ -950,8 +1071,200 @@ func (conn *RtcConnection) handleCapabilitiesChanged(caps *C.struct__capabilitie
 		userDefinedSenario := conn.handler.OnAIQoSCapabilityMissing(conn, int(AudioScenarioChorus))
 		if userDefinedSenario >= 0 {
 			fmt.Printf("onAIQoSCapabilityMissing, userDefinedSenario: %d\n", userDefinedSenario)
-			conn.localUser.UpdateAudioSenario(AudioScenario(userDefinedSenario))
+			conn.UpdateAudioSenario(AudioScenario(userDefinedSenario))
 		}
 	}
+	return 0
+}
+
+//date:2025-07-04 10:00:00
+//author: weihongqin
+//description: push audio pcm data to agora sdk
+//param: data: audio data
+//param: sampleRate: sample rate
+//param: channels: channels
+//return: 0: success, -1: error, -2: invalid data
+func (conn *RtcConnection) PublishAudio() int {
+	if conn.audioTrack == nil {
+		return -1
+	}
+	//conn.audioTrack.SetEnabled(true)
+	ret := conn.localUser.publishAudio(conn.audioTrack)
+	return int(ret)
+}
+func (conn *RtcConnection) UnpublishAudio() int {
+	if conn.audioTrack == nil {
+		return -1
+	}
+	//conn.audioTrack.SetEnabled(false)
+	ret := conn.localUser.unpublishAudio(conn.audioTrack)
+	return int(ret)
+}
+
+func (conn *RtcConnection) PublishVideo() int {
+	if conn.videoTrack == nil {
+		return -1
+	}
+	conn.videoTrack.SetEnabled(true)
+	ret := conn.localUser.publishVideo(conn.videoTrack)
+	return int(ret)
+}
+
+func (conn *RtcConnection) UnpublishVideo() int {	
+	if conn.videoTrack == nil {
+		return -1
+	}
+	conn.videoTrack.SetEnabled(false)
+	ret := conn.localUser.unpublishVideo(conn.videoTrack)
+	return int(ret)
+}
+func (conn *RtcConnection) InterruptAudio() int {
+	if conn.audioTrack == nil {
+		return -1
+	}
+	
+	
+	if conn.audioScenario == AudioScenarioAiServer {
+		// for aiServer, we need to unpublish the track
+		conn.UnpublishAudio()
+		// and publish the track again
+		conn.PublishAudio()
+		
+	} else {
+		// and other scenarios, we need to clear the buffer of the track
+		conn.audioTrack.ClearSenderBuffer()
+	}
+	return 0
+}
+
+func (conn *RtcConnection) PushAudioPcmData(data []byte, sampleRate int, channels int) int {
+	if conn.audioSender == nil {
+		return -1
+	}
+	readLen := len(data)
+	bytesPerFrame := (sampleRate / 100) * 2 * channels // 10ms , channels and 16bit
+	// validity check: only accepts data with lengths that are integer multiples of 10ms​​ 
+	if readLen % bytesPerFrame != 0 {
+		fmt.Printf("PushAudioPcmData data length is not integer multiples of 10ms, readLen: %d, bytesPerFrame: %d\n", readLen, bytesPerFrame)
+		return -2
+	}
+	packnum := readLen / bytesPerFrame
+	
+	
+	frame := &AudioFrame{
+				Buffer:            nil,
+				RenderTimeMs:      0,
+				SamplesPerChannel: sampleRate / 100,
+				BytesPerSample:    2,
+				Channels:          channels,
+				SamplesPerSec:     sampleRate*channels,
+				Type:              AudioFrameTypePCM16,
+			}
+
+	frame.Buffer = data
+	frame.SamplesPerChannel = (sampleRate / 100) * packnum
+	
+
+	return conn.audioSender.SendAudioPcmData(frame)
+}
+func (conn *RtcConnection) PushAudioEncodedData(data []byte, frameInfo *EncodedAudioFrameInfo) int {
+	if conn.encodedAudioSender == nil {
+		return -1
+	}
+	return conn.encodedAudioSender.SendEncodedAudioFrame(data, frameInfo)
+}
+func (conn *RtcConnection) PushVideoFrame(frame *ExternalVideoFrame) int {
+	if conn.videoSender == nil {
+		return -1
+	}
+	return conn.videoSender.SendVideoFrame(frame)
+}
+func (conn *RtcConnection) PushVideoEncodedData(data []byte, frameInfo *EncodedVideoFrameInfo) int {
+	if conn.encodedVideoSender == nil {
+		return -1
+	}
+	return conn.encodedVideoSender.SendEncodedVideoImage(data, frameInfo)
+}
+
+func (conn *RtcConnection) UnregisterAudioEncodedFrameObserver() int {
+	// todo: ??? not implement
+	
+	return -1
+}
+
+//TODO: 这样修改后，应用层也会被同步修改！ 
+//ToDo: 提供一个打断api，设置在localUser::InterruptAudio()
+//
+// 内部只是做原子+正交化原则设计api
+// 应用层需要做：打断操作！
+// 然后调用UpdateAudioTrack
+// 然后在做pcmsender的更新senario
+// 然后调用PublishAudio
+func (conn *RtcConnection) UpdateAudioSenario(scenario AudioScenario) int {
+
+	//1. validate the connection
+	if conn.cConnection == nil {
+		return -1
+	}
+
+	//2. if scenario is the same as the internal one, do nothing
+	if conn.audioScenario == scenario {
+		return 0
+	}
+	
+	//3. check the track
+
+	
+	// 3. update the connection's senario
+	
+	conn.audioScenario = scenario
+	conn.localUser.SetAudioScenario(scenario)
+	
+	//4.unpublish the track
+	conn.UnpublishAudio()
+
+	//5. update the audioScenario
+	conn.audioTrack.audioScenario = scenario
+	conn.audioTrack.Release()
+	conn.audioTrack.cTrack = nil
+	
+	
+	
+	
+	
+	
+	//ToDo：回退交给客户来做会更好，用最佳实践的方式来
+	//原因是因为客户选择的回退策略，不一定是chorus，而是其他策略！！这样我们固定策略，会限制客户
+	//4. create a new cTrack
+	var cTrack unsafe.Pointer = nil
+	var isAiServer bool = false
+	if scenario == AudioScenarioAiServer {
+		isAiServer = true
+	}
+	if isAiServer {
+		cTrack  = C.agora_service_create_direct_custom_audio_track_pcm(agoraService.service, conn.audioSender.cSender)
+	} else {
+		cTrack = C.agora_service_create_custom_audio_track_pcm(agoraService.service, conn.audioSender.cSender)
+	}
+
+	//5. assign the new cTrack
+	conn.audioTrack.cTrack = cTrack
+
+	//6. set properties to new cTrack
+	conn.audioTrack.SetSendDelayMs(10)
+	if isAiServer == false {
+		conn.audioTrack.SetMaxBufferedAudioFrameNumber(100000) //up to 16min,100000 frames
+	}
+	conn.localUser.SetAudioScenario(scenario)
+
+	//7. update the properties of pcmsender
+	//update pcmsender's info
+	
+	//update connection's info
+	conn.audioScenario = scenario
+
+	//8. publish the track
+	conn.PublishAudio()
+	fmt.Printf("______update audio track \n")
 	return 0
 }
