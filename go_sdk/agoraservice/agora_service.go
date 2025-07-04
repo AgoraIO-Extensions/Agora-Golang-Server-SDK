@@ -103,6 +103,7 @@ type AgoraService struct {
 	consByCLocalUser            sync.Map
 	consByCVideoObserver        sync.Map
 	consByCEncodedVideoObserver sync.Map
+	mediaFactory *MediaNodeFactory
 }
 
 // / newAgoraService creates a new instance of AgoraService
@@ -112,6 +113,7 @@ func newAgoraService() *AgoraService {
 		service: nil,
 		isSteroEncodeMode: false,
 		//audioScenario: AudioScenarioChorus,
+		mediaFactory: nil,
 	}
 }
 
@@ -190,6 +192,8 @@ func Initialize(cfg *AgoraServiceConfig) int {
 		agoraParam.SetParameters("{\"che.audio.custom_bitrate\":32000}")
 	}
 
+	agoraService.mediaFactory = NewMediaNodeFactory()
+
 	agoraService.inited = true
 	return 0
 }
@@ -203,6 +207,11 @@ func Release() int {
 	}
 	// cleanup go layer resources
 	agoraService.cleanup()
+
+	if agoraService.mediaFactory != nil {
+		agoraService.mediaFactory.Release()
+		agoraService.mediaFactory = nil
+	}
 
 	// and release c layer resources
 	if agoraService.service != nil {
