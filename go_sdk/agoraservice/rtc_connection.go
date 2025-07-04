@@ -529,7 +529,7 @@ func (conn *RtcConnection) Release() {
 	if conn.cConnection == nil {
 		return
 	}
-	conn.UnregisterObserver()
+	conn.unregisterObserver()
 	// delete from sync map
 	agoraService.deleteConFromHandle(conn.cConnection, ConTypeCCon)
 	agoraService.deleteConFromHandle(conn.localUser.cLocalUser, ConTypeCLocalUser)
@@ -704,12 +704,12 @@ func (conn *RtcConnection) Disconnect() int {
 	conn.UnpublishVideo()
 
 	//2. unregister all observers, but except rtc connection observer
-	conn.UnregisterAudioFrameObserver()
-	conn.UnregisterVideoFrameObserver()
-	conn.UnregisterVideoEncodedFrameObserver()
-	conn.UnregisterAudioEncodedFrameObserver()
+	conn.unregisterAudioFrameObserver()
+	conn.unregisterVideoFrameObserver()
+	conn.unregisterVideoEncodedFrameObserver()
+	conn.unregisterAudioEncodedFrameObserver()
 
-	conn.UnregisterLocalUserObserver()
+	conn.unregisterLocalUserObserver()
 	
 
 	//3 and then do really disconnect
@@ -757,7 +757,7 @@ func (conn *RtcConnection) RegisterObserver(handler *RtcConnectionObserver) int 
 		return 0
 	}
 	// unregister old observer
-	conn.UnregisterObserver()
+	conn.unregisterObserver()
 
 	// register new observer
 	conn.handler = handler
@@ -769,7 +769,7 @@ func (conn *RtcConnection) RegisterObserver(handler *RtcConnectionObserver) int 
 
 }
 
-func (conn *RtcConnection) UnregisterObserver() int {
+func (conn *RtcConnection) unregisterObserver() int {
 	// check if need to unregister
 	if conn.cConnection == nil {
 		return 0
@@ -792,7 +792,7 @@ func (conn *RtcConnection) RegisterLocalUserObserver(handler *LocalUserObserver)
 		return 0
 	}
 	// unregister old observer
-	conn.UnregisterLocalUserObserver()
+	conn.unregisterLocalUserObserver()
 
 	// register new observer
 	conn.localUserObserver = handler
@@ -803,7 +803,7 @@ func (conn *RtcConnection) RegisterLocalUserObserver(handler *LocalUserObserver)
 	return 0
 }
 
-func (conn *RtcConnection) UnregisterLocalUserObserver() int {
+func (conn *RtcConnection) unregisterLocalUserObserver() int {
 	// check if need to unregister
 	if conn.cConnection == nil {
 		return 0
@@ -826,7 +826,7 @@ func (conn *RtcConnection) RegisterAudioFrameObserver(observer *AudioFrameObserv
 		return 0
 	}
 	// unregister old observer
-	conn.UnregisterAudioFrameObserver()
+	conn.unregisterAudioFrameObserver()
 
 	// re-assign vad related
 	conn.enableVad = enableVad
@@ -842,7 +842,7 @@ func (conn *RtcConnection) RegisterAudioFrameObserver(observer *AudioFrameObserv
 	return 0
 }
 
-func (conn *RtcConnection) UnregisterAudioFrameObserver() int {
+func (conn *RtcConnection) unregisterAudioFrameObserver() int {
 	// check if need to unregister
 	if conn.cConnection == nil {
 		return 0
@@ -872,7 +872,7 @@ func (conn *RtcConnection) RegisterVideoFrameObserver(observer *VideoFrameObserv
 		return 0
 	}
 	// unregister old observer
-	conn.UnregisterVideoFrameObserver()
+	conn.unregisterVideoFrameObserver()
 
 	conn.videoObserver = observer
 	if conn.cVideoObserver == nil {
@@ -884,7 +884,7 @@ func (conn *RtcConnection) RegisterVideoFrameObserver(observer *VideoFrameObserv
 	return 0
 }
 
-func (conn *RtcConnection) UnregisterVideoFrameObserver() int {
+func (conn *RtcConnection) unregisterVideoFrameObserver() int {
 	// check if need to unregister
 	if conn.cConnection == nil {
 		return 0
@@ -910,7 +910,7 @@ func (conn *RtcConnection) RegisterVideoEncodedFrameObserver(observer *VideoEnco
 		return 0
 	}
 	// unregister old observer
-	conn.UnregisterVideoEncodedFrameObserver()
+	conn.unregisterVideoEncodedFrameObserver()
 
 	conn.encodedVideoObserver = observer
 	if conn.cEncodedVideoObserver == nil {
@@ -922,7 +922,7 @@ func (conn *RtcConnection) RegisterVideoEncodedFrameObserver(observer *VideoEnco
 	return 0
 }
 
-func (conn *RtcConnection) UnregisterVideoEncodedFrameObserver() int {
+func (conn *RtcConnection) unregisterVideoEncodedFrameObserver() int {
 	// check if need to unregister
 	if conn.cConnection == nil {
 		return 0
@@ -1190,7 +1190,7 @@ func (conn *RtcConnection) PushVideoEncodedData(data []byte, frameInfo *EncodedV
 	return conn.encodedVideoSender.SendEncodedVideoImage(data, frameInfo)
 }
 
-func (conn *RtcConnection) UnregisterAudioEncodedFrameObserver() int {
+func (conn *RtcConnection) unregisterAudioEncodedFrameObserver() int {
 	// todo: ??? not implement
 	
 	return -1
