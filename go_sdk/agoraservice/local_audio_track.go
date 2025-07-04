@@ -11,7 +11,6 @@ import (
 
 type LocalAudioTrack struct {
 	cTrack unsafe.Pointer
-	pcmSender *AudioPcmDataSender  //and never change!!
 }
 
 // NOTE: date：2025-06-27
@@ -36,7 +35,6 @@ func NewCustomAudioTrackPcm(pcmSender *AudioPcmDataSender, audioScenario_of_conn
 	}
 	audioTrack := &LocalAudioTrack{
 		cTrack: cTrack,
-		pcmSender: pcmSender,
 	}
 	pcmSender.audioScenario = audioScenario
 
@@ -62,7 +60,6 @@ func NewCustomAudioTrackEncoded(encodedAudioSender *AudioEncodedFrameSender, mix
 	
 	return &LocalAudioTrack{
 		cTrack: cTrack,
-		pcmSender: nil,
 	}
 }
 
@@ -127,6 +124,5 @@ func NewDirectCustomAudioTrackPcm(pcmSender *AudioPcmDataSender) *LocalAudioTrac
 
 	return &LocalAudioTrack{
 		cTrack: cTrack,
-		pcmSender: pcmSender,
 	}
 }
