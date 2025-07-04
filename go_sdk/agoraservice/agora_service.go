@@ -192,7 +192,7 @@ func Initialize(cfg *AgoraServiceConfig) int {
 		agoraParam.SetParameters("{\"che.audio.custom_bitrate\":32000}")
 	}
 
-	agoraService.mediaFactory = NewMediaNodeFactory()
+	agoraService.mediaFactory = newMediaNodeFactory()
 
 	agoraService.inited = true
 	return 0
@@ -209,7 +209,7 @@ func Release() int {
 	agoraService.cleanup()
 
 	if agoraService.mediaFactory != nil {
-		agoraService.mediaFactory.Release()
+		agoraService.mediaFactory.release()
 		agoraService.mediaFactory = nil
 	}
 
