@@ -200,14 +200,12 @@ func main() {
 
 	agoraservice.Initialize(svcCfg)
 	defer agoraservice.Release()
-	mediaNodeFactory := agoraservice.NewMediaNodeFactory()
-	defer mediaNodeFactory.Release()
-
-	sender := mediaNodeFactory.NewAudioPcmDataSender()
-	defer sender.Release()
 	
 
-	conCfg := agoraservice.RtcConnectionConfig{
+	
+	
+
+	conCfg := &agoraservice.RtcConnectionConfig{
 		AutoSubscribeAudio: true,
 		AutoSubscribeVideo: false,
 		ClientRole:         agoraservice.ClientRoleBroadcaster,
@@ -220,12 +218,20 @@ func main() {
 	//NOTE: you can set senario here, and every connection has its own senario, which can diff from the service config
 	// and can diff from each other
 	// but recommend to use the same senario for a connection and related audio track
-	scenario := svcCfg.AudioScenario
+	
 
-	con := agoraservice.NewRtcConnection(&conCfg, scenario)
+	publishConfig := agoraservice.NewRtcConPublishConfig()
+	
+	publishConfig.IsPublishAudio = true
+	publishConfig.IsPublishVideo = false
+	publishConfig.AudioPublishType = agoraservice.AudioPublishTypePcm
+	publishConfig.VideoPublishType = agoraservice.VideoPublishTypeNoPublish
+	publishConfig.AudioScenario = agoraservice.AudioScenarioAiServer
+	publishConfig.AudioProfile = agoraservice.AudioProfileDefault
+	
+
+	con := agoraservice.NewRtcConnection(conCfg, publishConfig)
 	defer con.Release()
-	track := agoraservice.NewCustomAudioTrackPcm(sender, scenario)
-	defer track.Release()
 
 	audioQueue := agoraservice.NewQueue(10)
 
@@ -310,8 +316,8 @@ func main() {
 					fmt.Printf("******** frame :%d, duration: %d, avg frame time: %f\n", framecount, frame_diff, float64(frame_diff)/100)
 					start_frame_time = now
 				}
-				if framecount % 400 == 0  && mode != 3 {
-					audioSendEvent <- struct{}{}
+				if framecount % 4000 == 0  && mode != 3 {
+					//audioSendEvent <- struct{}{}
 				}
 
 				pcm_file.Write(frame.Buffer)
@@ -319,7 +325,8 @@ func main() {
 
 			if mode == 1 {
 				frame.RenderTimeMs = 0
-				sender.SendAudioPcmData(frame)
+				//sender.SendAudioPcmData(frame)
+				con.PushAudioPcmData(frame.Buffer, samplerate, 1)
 				// loopback
 				//audioQueue.Enqueue(frame)
 
@@ -333,7 +340,7 @@ func main() {
 						fmt.Printf("????????#####$$$$$$$ square_wave IN peak now: %d, through count: %d\n", now, square_wave_count)
 						is_square_wave_inpeak = true
 						// just from trough to peak, should trigger a event
-						localUser.InterruptAudio(nil)
+						con.InterruptAudio()
 						audioSendEvent <- struct{}{}
 						square_wave_count = 0
 					}
@@ -394,14 +401,14 @@ func main() {
 			fmt.Printf("*****User audio meta data received, uid %s, meta: %s, event_count: %d\n", uid, string(metaData), event_count)
 
 			event_count++
-
+			/*
 			if event_count == 10 {
 				fallackEvent <- struct{}{}
-			} else if event_count%2 == 0 {
+			} else */if event_count%2 == 0 {
 
-				audioSendEvent <- struct{}{}
-			} else { // simulate to interrupt audio
 				interruptEvent <- struct{}{}
+			} else { // simulate to interrupt audio
+				audioSendEvent <- struct{}{}
 			}
 
 			localUser.SendAudioMetaData(metaData)
@@ -423,15 +430,11 @@ func main() {
 
 	localUser := con.GetLocalUser()
 
-	localUser = con.GetLocalUser()
 	localUser.SetPlaybackAudioFrameBeforeMixingParameters(1, 16000)
-	localUser.RegisterLocalUserObserver(localUserObserver)
+	con.RegisterLocalUserObserver(localUserObserver)
 
-	localUser.RegisterAudioFrameObserver(audioObserver, 0, nil)
+	con.RegisterAudioFrameObserver(audioObserver, 0, nil)
 
-	// for test!!
-	localUser.PublishAudio(track)
-	// end for test!!
 
 	con.Connect(token, channelName, userId)
 	<-conSignal
@@ -440,12 +443,11 @@ func main() {
 	fmt.Printf("Connect cost %d ms\n", end-start)
 
 	start_publish := time.Now().UnixMilli()
-	track.SetEnabled(true)
-	localUser.PublishAudio(track)
+	con.PublishAudio()
 	end_publish := time.Now().UnixMilli()
 	fmt.Printf("Publish audio cost %d ms\n", end_publish-start_publish)
 	//time.Sleep(1000 * time.Millisecond)
-	//localUser.UnpublishAudio(track)
+	//con.UnpublishAudio()
 	start_publish = time.Now().UnixMilli()
 	fmt.Printf("Unpublish audio cost %d ms\n", start_publish-end_publish)
 
@@ -456,8 +458,7 @@ func main() {
 	}
 	defer file.Close()
 
-	audioConsumer := agoraservice.NewAudioConsumer(sender, samplerate, 1)
-	defer audioConsumer.Release()
+	
 
 	done := make(chan bool)
 	// new method for push
@@ -477,8 +478,8 @@ func main() {
 
 	*/
 	if mode == 0 {
-		go ReadFileToConsumer(file, audioConsumer, 50, done, samplerate*2/100)
-		go ConsumeAudio(audioConsumer, 50, done)
+		go ReadFileToConsumer(file, nil, 50, done, samplerate*2/100)
+		go ConsumeAudio(nil, 50, done)
 	} else if mode == 2 || mode == 3 {
 		//go SendTTSDataToClient(samplerate, audioConsumer, file, done, audioSendEvent, fallackEvent, localUser, track)
 		go func() {
@@ -506,15 +507,15 @@ func main() {
 				case <-fallackEvent:
 					fmt.Println("?????? fallackEvent")
 
-					localUser.UpdateAudioSenario(agoraservice.AudioScenarioDefault)
+					con.UpdateAudioSenario(agoraservice.AudioScenarioDefault)
 
 				case <-interruptEvent:
 					fmt.Println("?????? interruptEvent")
-					localUser.InterruptAudio(audioConsumer)
+					con.InterruptAudio()
 
 				case <-audioSendEvent:
 					// read 1s data from file
-					localUser.PublishAudio(track)
+					//con.PublishAudio()
 
 					readLen, err := file.Read(buffer)
 					if err != nil {
@@ -525,15 +526,15 @@ func main() {
 					frame.Buffer = buffer[:readLen]
 					packnum := readLen / bytesPerFrame
 					frame.SamplesPerChannel = (samplerate / 100) * packnum
-					sender.SendAudioPcmData(frame)
+					ret := con.PushAudioPcmData(buffer[:readLen], samplerate, 1)
+					
 
 					//audioConsumer.PushPCMData(frame.Buffer)
 					// and seek to the begin of the file
 					file.Seek(0, 0)
-					fmt.Println("SendTTSDataToClient done")
+					fmt.Printf("SendTTSDataToClient done, ret: %d\n", ret)
 				default:
 					time.Sleep(40 * time.Millisecond)
-					audioConsumer.Consume()
 				}
 			}
 		}()
@@ -548,27 +549,19 @@ func main() {
 	}
 	close(done)
 
-	audioConsumer.Release()
-
-	localUser.UnpublishAudio(track)
-	track.SetEnabled(false)
-	localUser.UnregisterAudioFrameObserver()
-	localUser.UnregisterAudioFrameObserver()
-	localUser.UnregisterLocalUserObserver()
+	
 
 	start_disconnect := time.Now().UnixMilli()
 	con.Disconnect()
 	//<-OnDisconnectedSign
-	con.UnregisterObserver()
+	
 
 	con.Release()
 
-	track.Release()
-	sender.Release()
-	mediaNodeFactory.Release()
+	
 	agoraservice.Release()
 
-	track = nil
+	
 	audioObserver = nil
 	localUserObserver = nil
 	localUser = nil
