@@ -14,6 +14,7 @@ import "C"
 import (
 	"fmt"
 	"strconv"
+	"time"
 	"unsafe"
 	//"sync/atomic"
 )
@@ -416,7 +417,17 @@ type RtcConnection struct {
 	videoSender *VideoFrameSender
 	encodedAudioSender *AudioEncodedFrameSender
 	encodedVideoSender *VideoEncodedImageSender
+
+	// pcm consumption stats for raw pcm data only
+	pcmConsumeStats *PcmConsumeStats
 	
+}
+
+// for pcm consumption stats
+type PcmConsumeStats struct {
+	startTime int64  // in ms
+	totalLength int64  // in bytes
+	duration int  // in ms
 }
 
 func NewRtcConPublishConfig() *RtcConnectionPublishConfig {
@@ -466,6 +477,12 @@ func NewRtcConnection(cfg *RtcConnectionConfig, publishConfig *RtcConnectionPubl
 	}
 	ret.parameter = &AgoraParameter{
 		cParameter: C.agora_rtc_conn_get_agora_parameter(ret.cConnection),
+	}
+
+	ret.pcmConsumeStats = &PcmConsumeStats{
+		startTime: 0,
+		totalLength: 0,
+		duration: 0,
 	}
 
 	// re set audio scenario now
@@ -1089,7 +1106,7 @@ func (conn *RtcConnection) handleCapabilitiesChanged(caps *C.struct__capabilitie
 //param: channels: channels
 //return: 0: success, -1: error, -2: invalid data
 func (conn *RtcConnection) PublishAudio() int {
-	if conn.audioTrack == nil {
+	if conn.cConnection == nil || conn.audioTrack == nil {
 		return -1
 	}
 	//conn.audioTrack.SetEnabled(true)
@@ -1097,7 +1114,7 @@ func (conn *RtcConnection) PublishAudio() int {
 	return int(ret)
 }
 func (conn *RtcConnection) UnpublishAudio() int {
-	if conn.audioTrack == nil {
+	if conn.cConnection == nil || conn.audioTrack == nil {
 		return -1
 	}
 	//conn.audioTrack.SetEnabled(false)
@@ -1106,7 +1123,7 @@ func (conn *RtcConnection) UnpublishAudio() int {
 }
 
 func (conn *RtcConnection) PublishVideo() int {
-	if conn.videoTrack == nil {
+	if conn.cConnection == nil || conn.videoTrack == nil {
 		return -1
 	}
 	conn.videoTrack.SetEnabled(true)
@@ -1115,7 +1132,7 @@ func (conn *RtcConnection) PublishVideo() int {
 }
 
 func (conn *RtcConnection) UnpublishVideo() int {	
-	if conn.videoTrack == nil {
+	if conn.cConnection == nil || conn.videoTrack == nil {
 		return -1
 	}
 	conn.videoTrack.SetEnabled(false)
@@ -1123,7 +1140,7 @@ func (conn *RtcConnection) UnpublishVideo() int {
 	return int(ret)
 }
 func (conn *RtcConnection) InterruptAudio() int {
-	if conn.audioTrack == nil {
+	if conn.cConnection == nil || conn.audioTrack == nil {
 		return -1
 	}
 	
@@ -1138,11 +1155,16 @@ func (conn *RtcConnection) InterruptAudio() int {
 		// and other scenarios, we need to clear the buffer of the track
 		conn.audioTrack.ClearSenderBuffer()
 	}
+
+	// if has audio consumption, we need to reset the stats
+	if conn.pcmConsumeStats != nil {
+		conn.pcmConsumeStats.reset()
+	}
 	return 0
 }
 
 func (conn *RtcConnection) PushAudioPcmData(data []byte, sampleRate int, channels int) int {
-	if conn.audioSender == nil {
+	if conn.cConnection == nil || conn.audioSender == nil {
 		return -1
 	}
 	readLen := len(data)
@@ -1169,22 +1191,26 @@ func (conn *RtcConnection) PushAudioPcmData(data []byte, sampleRate int, channel
 	frame.SamplesPerChannel = (sampleRate / 100) * packnum
 	
 
-	return conn.audioSender.SendAudioPcmData(frame)
+	ret := conn.audioSender.SendAudioPcmData(frame)
+	if ret == 0 {
+		conn.pcmConsumeStats.addPcmData(readLen, sampleRate, channels)
+	}
+	return ret
 }
 func (conn *RtcConnection) PushAudioEncodedData(data []byte, frameInfo *EncodedAudioFrameInfo) int {
-	if conn.encodedAudioSender == nil {
+	if conn.cConnection == nil || conn.encodedAudioSender == nil {
 		return -1
 	}
 	return conn.encodedAudioSender.SendEncodedAudioFrame(data, frameInfo)
 }
 func (conn *RtcConnection) PushVideoFrame(frame *ExternalVideoFrame) int {
-	if conn.videoSender == nil {
+	if conn.cConnection == nil || conn.videoSender == nil {
 		return -1
 	}
 	return conn.videoSender.SendVideoFrame(frame)
 }
 func (conn *RtcConnection) PushVideoEncodedData(data []byte, frameInfo *EncodedVideoFrameInfo) int {
-	if conn.encodedVideoSender == nil {
+	if conn.cConnection == nil || conn.encodedVideoSender == nil {
 		return -1
 	}
 	return conn.encodedVideoSender.SendEncodedVideoImage(data, frameInfo)
@@ -1196,14 +1222,7 @@ func (conn *RtcConnection) unregisterAudioEncodedFrameObserver() int {
 	return -1
 }
 
-//TODO: 这样修改后，应用层也会被同步修改！ 
-//ToDo: 提供一个打断api，设置在localUser::InterruptAudio()
-//
-// 内部只是做原子+正交化原则设计api
-// 应用层需要做：打断操作！
-// 然后调用UpdateAudioTrack
-// 然后在做pcmsender的更新senario
-// 然后调用PublishAudio
+// to pudate connction's scenario
 func (conn *RtcConnection) UpdateAudioSenario(scenario AudioScenario) int {
 
 	//1. validate the connection
@@ -1236,8 +1255,8 @@ func (conn *RtcConnection) UpdateAudioSenario(scenario AudioScenario) int {
 	
 	
 	
-	//ToDo：回退交给客户来做会更好，用最佳实践的方式来
-	//原因是因为客户选择的回退策略，不一定是chorus，而是其他策略！！这样我们固定策略，会限制客户
+	//ToDo：It would be better to leave the fallback to the client, using the best practice approach
+	//The reason is that the client's chosen fallback strategy may not be chorus, but other strategies!! This way, we fix the strategy, which will limit the client
 	//4. create a new cTrack
 	var cTrack unsafe.Pointer = nil
 	var isAiServer bool = false
@@ -1270,4 +1289,58 @@ func (conn *RtcConnection) UpdateAudioSenario(scenario AudioScenario) int {
 	conn.PublishAudio()
 	fmt.Printf("______update audio track \n")
 	return 0
+}
+
+func (conn *RtcConnection) IsPushToRtcCompleted() bool {
+	if conn.pcmConsumeStats == nil {
+		return false
+	}
+	return conn.pcmConsumeStats.isPushCompleted(conn.audioScenario)
+}
+func (consumer *PcmConsumeStats) addPcmData(len int, samplerate int, channels int) {
+	isNewRound := consumer.isNewRound(samplerate, channels)
+	if isNewRound {
+		consumer.startTime = time.Now().UnixMilli()
+		consumer.totalLength = 0
+	} 
+
+	consumer.totalLength += int64(len)
+
+	// update duration
+	consumer.duration = int(consumer.totalLength / (int64(samplerate / 1000) * int64(channels) * 2))
+	fmt.Printf("addPcmData, duration: %d, totalLength: %d, startTime: %d\n", consumer.duration, consumer.totalLength, consumer.startTime)
+}
+
+func (consumer *PcmConsumeStats) isNewRound(samplerate int, channels int) bool {
+	if consumer.startTime == 0 {
+		return true
+	}
+	now := time.Now().UnixMilli()
+	diff := now - consumer.startTime
+	
+
+	if diff > int64(consumer.duration) {
+		return true
+	}
+	return false
+}
+
+const E2E_DELAY_MS = 180
+
+func (consumer *PcmConsumeStats) isPushCompleted(scenario AudioScenario) bool {
+	now := time.Now().UnixMilli()
+	diff := now - consumer.startTime
+	delay := E2E_DELAY_MS
+/* 	if scenario == AudioScenarioAiServer {
+		delay = E2E_DELAY_MS
+	} */
+	if diff > int64(consumer.duration + delay) {
+		return true
+	}
+	return false
+}
+func (consumer *PcmConsumeStats) reset() {
+	consumer.startTime = 0
+	consumer.totalLength = 0
+	consumer.duration = 0
 }
