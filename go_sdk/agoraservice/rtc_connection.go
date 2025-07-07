@@ -534,6 +534,7 @@ func NewRtcConnection(cfg *RtcConnectionConfig, publishConfig *RtcConnectionPubl
 			ret.encodedVideoSender = agoraService.mediaFactory.NewVideoEncodedImageSender()
 			ret.videoTrack = NewCustomVideoTrackEncoded(ret.encodedVideoSender, ret.publishConfig.VideoEncodedImageSenderOptions)
 		}
+		ret.videoTrack.SetEnabled(true)
 	}
 	
 
@@ -1126,7 +1127,7 @@ func (conn *RtcConnection) PublishVideo() int {
 	if conn.cConnection == nil || conn.videoTrack == nil {
 		return -1
 	}
-	conn.videoTrack.SetEnabled(true)
+	//conn.videoTrack.SetEnabled(true)
 	ret := conn.localUser.publishVideo(conn.videoTrack)
 	return int(ret)
 }
@@ -1135,7 +1136,7 @@ func (conn *RtcConnection) UnpublishVideo() int {
 	if conn.cConnection == nil || conn.videoTrack == nil {
 		return -1
 	}
-	conn.videoTrack.SetEnabled(false)
+	//conn.videoTrack.SetEnabled(false)
 	ret := conn.localUser.unpublishVideo(conn.videoTrack)
 	return int(ret)
 }
