@@ -127,7 +127,10 @@ func NewAgoraServiceConfig() *AgoraServiceConfig {
 		AppId:                "",
 		AreaCode:             AreaCodeGlob,
 		ChannelProfile:       ChannelProfileLiveBroadcasting,
-		AudioScenario:        AudioScenarioChorus,
+		// for AI Scenario:
+		// default is AudioScenarioAiServer, if want to use other scenario, pls contact us and make sure the scenario is more optimized for your business
+		// for other business, you can use AudioScenarioChorus, AudioScenarioDefault, etc. but recommend to contact us and make sure the scenario is more optimized for your business
+		AudioScenario:        AudioScenarioAiServer,
 		UseStringUid:         false,
 		LogPath:              "",  // format like: "./agora_rtc_log/agorasdk.log"
 		LogSize:              1024 * 1024,
