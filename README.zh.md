@@ -92,6 +92,11 @@ import (
 ```
 - 运行项目时，记得将 **agora_sdk**目录 (或 Mac 上的 **agora_sdk_mac** 目录) 路径添加到 LD_LIBRARY_PATH (或 Mac 上的 DYLD_LIBRARY_PATH) 环境变量中。
 
+## 逻辑关系
+在一个进程中，只能有一个agoraservice实例.
+该实例可以创建多个connection实例.
+因此：只能创建/初始化一次agoraservice实例，但可以创建多个connection实例.
+
 # 常见问题
 ## 编译错误
 ### 未定义符号引用 GLIBC_xxx
@@ -114,6 +119,64 @@ import (
   -- 增加一个getstatics的接口
   -- 增加了一个Dequeue，用于线程安全的chan机制。参考： sendrcvpcmyuv done
 
+##Todo：2025.07.03
+**SDK**
+-- mediafactory 放入到service中，不再需要单独的factory
+-- connection:
+  - NewRtcConnection(.., publishOption):增加一个publishOption，用于设置publish的参数，包括profile/senario/publish audio和publish video 的类型：pcm/encoded/yuv/encodedimage;内部隐藏对track/sender的实现
+  - con.PublishAudio
+  - con.PublishVideo
+  - con.UnpublishAudio
+  - con.UnpublishVideo
+  - con.InteruptAudio
+  - con.UpdateScenario ???
+ 
+
+  - con.PushAudioFrame(..):增加一个PushAudioFrame接口，用于推送audio frame
+  - con.PushVideoFrame(..):增加一个PushVideoFrame接口，用于推送video frame
+  - con.PushEncodedImageFrame(..):增加一个PushEncodedImageFrame接口，用于推送encoded image frame
+  - con.PushEncodedVideoFrame(..):增加一个PushEncodedVideoFrame接口，用于推送encoded video frame
+**Usage**
+process lifecycle: begin, only once
+  1. 创建一个service
+  2. Initialize service
+busisness lifecycle: multiple times
+  1. 创建一个connection
+  2. register observer: all or only connedction observer??
+  2. connect
+  3. Publish audio/video
+  4. Push audio/video frame
+  5. Unpublish audio/video
+  6. InterruptAudio
+  7. Disconnect: inner auto to call unregister all related observers, no need to call unregister observer manually
+  8. Release connection
+Process lifecycle: end, only once
+  1. Release service
+
+NOTE:
+ 1. 不在需要Audioconsumer，内部默认设置到16min的内存。
+ 2. 在audioConsuemer中，用conneciton来代替
+ 3. 还没有考虑好怎么来处理AudioConsumer？？？其实也就是有可能处理暂停的情况 todo？？从而需要决定是否从pcmsender中去除scenario的字段
+ con增加publishconfigure字段
+ con：对外隐藏track，sender
+ con：提供pushaudio/video接口
+ con：不在需要audioconsumer，提供ispushcomplted接口
+ 4.con.Unreg 全部变成私有的，对开发者来说不需要调用，也不能调用@
+ 5.con.Reg替代locause.reg，也就是说对开发者loclauser.regxx不再需要
+ OnAiqosCapabilityMissing接口
+ conn.audioTrack.SetEnabled(true):只需要在conn.create的时候，设置一次就可以；后续不在需要设置
+ conn.videoTrack.SetEnabled(true):只需要在conn.create的时候，设置一次就可以；后续不在需要设置??todo: 需要验证下
+
+ localuser：去掉publish，去掉regiser**
+
+ ** 对AudioConsumer的修改**
+ 1.开发者不需要调用AudioSonsumer，直接内部设置在connetion中
+ 2.AudioConsumer的设计意义：或者解决的问题
+ 2.1 避免直接调用pcmsender出现的静音，根因是生产和消费不对齐的问题 ==》 ok
+ 2.2 提供业务逻辑的暂停和恢复  ==》从端侧native来做，就是提供一个pause的功能，从server端好像不能
+ 2.3 提供业务逻辑上是否推送完成的判断 ==》将这个逻辑，集成放在connetion中，从而可以达到目标。
+  
+
 ## todo：2025.05.31 ai_server senario 版本
 -- 增加了log/data/config 目录，用于存放日志，数据，配置文件
 -- 支持ai_server senario + 支持direct custom audio track
@@ -132,6 +195,7 @@ DirectCustomAudioTrackPcm：
 - 打断需要用unpub 机制
 -- 增加对日志的管理
 -- 增加能力协商
+-- steromode 给去掉，全部用设置profile，audioscenario + 私有参数的形式来解决
 
 --设计思想
 -- 1. 对外来说，并没有customAudioTrack和DirectAudioTrack的区别，都是AudioTrack，只是内部根据senario的不同而做不同的实现；
@@ -154,6 +218,44 @@ pub/unpub: 只是api调用，大概是0～1ms；
 
 done:
 --1. publish和unplbish中增加了一个bool判断当前的状态，允许多次pub/unpub。
+
+## 2025.07.10 发布 2.3.0
+-- 增加对AudioScenarioAiServer 类型scenario的支持
+-- 默认的AudioScenario是AudioScenarioAiServer
+-- 增加对同一个进程中的conneciton，允许配置为不同的scenario，profile
+-- 在创建connection的时候，增加publishconfigure，通过该configure来设置{scenario, profile,publishAudio, publishVideo,ect}
+-- conneciton中，增加了：
+  - RegisterLocalUserObserver, RegisterAudioFrameObserver, RegisterVideoFrameObserver,RegisterVideoEncodedFrameObserver
+  - PublishAudio/UnpublsihAudio, PublishVideo/UnpublsihVideo
+  - PushAudioPcmData/PushAudioEncodedData, PushVideoFrame/PushVideoEncodedData
+  - InterruptAudio
+  - IsPushToRTCCompleted方法
+  - OnAIQoSCapabilityMissing回调接口的实现
+-- 集成方式：
+1. svcCfg := agoraservice.NewAgoraServiceConfig()
+2.agoraservice.Initialize(svcCfg)
+3.con := agoraservice.NewRtcConnection(conCfg, publishConfig)
+4. register observer;
+  -4.1 con.RegisterObserver(conHandler)
+  -4.2 con.RegisterAudioFrameObserver
+  -4.3 con.RegisterLocalUserObserver(localUserObserver)
+5.con.Connect(token, channelName, userId)
+6. con.PublisAudio/Video
+7. con.PushAudioPcmData/EncodedData
+8. con.Disconnect
+9. con.Release
+10.agoraservice.Release()
+
+Note：
+1、对单纯的音频场景，api 调用数目从上一个版本的21个，降低到了当前版本的12个api调用，减少了9个。关键的在做释放操作的时候，不在依赖开发者调用api的时序，内部自动处理，降低了出错概率
+medianode/track/sender，unreg（3个），release 3个，总共减少了9个调用
+2、对AI场景，推荐用AudioScenarioAIServer，这个场景，针对ai的模式，内部做了优化，在降低延迟的同时，能提高弱网体验。(相比chorus，在iphone下，回环延迟低20～30ms，同时弱网下，体验更好)
+对非AI场景，可以配备别的scenario，推荐咨询agora技术支持，以确保在该设置下，能和客户的业务场景匹配
+
+## 2025.07.08 发布 2.2.11
+-- 增加对AudioScenarioAiServer 类型scenario的支持
+-- 默认的AudioScenario是AudioScenarioAiServer
+-- 增加对同一个进程中的conneciton，允许配置为不同的scenario，profile
 
 ## 2025.07.02 发布 2.2.10
 -- remove： 去除了在enableSteroEncodeMode函数中设置senraio的代码，因为这个senario的设置，可以在NewRtcConnection中作为一个参数传入，不在需要在这个enableSteroEncodeMode中设置。

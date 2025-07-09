@@ -32,47 +32,7 @@ func ConvertVideoFrameToExternalVideoFrame(frame *agoraservice.VideoFrame) *agor
 	return extFrame
 }
 
-func PushFileToConsumer(file *os.File, audioConsumer *agoraservice.AudioConsumer) {
-	buffer := make([]byte, 320)
-	for {
-		readLen, err := file.Read(buffer)
-		if err != nil || readLen < 320 {
-			fmt.Printf("read up to EOF,cur read: %d", readLen)
-			file.Seek(0, 0)
-			break
-		}
-		audioConsumer.PushPCMData(buffer)
-	}
-	buffer = nil
-}
-func ReadFileToConsumer(file *os.File, consumer *agoraservice.AudioConsumer, interval int, done chan bool) {
-	for {
-		select {
-		case <-done:
-			fmt.Println("ReadFileToConsumer done")
-			return
-		default:
-			len := consumer.Len()
-			if len < 320*interval {
-				PushFileToConsumer(file, consumer)
-			}
-			time.Sleep(time.Duration(interval) * time.Millisecond)
-		}
-	}
-}
 
-func ConsumeAudio(audioConsumer *agoraservice.AudioConsumer, interval int, done chan bool) {
-	for {
-		select {
-		case <-done:
-			fmt.Println("ConsumeAudio done")
-			return
-		default:
-			audioConsumer.Consume()
-			time.Sleep(time.Duration(interval) * time.Millisecond)
-		}
-	}
-}
 
 // generate wave header
 // for 16bit pcm data to wav file
@@ -155,18 +115,14 @@ func main() {
 	svcCfg.AppId = appid
 
 	agoraservice.Initialize(svcCfg)
-	mediaNodeFactory := agoraservice.NewMediaNodeFactory()
+	
+	var con *agoraservice.RtcConnection = nil
 
 	// create a queue for yuv and pcm
 	yuvQueue := agoraservice.NewQueue(20)
 	pcmQueue := agoraservice.NewQueue(10)
 
-	conCfg := agoraservice.RtcConnectionConfig{
-		AutoSubscribeAudio: true,
-		AutoSubscribeVideo: true,
-		ClientRole:         agoraservice.ClientRoleBroadcaster,
-		ChannelProfile:     agoraservice.ChannelProfileLiveBroadcasting,
-	}
+	
 	conSignal := make(chan struct{})
 	conHandler := &agoraservice.RtcConnectionObserver{
 		OnConnected: func(con *agoraservice.RtcConnection, info *agoraservice.RtcConnectionInfo, reason int) {
@@ -198,6 +154,10 @@ func main() {
 		},
 		OnUserLeft: func(con *agoraservice.RtcConnection, uid string, reason int) {
 			fmt.Println("user left, " + uid)
+		},
+		OnAIQoSCapabilityMissing: func(con *agoraservice.RtcConnection, defaultFallbackSenario int) int {
+			fmt.Printf("AIQoSCapabilityMissing, defaultFallbackSenario %d\n", defaultFallbackSenario)
+			return defaultFallbackSenario
 		},
 	}
 	// for calling onFrame
@@ -247,8 +207,6 @@ func main() {
 		},
 	}
 
-	yuvsender := mediaNodeFactory.NewVideoFrameSender()
-	pcmsender := mediaNodeFactory.NewAudioPcmDataSender()
 
 	// open a pcm file for push
 	pcmfile, err := os.Open("../test_data/send_audio_16k_1ch.pcm")
@@ -258,12 +216,8 @@ func main() {
 	}
 	defer pcmfile.Close()
 
-	audioConsumer := agoraservice.NewAudioConsumer(pcmsender, 16000, 1)
-	defer audioConsumer.Release()
 	done := make(chan bool)
 
-	//go ReadFileToConsumer(pcmfile, audioConsumer, 50, done)
-	//go ConsumeAudio(audioConsumer, 50, done)
 
 	// create 2 rouite for process audio and video
 	audioRoutine := func() {
@@ -273,7 +227,7 @@ func main() {
 				//fmt.Printf("AudioFrame: %d\n", time.Now().UnixMilli())
 				if frame, ok := AudioFrame.(*agoraservice.AudioFrame); ok {
 					frame.RenderTimeMs = 0
-					ret := pcmsender.SendAudioPcmData(frame)
+					ret := con.PushAudioPcmData(frame.Buffer, frame.SamplesPerSec, frame.Channels)
 					if ret != 0 {
 						fmt.Printf("Send audio pcm data failed, error code %d\n", ret)
 					}
@@ -288,7 +242,7 @@ func main() {
 			if videoFrame != nil {
 				if frame, ok := videoFrame.(*agoraservice.VideoFrame); ok {
 					extFrame := ConvertVideoFrameToExternalVideoFrame(frame)
-					yuvsender.SendVideoFrame(extFrame)
+					con.PushVideoFrame(extFrame)
 				}
 			}
 		}
@@ -300,31 +254,45 @@ func main() {
 	fmt.Printf("start audioRoutine: %v, videoRoutine: %v\n", audioRoutine, videoRoutine)
 
 	// step0: create connection
-	scenario := svcCfg.AudioScenario
-	con := agoraservice.NewRtcConnection(&conCfg, scenario)
+	scenario := agoraservice.AudioScenarioAiServer
+	conCfg := &agoraservice.RtcConnectionConfig{
+		AutoSubscribeAudio: true,
+		AutoSubscribeVideo: true,
+		ClientRole:         agoraservice.ClientRoleBroadcaster,
+		ChannelProfile:     agoraservice.ChannelProfileLiveBroadcasting,
+	}
+	publishConfig := agoraservice.NewRtcConPublishConfig()
+	publishConfig.AudioScenario = scenario
+	publishConfig.IsPublishAudio = true
+	publishConfig.IsPublishVideo = true
+	publishConfig.AudioProfile = agoraservice.AudioProfileDefault
+	publishConfig.AudioPublishType = agoraservice.AudioPublishTypePcm
+	publishConfig.VideoPublishType = agoraservice.VideoPublishTypeYuv
+
+	con = agoraservice.NewRtcConnection(conCfg, publishConfig)
 
 	localUser := con.GetLocalUser()
 	con.RegisterObserver(conHandler)
 
 	// step1: register video frame observer and video track
-	localUser.RegisterVideoFrameObserver(videoObserver)
+	con.RegisterVideoFrameObserver(videoObserver)
 
-	track := agoraservice.NewCustomVideoTrackFrame(yuvsender)
+	
 
 	// step2: register audio frame observer and audio track
 	localUser.SetPlaybackAudioFrameBeforeMixingParameters(1, 16000)
-	audioTrack := agoraservice.NewCustomAudioTrackPcm(pcmsender, scenario)
-	localUser.RegisterAudioFrameObserver(audioObserver, 1, nil)
+	
+	con.RegisterAudioFrameObserver(audioObserver, 1, nil)
 
 	//localuserobserver
-	localUser.RegisterLocalUserObserver(localUserObserver)
+	con.RegisterLocalUserObserver(localUserObserver)
 
 	
 
 	con.Connect(token, channelName, userId)
 	<-conSignal
 
-	track.SetVideoEncoderConfiguration(&agoraservice.VideoEncoderConfiguration{
+	con.SetVideoEncoderConfiguration(&agoraservice.VideoEncoderConfiguration{
 		CodecType:         agoraservice.VideoCodecTypeH264,
 		Width:             320,
 		Height:            240,
@@ -336,10 +304,9 @@ func main() {
 	})
 
 	// step4: publish video and audio
-	track.SetEnabled(true)
-	localUser.PublishVideo(track)
-	audioTrack.SetEnabled(true)
-	localUser.PublishAudio(audioTrack)
+	
+	con.PublishAudio()
+	con.PublishVideo()
 
 	// for yuv test
 
@@ -357,25 +324,17 @@ func main() {
 
 	//release now
 
-	localUser.UnpublishVideo(track)
-	track.SetEnabled(false)
-	localUser.UnregisterAudioFrameObserver()
-	localUser.UnregisterVideoFrameObserver()
-	localUser.UnregisterLocalUserObserver()
+	
 
 	start_disconnect := time.Now().UnixMilli()
 	con.Disconnect()
 	//<-OnDisconnectedSign
-	con.UnregisterObserver()
-
+	
 	con.Release()
-
-	track.Release()
-	yuvsender.Release()
-	mediaNodeFactory.Release()
+	
 	agoraservice.Release()
 
-	track = nil
+	
 	videoObserver = nil
 
 	localUser = nil

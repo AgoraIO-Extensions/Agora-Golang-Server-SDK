@@ -195,8 +195,9 @@ func main() {
 	svcCfg.ConfigDir = "./agora_rtc_log"
 	svcCfg.DataDir = "./agora_rtc_log"
 
-	// set senario to ai_server
-	svcCfg.AudioScenario = agoraservice.AudioScenarioAiServer
+	// about AudioScenario: default is AudioScenarioAiServer
+	// if want to use other scenario, pls contact us and make sure the scenario is much apdated for your business
+	
 
 	agoraservice.Initialize(svcCfg)
 	defer agoraservice.Release()
