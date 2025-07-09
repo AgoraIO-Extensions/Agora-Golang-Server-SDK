@@ -72,7 +72,7 @@ func (track *LocalAudioTrack) Release() {
 }
 
 func (track *LocalAudioTrack) SetEnabled(enable bool) {
-	if track.cTrack == nil {
+	if track == nil || track.cTrack == nil {
 		return
 	}
 	cEnable := 0
@@ -83,7 +83,7 @@ func (track *LocalAudioTrack) SetEnabled(enable bool) {
 }
 
 func (track *LocalAudioTrack) AdjustPublishVolume(volume int) int {
-	if track.cTrack == nil {
+	if track == nil || track.cTrack == nil {
 		return -1
 	}
 	return int(C.agora_local_audio_track_adjust_publish_volume(track.cTrack, C.int(volume)))
@@ -93,21 +93,21 @@ func (track *LocalAudioTrack) AdjustPublishVolume(volume int) int {
 // size is the number of 10ms audio frames
 // the default value of this param is 30, ie. 300ms
 func (track *LocalAudioTrack) SetMaxBufferedAudioFrameNumber(frameNum int) {
-	if track.cTrack == nil {
+	if track == nil || track.cTrack == nil {
 		return
 	}
 	C.agora_local_audio_track_set_max_bufferd_frame_number(track.cTrack, C.int(frameNum))
 }
 
 func (track *LocalAudioTrack) ClearSenderBuffer() int {
-	if track.cTrack == nil {
+	if track == nil || track.cTrack == nil {
 		return -1
 	}
 	return int(C.agora_local_audio_track_clear_sender_buffer(track.cTrack))
 }
 
 func (track *LocalAudioTrack) SetSendDelayMs(delayMs int) int {
-	if track.cTrack == nil {
+	if track == nil || track.cTrack == nil {
 		return -1
 	}
 	C.agora_local_audio_track_set_send_delay_ms(track.cTrack, C.int(delayMs))
