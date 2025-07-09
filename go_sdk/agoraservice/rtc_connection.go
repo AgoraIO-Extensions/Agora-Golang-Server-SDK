@@ -1034,7 +1034,7 @@ func (conn *RtcConnection) EnableEncryption(enable int, config *EncryptionConfig
 	return int(ret)
 }
 func (conn *RtcConnection) handleCapabilitiesChanged(caps *C.struct__capabilities, size C.int) int {
-	if conn.cConnection == nil || conn.cCapabilitiesObserver == nil {
+	if conn == nil || conn.cConnection == nil || conn.cCapabilitiesObserver == nil {
 		return -1
 	}
 
@@ -1107,7 +1107,7 @@ func (conn *RtcConnection) handleCapabilitiesChanged(caps *C.struct__capabilitie
 //param: channels: channels
 //return: 0: success, -1: error, -2: invalid data
 func (conn *RtcConnection) PublishAudio() int {
-	if conn.cConnection == nil || conn.audioTrack == nil {
+	if conn == nil || conn.cConnection == nil || conn.audioTrack == nil {
 		return -1
 	}
 	//conn.audioTrack.SetEnabled(true)
@@ -1115,7 +1115,7 @@ func (conn *RtcConnection) PublishAudio() int {
 	return int(ret)
 }
 func (conn *RtcConnection) UnpublishAudio() int {
-	if conn.cConnection == nil || conn.audioTrack == nil {
+	if conn == nil || conn.cConnection == nil || conn.audioTrack == nil {
 		return -1
 	}
 	//conn.audioTrack.SetEnabled(false)
@@ -1124,7 +1124,7 @@ func (conn *RtcConnection) UnpublishAudio() int {
 }
 
 func (conn *RtcConnection) PublishVideo() int {
-	if conn.cConnection == nil || conn.videoTrack == nil {
+	if conn == nil || conn.cConnection == nil || conn.videoTrack == nil {
 		return -1
 	}
 	//conn.videoTrack.SetEnabled(true)
@@ -1133,7 +1133,7 @@ func (conn *RtcConnection) PublishVideo() int {
 }
 
 func (conn *RtcConnection) UnpublishVideo() int {	
-	if conn.cConnection == nil || conn.videoTrack == nil {
+	if conn == nil || conn.cConnection == nil || conn.videoTrack == nil {
 		return -1
 	}
 	//conn.videoTrack.SetEnabled(false)
@@ -1141,7 +1141,7 @@ func (conn *RtcConnection) UnpublishVideo() int {
 	return int(ret)
 }
 func (conn *RtcConnection) InterruptAudio() int {
-	if conn.cConnection == nil || conn.audioTrack == nil {
+	if conn == nil || conn.cConnection == nil || conn.audioTrack == nil {
 		return -1
 	}
 	
@@ -1165,7 +1165,7 @@ func (conn *RtcConnection) InterruptAudio() int {
 }
 
 func (conn *RtcConnection) PushAudioPcmData(data []byte, sampleRate int, channels int) int {
-	if conn.cConnection == nil || conn.audioSender == nil {
+	if conn == nil || conn.cConnection == nil || conn.audioSender == nil {
 		return -1
 	}
 	readLen := len(data)
@@ -1184,7 +1184,7 @@ func (conn *RtcConnection) PushAudioPcmData(data []byte, sampleRate int, channel
 				SamplesPerChannel: sampleRate / 100,
 				BytesPerSample:    2,
 				Channels:          channels,
-				SamplesPerSec:     sampleRate*channels,
+				SamplesPerSec:     sampleRate,
 				Type:              AudioFrameTypePCM16,
 			}
 
@@ -1199,19 +1199,19 @@ func (conn *RtcConnection) PushAudioPcmData(data []byte, sampleRate int, channel
 	return ret
 }
 func (conn *RtcConnection) PushAudioEncodedData(data []byte, frameInfo *EncodedAudioFrameInfo) int {
-	if conn.cConnection == nil || conn.encodedAudioSender == nil {
+	if conn == nil || conn.cConnection == nil || conn.encodedAudioSender == nil {
 		return -1
 	}
 	return conn.encodedAudioSender.SendEncodedAudioFrame(data, frameInfo)
 }
 func (conn *RtcConnection) PushVideoFrame(frame *ExternalVideoFrame) int {
-	if conn.cConnection == nil || conn.videoSender == nil {
+	if conn == nil || conn.cConnection == nil || conn.videoSender == nil {
 		return -1
 	}
 	return conn.videoSender.SendVideoFrame(frame)
 }
 func (conn *RtcConnection) PushVideoEncodedData(data []byte, frameInfo *EncodedVideoFrameInfo) int {
-	if conn.cConnection == nil || conn.encodedVideoSender == nil {
+	if conn == nil || conn.cConnection == nil || conn.encodedVideoSender == nil {
 		return -1
 	}
 	return conn.encodedVideoSender.SendEncodedVideoImage(data, frameInfo)
@@ -1227,7 +1227,7 @@ func (conn *RtcConnection) unregisterAudioEncodedFrameObserver() int {
 func (conn *RtcConnection) UpdateAudioSenario(scenario AudioScenario) int {
 
 	//1. validate the connection
-	if conn.cConnection == nil {
+	if conn == nil || conn.cConnection == nil {
 		return -1
 	}
 
@@ -1293,7 +1293,7 @@ func (conn *RtcConnection) UpdateAudioSenario(scenario AudioScenario) int {
 }
 
 func (conn *RtcConnection) IsPushToRtcCompleted() bool {
-	if conn.pcmConsumeStats == nil {
+	if conn == nil || conn.pcmConsumeStats == nil {
 		return false
 	}
 	return conn.pcmConsumeStats.isPushCompleted(conn.audioScenario)
@@ -1344,4 +1344,26 @@ func (consumer *PcmConsumeStats) reset() {
 	consumer.startTime = 0
 	consumer.totalLength = 0
 	consumer.duration = 0
+}
+func (conn *RtcConnection) SetVideoEncoderConfiguration(cfg *VideoEncoderConfiguration) int {
+	// validate the connection
+	if conn == nil || conn.cConnection == nil || conn.videoTrack == nil || conn.videoTrack.cTrack == nil {
+		return -1
+	}
+
+	// validate the cfg
+	
+	cCfg := C.struct__video_encoder_config{}
+	C.memset(unsafe.Pointer(&cCfg), 0, C.sizeof_struct__video_encoder_config)
+	cCfg.codec_type = C.int(cfg.CodecType)
+	cCfg.dimensions.width = C.int(cfg.Width)
+	cCfg.dimensions.height = C.int(cfg.Height)
+	cCfg.frame_rate = C.int(cfg.Framerate)
+	cCfg.bitrate = C.int(cfg.Bitrate * 1000)
+	cCfg.min_bitrate = C.int(cfg.MinBitrate * 1000)
+	cCfg.orientation_mode = C.int(cfg.OrientationMode)
+	cCfg.degradation_preference = C.int(cfg.DegradePreference)
+	cCfg.mirror_mode = C.int(cfg.MirrorMode)
+	cCfg.encode_alpha = CIntFromBool(cfg.EncodeAlpha)
+	return int(C.agora_local_video_track_set_video_encoder_config(conn.videoTrack.cTrack, &cCfg))
 }
