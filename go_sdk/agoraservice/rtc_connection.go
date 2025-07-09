@@ -517,6 +517,10 @@ func NewRtcConnection(cfg *RtcConnectionConfig, publishConfig *RtcConnectionPubl
 
 	// create  track
 	if publishConfig.IsPublishAudio {
+		// check publish type is not no publish
+		if publishConfig.AudioPublishType == AudioPublishTypeNoPublish {
+			fmt.Printf("WARN:publish audio is no publish, so no audio track created\n")
+		}
 		if publishConfig.AudioPublishType == AudioPublishTypePcm {
 			ret.audioSender = agoraService.mediaFactory.NewAudioPcmDataSender()
 			ret.audioTrack = NewCustomAudioTrackPcm(ret.audioSender, ret.audioScenario)
@@ -524,9 +528,16 @@ func NewRtcConnection(cfg *RtcConnectionConfig, publishConfig *RtcConnectionPubl
 			ret.encodedAudioSender = agoraService.mediaFactory.NewAudioEncodedFrameSender()
 			ret.audioTrack = NewCustomAudioTrackEncoded(ret.encodedAudioSender, AudioTrackMixDisabled)
 		}
-		ret.audioTrack.SetEnabled(true)
+		// check if the track is not nil
+		if ret.audioTrack != nil {
+			ret.audioTrack.SetEnabled(true)
+		}
 	}
 	if publishConfig.IsPublishVideo {
+		// check publish type is not no publish
+		if publishConfig.VideoPublishType == VideoPublishTypeNoPublish {
+			fmt.Printf("WARN:publish video is no publish, so no video track created\n")
+		}
 		if publishConfig.VideoPublishType == VideoPublishTypeYuv {
 			ret.videoSender = agoraService.mediaFactory.NewVideoFrameSender()
 			ret.videoTrack =  NewCustomVideoTrackFrame(ret.videoSender)
@@ -534,7 +545,9 @@ func NewRtcConnection(cfg *RtcConnectionConfig, publishConfig *RtcConnectionPubl
 			ret.encodedVideoSender = agoraService.mediaFactory.NewVideoEncodedImageSender()
 			ret.videoTrack = NewCustomVideoTrackEncoded(ret.encodedVideoSender, ret.publishConfig.VideoEncodedImageSenderOptions)
 		}
-		ret.videoTrack.SetEnabled(true)
+		if ret.videoTrack != nil {
+			ret.videoTrack.SetEnabled(true)
+		}
 	}
 	
 
