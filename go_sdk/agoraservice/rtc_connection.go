@@ -1182,13 +1182,13 @@ func (conn *RtcConnection) PushAudioPcmData(data []byte, sampleRate int, channel
 		return -1
 	}
 	readLen := len(data)
-	bytesPerFrame := (sampleRate / 100) * 2 * channels // 10ms , channels and 16bit
+	bytesPerFrameInMs := (sampleRate / 1000) * 2 * channels // 1ms , channels and 16bit
 	// validity check: only accepts data with lengths that are integer multiples of 10ms​​ 
-	if readLen % bytesPerFrame != 0 {
-		fmt.Printf("PushAudioPcmData data length is not integer multiples of 10ms, readLen: %d, bytesPerFrame: %d\n", readLen, bytesPerFrame)
+	if readLen % bytesPerFrameInMs != 0 {
+		fmt.Printf("PushAudioPcmData data length is not integer multiples of 10ms, readLen: %d, bytesPerFrame: %d\n", readLen, bytesPerFrameInMs)
 		return -2
 	}
-	packnum := readLen / bytesPerFrame
+	packnumInMs := readLen / bytesPerFrameInMs
 	
 	
 	frame := &AudioFrame{
@@ -1202,7 +1202,7 @@ func (conn *RtcConnection) PushAudioPcmData(data []byte, sampleRate int, channel
 			}
 
 	frame.Buffer = data
-	frame.SamplesPerChannel = (sampleRate / 100) * packnum
+	frame.SamplesPerChannel = (sampleRate / 1000) * packnumInMs
 	
 
 	ret := conn.audioSender.SendAudioPcmData(frame)
