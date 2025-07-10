@@ -57,9 +57,15 @@ func main() {
 	}()
 
 	// get environment variable
-	appid := os.Getenv("AGORA_APP_ID")
+	argus := os.Args
+	if len(argus) < 3 {
+		fmt.Println("Please input appid, channel name")
+		return
+	}
+	appid := argus[1]
+	channelName := argus[2]
+	
 	cert := os.Getenv("AGORA_APP_CERTIFICATE")
-	channelName := "gosdktest"
 	userId := "0"
 	if appid == "" {
 		fmt.Println("Please set AGORA_APP_ID environment variable, and AGORA_APP_CERTIFICATE if needed")
@@ -78,20 +84,14 @@ func main() {
 		}
 	}
 	svcCfg := agoraservice.NewAgoraServiceConfig()
+	// whether sending or receiving video, we need to set EnableVideo to true!!
 	svcCfg.EnableVideo = true
 	svcCfg.AppId = appid
 
 	agoraservice.Initialize(svcCfg)
-	defer agoraservice.Release()
-	mediaNodeFactory := agoraservice.NewMediaNodeFactory()
-	defer mediaNodeFactory.Release()
+	
+	var con *agoraservice.RtcConnection = nil
 
-	conCfg := agoraservice.RtcConnectionConfig{
-		AutoSubscribeAudio: true,
-		AutoSubscribeVideo: true,
-		ClientRole:         agoraservice.ClientRoleBroadcaster,
-		ChannelProfile:     agoraservice.ChannelProfileLiveBroadcasting,
-	}
 	conSignal := make(chan struct{})
 	conHandler := &agoraservice.RtcConnectionObserver{
 		OnConnected: func(con *agoraservice.RtcConnection, info *agoraservice.RtcConnectionInfo, reason int) {
@@ -132,28 +132,36 @@ func main() {
 			return true
 		},
 	}
-	scenario := svcCfg.AudioScenario
-	con := agoraservice.NewRtcConnection(&conCfg, scenario)
-	defer con.Release()
+	scenario := agoraservice.AudioScenarioAiServer
+	conCfg := &agoraservice.RtcConnectionConfig{
+		AutoSubscribeAudio: true,
+		AutoSubscribeVideo: true,
+		ClientRole:         agoraservice.ClientRoleBroadcaster,
+		ChannelProfile:     agoraservice.ChannelProfileLiveBroadcasting,
+	}
+	publishConfig := agoraservice.NewRtcConPublishConfig()
+	publishConfig.AudioScenario = scenario
+	publishConfig.IsPublishAudio = true
+	publishConfig.IsPublishVideo = true
+	publishConfig.AudioPublishType = agoraservice.AudioPublishTypePcm
+	publishConfig.VideoPublishType = agoraservice.VideoPublishTypeEncodedImage
 
-	localUser := con.GetLocalUser()
+	// for send encoded video image, we need to set the codec type and target bitrate
+	publishConfig.VideoEncodedImageSenderOptions.CcMode = agoraservice.VideoSendCcDisabled
+	publishConfig.VideoEncodedImageSenderOptions.CodecType = agoraservice.VideoCodecTypeH264
+	publishConfig.VideoEncodedImageSenderOptions.TargetBitrate = 500
+
+	con = agoraservice.NewRtcConnection(conCfg, publishConfig)
+
 	con.RegisterObserver(conHandler)
-	localUser.RegisterVideoFrameObserver(videoObserver)
+	con.RegisterVideoFrameObserver(videoObserver)
 
-	sender := mediaNodeFactory.NewVideoEncodedImageSender()
-	defer sender.Release()
-	track := agoraservice.NewCustomVideoTrackEncoded(sender, &agoraservice.VideoEncodedImageSenderOptions{
-		CcMode:        agoraservice.VideoSendCcDisabled,
-		CodecType:     agoraservice.VideoCodecTypeH264,
-		TargetBitrate: 500,
-	})
-	defer track.Release()
+	
 
 	con.Connect(token, channelName, userId)
 	<-conSignal
 
-	track.SetEnabled(true)
-	localUser.PublishVideo(track)
+	con.PublishVideo()
 
 	pFormatContext := openMediaFile("../test_data/send_video.h264")
 	if pFormatContext == nil {
@@ -184,7 +192,7 @@ func main() {
 			frameType = agoraservice.VideoFrameTypeDeltaFrame
 		}
 		data := C.GoBytes(unsafe.Pointer(packet.data), packet.size)
-		sender.SendEncodedVideoImage(data, &agoraservice.EncodedVideoFrameInfo{
+		con.PushVideoEncodedData(data, &agoraservice.EncodedVideoFrameInfo{
 			CodecType:       agoraservice.VideoCodecTypeH264,
 			Width:           int(codecParam.width),
 			Height:          int(codecParam.height),
@@ -195,7 +203,9 @@ func main() {
 		C.av_packet_unref(packet)
 		time.Sleep(time.Duration(sendInterval) * time.Millisecond)
 	}
-	localUser.UnpublishVideo(track)
-	track.SetEnabled(false)
+	
 	con.Disconnect()
+	con.Release()
+	agoraservice.Release()
+	fmt.Println("Application terminated")
 }

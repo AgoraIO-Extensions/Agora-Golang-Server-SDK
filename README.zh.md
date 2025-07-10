@@ -219,6 +219,12 @@ pub/unpub: 只是api调用，大概是0～1ms；
 done:
 --1. publish和unplbish中增加了一个bool判断当前的状态，允许多次pub/unpub。
 
+todo：用法
+1、发送编码音频/视频的频率如何来控制？？？好像没有啥控制的，通过pts？？
+如果要发送yuv：需要调用9哦那个
+	con.SetVideoEncoderConfiguration 来这只编码属性，这个可以在con的周期内，随时调用，来改变编码属性
+如果要发送编码视频，需要在publishConfigure中，设置publishVideo为true，同时设置encoderConfiguration，来设置编码属性
+
 ## 2025.07.10 发布 2.3.0
 -- 增加对AudioScenarioAiServer 类型scenario的支持
 -- 默认的AudioScenario是AudioScenarioAiServer

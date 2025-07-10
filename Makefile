@@ -12,6 +12,7 @@ OS := unknown
 BASIC_EXAMPLES := send_recv_pcm send_recv_yuv recv_h264 recv_pcm_loopback sample_vad send_recv_yuv_pcm ai_send_recv_pcm
 BASIC_EXAMPLES =  send_recv_pcm send_recv_yuv recv_h264 recv_pcm_loopback sample_vad send_recv_yuv_pcm ai_send_recv_pcm
 ADVANCED_EXAMPLES := multi_cons_rtx send_encoded_audio send_h264 send_mp4
+ADVANCED_EXAMPLES =  send_encoded_audio send_h264 send_mp4 multi_cons_rtx
 
 ifeq ($(UNAME_S),Linux)
     OS := linux

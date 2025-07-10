@@ -54,6 +54,7 @@ func main() {
 		}
 	}
 	svcCfg := agoraservice.NewAgoraServiceConfig()
+	// whether sending or receiving video, we need to set EnableVideo to true!!
 	svcCfg.EnableVideo = true
 	svcCfg.AppId = appid
 

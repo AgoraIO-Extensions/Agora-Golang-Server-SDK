@@ -56,9 +56,15 @@ func main() {
 	}()
 
 	// get environment variable
-	appid := os.Getenv("AGORA_APP_ID")
+	argus := os.Args
+	if len(argus) < 3 {
+		fmt.Println("Please input appid, channel name")
+		return
+	}
+	appid := argus[1]
+	channelName := argus[2]
+
 	cert := os.Getenv("AGORA_APP_CERTIFICATE")
-	channelName := "gosdktest"
 	userId := "0"
 	if appid == "" {
 		fmt.Println("Please set AGORA_APP_ID environment variable, and AGORA_APP_CERTIFICATE if needed")
@@ -81,15 +87,9 @@ func main() {
 
 	agoraservice.Initialize(svcCfg)
 	defer agoraservice.Release()
-	mediaNodeFactory := agoraservice.NewMediaNodeFactory()
-	defer mediaNodeFactory.Release()
+	
+	var con *agoraservice.RtcConnection = nil
 
-	conCfg := agoraservice.RtcConnectionConfig{
-		AutoSubscribeAudio: true,
-		AutoSubscribeVideo: false,
-		ClientRole:         agoraservice.ClientRoleBroadcaster,
-		ChannelProfile:     agoraservice.ChannelProfileLiveBroadcasting,
-	}
 	conSignal := make(chan struct{})
 	conHandler := &agoraservice.RtcConnectionObserver{
 		OnConnected: func(con *agoraservice.RtcConnection, info *agoraservice.RtcConnectionInfo, reason int) {
@@ -130,26 +130,33 @@ func main() {
 			return true
 		},
 	}
-	scenario := svcCfg.AudioScenario
-	con := agoraservice.NewRtcConnection(&conCfg, scenario)
-	defer con.Release()
+	scenario := agoraservice.AudioScenarioAiServer
+	conCfg := &agoraservice.RtcConnectionConfig{
+		AutoSubscribeAudio: true,
+		AutoSubscribeVideo: false,
+		ClientRole:         agoraservice.ClientRoleBroadcaster,
+		ChannelProfile:     agoraservice.ChannelProfileLiveBroadcasting,
+	}
+	publishConfig := agoraservice.NewRtcConPublishConfig()
+	publishConfig.AudioScenario = scenario
+	publishConfig.IsPublishAudio = true
+	publishConfig.IsPublishVideo = false
+	publishConfig.AudioPublishType = agoraservice.AudioPublishTypeEncodedPcm
+	publishConfig.VideoPublishType = agoraservice.VideoPublishTypeNoPublish
+
+	con = agoraservice.NewRtcConnection(conCfg, publishConfig)
+	
 
 	localUser := con.GetLocalUser()
 	localUser.SetPlaybackAudioFrameBeforeMixingParameters(1, 16000)
 	con.RegisterObserver(conHandler)
-	localUser.RegisterAudioFrameObserver(audioObserver, 0, nil)
+	con.RegisterAudioFrameObserver(audioObserver, 0, nil)
 
-	sender := mediaNodeFactory.NewAudioEncodedFrameSender() // .NewAudioPcmDataSender()
-	defer sender.Release()
-	track := agoraservice.NewCustomAudioTrackEncoded(sender, agoraservice.AudioTrackMixDisabled) // .NewCustomAudioTrackPcm(sender)
-	defer track.Release()
-
-	localUser.SetAudioScenario(agoraservice.AudioScenarioChorus)
+	
 	con.Connect(token, channelName, userId)
 	<-conSignal
 
-	track.SetEnabled(true)
-	localUser.PublishAudio(track)
+	con.PublishAudio()
 
 	pFormatContext := openMediaFile("../test_data/send_audio_16k.aac")
 	if pFormatContext == nil {
@@ -163,7 +170,6 @@ func main() {
 	codecParam := (*C.struct_AVCodecParameters)(unsafe.Pointer(streamInfo.codecpar))
 	tb := streamInfo.time_base
 
-	track.AdjustPublishVolume(100)
 
 	sendAudioDuration := 0
 	// firstSendTime := time.Now()
@@ -190,7 +196,7 @@ func main() {
 		if data[0] != 0xFF || (data[1] != 0xF1 && data[1] != 0xF9) {
 			fmt.Printf("Invalid aac frame\n")
 		}
-		ret = sender.SendEncodedAudioFrame(data, &agoraservice.EncodedAudioFrameInfo{
+		ret = con.PushAudioEncodedData(data, &agoraservice.EncodedAudioFrameInfo{
 			Speech:            false,
 			Codec:             agoraservice.AudioCodecAacLc,
 			SampleRateHz:      int(codecParam.sample_rate),
@@ -205,7 +211,11 @@ func main() {
 		//TODO: sleep time should be calculated based on the audio frame duration
 		time.Sleep(21 * time.Millisecond)
 	}
-	localUser.UnpublishAudio(track)
-	track.SetEnabled(false)
+	
 	con.Disconnect()
+
+	con.Release()
+
+	agoraservice.Release()
+	fmt.Println("Application terminated")
 }

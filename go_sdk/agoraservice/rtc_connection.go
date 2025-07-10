@@ -296,6 +296,7 @@ type AudioFrameObserver struct {
 	OnGetRecordAudioFrameParam        func(localUser *LocalUser) AudioFrameObserverAudioParams
 	OnGetMixedAudioFrameParam         func(localUser *LocalUser) AudioFrameObserverAudioParams
 	OnGetEarMonitoringAudioFrameParam func(localUser *LocalUser) AudioFrameObserverAudioParams
+
 }
 
 type VideoFrameObserver struct {
@@ -1322,7 +1323,7 @@ func (consumer *PcmConsumeStats) addPcmData(len int, samplerate int, channels in
 
 	// update duration
 	consumer.duration = int(consumer.totalLength / (int64(samplerate / 1000) * int64(channels) * 2))
-	fmt.Printf("addPcmData, duration: %d, totalLength: %d, startTime: %d\n", consumer.duration, consumer.totalLength, consumer.startTime)
+	//fmt.Printf("addPcmData, duration: %d, totalLength: %d, startTime: %d\n", consumer.duration, consumer.totalLength, consumer.startTime)
 }
 
 func (consumer *PcmConsumeStats) isNewRound(samplerate int, channels int) bool {
