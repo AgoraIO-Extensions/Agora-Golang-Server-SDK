@@ -421,6 +421,10 @@ type RtcConnection struct {
 
 	// pcm consumption stats for raw pcm data only
 	pcmConsumeStats *PcmConsumeStats
+
+	// stream id for data stream： no need to call createDataStream manually, it is created by the sdk automatically
+	// and just use it for sendStreamMessage
+	dataStreamId int
 	
 }
 
@@ -471,6 +475,7 @@ func NewRtcConnection(cfg *RtcConnectionConfig, publishConfig *RtcConnectionPubl
 		audioScenario:   audioScenario,
 		audioProfile:    audioProfile,
 		publishConfig:   publishConfig,
+		dataStreamId:    -1,
 	}
 	ret.localUser = &LocalUser{
 		cLocalUser:  C.agora_rtc_conn_get_local_user(ret.cConnection),
@@ -550,6 +555,10 @@ func NewRtcConnection(cfg *RtcConnectionConfig, publishConfig *RtcConnectionPubl
 			ret.videoTrack.SetEnabled(true)
 		}
 	}
+
+	// auto create data stream
+	ret.dataStreamId, _ = ret.createDataStream(false, false)
+	fmt.Printf("______auto create data stream, id: %d\n", ret.dataStreamId)
 	
 
 	return ret
@@ -761,7 +770,7 @@ func (conn *RtcConnection) RenewToken(token string) int {
 	return int(C.agora_rtc_conn_renew_token(conn.cConnection, cToken))
 }
 
-func (conn *RtcConnection) CreateDataStream(reliable bool, ordered bool) (int, int) {
+func (conn *RtcConnection) createDataStream(reliable bool, ordered bool) (int, int) {
 	if conn.cConnection == nil {
 		return -1, -1
 	}
@@ -771,12 +780,13 @@ func (conn *RtcConnection) CreateDataStream(reliable bool, ordered bool) (int, i
 	return int(cStreamId), ret
 }
 
-func (conn *RtcConnection) SendStreamMessage(streamId int, msg []byte) int {
-	if conn.cConnection == nil {
+func (conn *RtcConnection) SendStreamMessage(msg []byte) int {
+	if conn == nil || conn.cConnection == nil {
 		return -1
 	}
 	cMsg := C.CBytes(msg)
 	defer C.free(cMsg)
+	streamId := conn.dataStreamId
 	return int(C.agora_rtc_conn_send_stream_message(conn.cConnection, C.int(streamId), (*C.char)(cMsg), C.uint32_t(len(msg))))
 }
 
@@ -1380,4 +1390,10 @@ func (conn *RtcConnection) SetVideoEncoderConfiguration(cfg *VideoEncoderConfigu
 	cCfg.mirror_mode = C.int(cfg.MirrorMode)
 	cCfg.encode_alpha = CIntFromBool(cfg.EncodeAlpha)
 	return int(C.agora_local_video_track_set_video_encoder_config(conn.videoTrack.cTrack, &cCfg))
+}
+func (conn *RtcConnection) SendAudioMetaData(metaData []byte) int {
+	if conn == nil || conn.cConnection == nil || conn.localUser == nil || conn.localUser.cLocalUser == nil {
+		return -1
+	}
+	return conn.localUser.sendAudioMetaData(metaData)
 }
