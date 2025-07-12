@@ -239,7 +239,7 @@ func (localUser *LocalUser) SetAudioVolumeIndicationParameters(intervalInMs int,
 	ret := C.agora_local_user_set_audio_volume_indication_parameters(localUser.cLocalUser, C.int(intervalInMs), C.int(smooth), C.bool(reportVad))
 	return int(ret)
 }
-func (localUser *LocalUser) SendAudioMetaData(metaData []byte) int {
+func (localUser *LocalUser) sendAudioMetaData(metaData []byte) int {
 	if localUser.cLocalUser == nil {
 		return -1
 	}
