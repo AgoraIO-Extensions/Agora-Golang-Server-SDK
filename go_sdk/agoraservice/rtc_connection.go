@@ -1132,7 +1132,7 @@ func (conn *RtcConnection) handleCapabilitiesChanged(caps *C.struct__capabilitie
 //return: 0: success, -1: error, -2: invalid data
 func (conn *RtcConnection) PublishAudio() int {
 	if conn == nil || conn.cConnection == nil || conn.audioTrack == nil {
-		return -1
+		return -31
 	}
 	//conn.audioTrack.SetEnabled(true)
 	ret := conn.localUser.publishAudio(conn.audioTrack)
@@ -1140,7 +1140,7 @@ func (conn *RtcConnection) PublishAudio() int {
 }
 func (conn *RtcConnection) UnpublishAudio() int {
 	if conn == nil || conn.cConnection == nil || conn.audioTrack == nil {
-		return -1
+		return -31
 	}
 	//conn.audioTrack.SetEnabled(false)
 	ret := conn.localUser.unpublishAudio(conn.audioTrack)
@@ -1149,7 +1149,7 @@ func (conn *RtcConnection) UnpublishAudio() int {
 
 func (conn *RtcConnection) PublishVideo() int {
 	if conn == nil || conn.cConnection == nil || conn.videoTrack == nil {
-		return -1
+		return -31
 	}
 	//conn.videoTrack.SetEnabled(true)
 	ret := conn.localUser.publishVideo(conn.videoTrack)
@@ -1158,7 +1158,7 @@ func (conn *RtcConnection) PublishVideo() int {
 
 func (conn *RtcConnection) UnpublishVideo() int {	
 	if conn == nil || conn.cConnection == nil || conn.videoTrack == nil {
-		return -1
+		return -31
 	}
 	//conn.videoTrack.SetEnabled(false)
 	ret := conn.localUser.unpublishVideo(conn.videoTrack)
@@ -1166,7 +1166,7 @@ func (conn *RtcConnection) UnpublishVideo() int {
 }
 func (conn *RtcConnection) InterruptAudio() int {
 	if conn == nil || conn.cConnection == nil || conn.audioTrack == nil {
-		return -1
+		return -31
 	}
 	
 	
