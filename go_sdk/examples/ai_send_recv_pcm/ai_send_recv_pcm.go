@@ -363,7 +363,7 @@ func main() {
 
 	
 
-	localStreamId, _ := con.CreateDataStream(false, false)
+	
 
 	event_count := 0
 
@@ -373,7 +373,7 @@ func main() {
 			// do something
 			fmt.Printf("*****Stream message, from userId %s\n", uid)
 			//con.SendStreamMessage(streamId, data)
-			con.SendStreamMessage(localStreamId, data)
+			con.SendStreamMessage(data)
 		},
 
 		OnAudioVolumeIndication: func(localUser *agoraservice.LocalUser, audioVolumeInfo []*agoraservice.AudioVolumeInfo, speakerNumber int, totalVolume int) {
@@ -412,7 +412,7 @@ func main() {
 				audioSendEvent <- struct{}{}
 			}
 
-			localUser.SendAudioMetaData(metaData)
+			con.SendAudioMetaData(metaData)
 		},
 		OnAudioTrackPublishSuccess: func(localUser *agoraservice.LocalUser, audioTrack *agoraservice.LocalAudioTrack) {
 			fmt.Printf("*****Audio track publish success, time %d\n", time.Now().UnixMilli())

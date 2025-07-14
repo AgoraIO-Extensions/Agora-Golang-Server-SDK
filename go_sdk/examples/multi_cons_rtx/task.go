@@ -376,7 +376,7 @@ func (taskCtx *TaskContext) sendData() {
 	for {
 		select {
 		case <-ticker.C:
-			ret := con.SendStreamMessage(taskCtx.streamId, msg)
+			ret := con.SendStreamMessage(msg)
 			fmt.Printf("SendStreamMessage ret: %d, task %d\n", ret, id)
 		case <-ctx.Done():
 			fmt.Printf("task %d data stream sender finished\n", id)
@@ -521,11 +521,8 @@ func (taskCtx *TaskContext) startTask() {
 	defer taskCtx.releaseTask()
 	// create datastream
 	if cfg.sendData {
-		var errCode int = 0
-		taskCtx.streamId, errCode = con.CreateDataStream(false, false)
-		if errCode != 0 {
-			fmt.Printf("task %d Failed to create data stream: %d, channel %s\n", id, errCode, channelName)
-		}
+		
+		//note :no need to create datastream, it will be created automatically when send stream message
 	}
 
 	localUser := con.GetLocalUser()

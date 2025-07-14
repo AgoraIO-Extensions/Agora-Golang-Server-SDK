@@ -385,6 +385,10 @@ func original_main() {
 		OnUserLeft: func(con *agoraservice.RtcConnection, uid string, reason int) {
 			fmt.Println("user left, " + uid)
 		},
+		OnAIQoSCapabilityMissing: func(con *agoraservice.RtcConnection, defaultFallbackSenario int) int {
+			fmt.Printf("onAIQoSCapabilityMissing, defaultFallbackSenario: %d\n", defaultFallbackSenario)
+			return int(agoraservice.AudioScenarioDefault)
+		},
 	}
 	// for debuging, can do vad dump but never recommended for production
 	dumpFile, err := os.OpenFile("./source_dump.pcm", os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
@@ -492,7 +496,7 @@ func original_main() {
 		},
 		OnAudioMetaDataReceived: func(localUser *agoraservice.LocalUser, uid string, metaData []byte) {
 			fmt.Printf("*****User audio meta data received, uid %s, meta: %s\n", uid, string(metaData))
-			localUser.SendAudioMetaData(metaData)
+			con.SendAudioMetaData(metaData)
 		},
 	}
 

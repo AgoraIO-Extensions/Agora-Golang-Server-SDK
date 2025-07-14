@@ -145,6 +145,10 @@ func main() {
 		OnUserLeft: func(con *agoraservice.RtcConnection, uid string, reason int) {
 			fmt.Printf("user left: %s, reason = %d\n", uid, reason)
 		},
+		OnAIQoSCapabilityMissing: func(con *agoraservice.RtcConnection, defaultFallbackSenario int) int {
+			fmt.Printf("onAIQoSCapabilityMissing, defaultFallbackSenario: %d\n", defaultFallbackSenario)
+			return int(agoraservice.AudioScenarioDefault)
+		},
 	}
 	audioObserver := &agoraservice.AudioFrameObserver{
 		OnPlaybackAudioFrameBeforeMixing: func(localUser *agoraservice.LocalUser, channelId string, userId string, frame *agoraservice.AudioFrame, vadResultState agoraservice.VadState, vadResultFrame *agoraservice.AudioFrame) bool {

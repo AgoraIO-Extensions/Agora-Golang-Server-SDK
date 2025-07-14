@@ -100,6 +100,10 @@ func main() {
 		OnUserLeft: func(con *agoraservice.RtcConnection, uid string, reason int) {
 			fmt.Println("user left, " + uid)
 		},
+		OnAIQoSCapabilityMissing: func(con *agoraservice.RtcConnection, defaultFallbackSenario int) int {
+			fmt.Printf("onAIQoSCapabilityMissing, defaultFallbackSenario: %d\n", defaultFallbackSenario)
+			return int(agoraservice.AudioScenarioDefault)
+		},
 	}
 
 	videoChan := make(chan *EncodedVideoData, 100)
