@@ -169,7 +169,7 @@ func (localUser *LocalUser) publishAudio(track *LocalAudioTrack) int {
 
 func (localUser *LocalUser) unpublishAudio(track *LocalAudioTrack) int {
 	if localUser.cLocalUser == nil {
-		return -1
+		return -41
 	}
 	if localUser.publishFlag == false {
 		return 0
@@ -185,55 +185,55 @@ func (localUser *LocalUser) unpublishAudio(track *LocalAudioTrack) int {
 
 func (localUser *LocalUser) publishVideo(track *LocalVideoTrack) int {
 	if localUser.cLocalUser == nil {
-		return -1
+		return -51
 	}
 	return int(C.agora_local_user_publish_video(localUser.cLocalUser, track.cTrack))
 }
 
 func (localUser *LocalUser) unpublishVideo(track *LocalVideoTrack) int {
 	if localUser.cLocalUser == nil {
-		return -1
+		return -41
 	}
 	return int(C.agora_local_user_unpublish_video(localUser.cLocalUser, track.cTrack))
 }
 
 func (localUser *LocalUser) SetPlaybackAudioFrameParameters(channels int, sampleRate int, mode int, samplesPerCall int) int {
 	if localUser.cLocalUser == nil {
-		return -1
+		return -41
 	}
 	return int(C.agora_local_user_set_playback_audio_frame_parameters(localUser.cLocalUser, C.uint(channels), C.uint(sampleRate), C.int(mode), C.int(samplesPerCall)))
 }
 
 func (localUser *LocalUser) SetRecordingAudioFrameParameters(channels int, sampleRate int, mode int, samplesPerCall int) int {
 	if localUser.cLocalUser == nil {
-		return -1
+		return -41
 	}
 	return int(C.agora_local_user_set_recording_audio_frame_parameters(localUser.cLocalUser, C.uint(channels), C.uint(sampleRate), C.int(mode), C.int(samplesPerCall)))
 }
 
 func (localUser *LocalUser) SetMixedAudioFrameParameters(channels int, sampleRate int, samplesPerCall int) int {
 	if localUser.cLocalUser == nil {
-		return -1
+		return -41
 	}
 	return int(C.agora_local_user_set_mixed_audio_frame_parameters(localUser.cLocalUser, C.uint(channels), C.uint(sampleRate), C.int(samplesPerCall)))
 }
 
 func (localUser *LocalUser) SetPlaybackAudioFrameBeforeMixingParameters(channels int, sampleRate int) int {
 	if localUser.cLocalUser == nil {
-		return -1
+		return -41
 	}
 	return int(C.agora_local_user_set_playback_audio_frame_before_mixing_parameters(localUser.cLocalUser, C.uint(channels), C.uint(sampleRate)))
 }
 
 func (localUser *LocalUser) SetAudioScenario(audioScenario AudioScenario) int {
 	if localUser.cLocalUser == nil {
-		return -1
+		return -41
 	}
 	return int(C.agora_local_user_set_audio_scenario(localUser.cLocalUser, C.int(audioScenario)))
 }
 func (localUser *LocalUser) SetAudioVolumeIndicationParameters(intervalInMs int, smooth int, reportVad bool) int {
 	if localUser.cLocalUser == nil {
-		return -1
+		return -41
 	}
 	
 	ret := C.agora_local_user_set_audio_volume_indication_parameters(localUser.cLocalUser, C.int(intervalInMs), C.int(smooth), C.bool(reportVad))
@@ -241,7 +241,7 @@ func (localUser *LocalUser) SetAudioVolumeIndicationParameters(intervalInMs int,
 }
 func (localUser *LocalUser) sendAudioMetaData(metaData []byte) int {
 	if localUser.cLocalUser == nil {
-		return -1
+		return -41
 	}
 	cMetaData := C.CBytes(metaData)
 	defer C.free(cMetaData)
