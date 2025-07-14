@@ -237,6 +237,8 @@ todo：用法
   - InterruptAudio
   - IsPushToRTCCompleted方法
   - OnAIQoSCapabilityMissing回调接口的实现
+  - SendAudioMetaData方法
+  - 不在需要人工调用CreateDataStream，内部自动默认
 -- 集成方式：
 1. svcCfg := agoraservice.NewAgoraServiceConfig()
 2.agoraservice.Initialize(svcCfg)
