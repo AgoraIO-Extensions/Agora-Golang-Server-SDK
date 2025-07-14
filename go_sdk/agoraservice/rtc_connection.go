@@ -1132,7 +1132,7 @@ func (conn *RtcConnection) handleCapabilitiesChanged(caps *C.struct__capabilitie
 //return: 0: success, -1: error, -2: invalid data
 func (conn *RtcConnection) PublishAudio() int {
 	if conn == nil || conn.cConnection == nil || conn.audioTrack == nil {
-		return -31
+		return -2000
 	}
 	//conn.audioTrack.SetEnabled(true)
 	ret := conn.localUser.publishAudio(conn.audioTrack)
@@ -1140,7 +1140,7 @@ func (conn *RtcConnection) PublishAudio() int {
 }
 func (conn *RtcConnection) UnpublishAudio() int {
 	if conn == nil || conn.cConnection == nil || conn.audioTrack == nil {
-		return -31
+		return -2000
 	}
 	//conn.audioTrack.SetEnabled(false)
 	ret := conn.localUser.unpublishAudio(conn.audioTrack)
@@ -1149,7 +1149,7 @@ func (conn *RtcConnection) UnpublishAudio() int {
 
 func (conn *RtcConnection) PublishVideo() int {
 	if conn == nil || conn.cConnection == nil || conn.videoTrack == nil {
-		return -31
+		return -2000
 	}
 	//conn.videoTrack.SetEnabled(true)
 	ret := conn.localUser.publishVideo(conn.videoTrack)
@@ -1158,7 +1158,7 @@ func (conn *RtcConnection) PublishVideo() int {
 
 func (conn *RtcConnection) UnpublishVideo() int {	
 	if conn == nil || conn.cConnection == nil || conn.videoTrack == nil {
-		return -31
+		return -2000
 	}
 	//conn.videoTrack.SetEnabled(false)
 	ret := conn.localUser.unpublishVideo(conn.videoTrack)
@@ -1166,7 +1166,7 @@ func (conn *RtcConnection) UnpublishVideo() int {
 }
 func (conn *RtcConnection) InterruptAudio() int {
 	if conn == nil || conn.cConnection == nil || conn.audioTrack == nil {
-		return -31
+		return -2000
 	}
 	
 	
@@ -1190,7 +1190,7 @@ func (conn *RtcConnection) InterruptAudio() int {
 
 func (conn *RtcConnection) PushAudioPcmData(data []byte, sampleRate int, channels int) int {
 	if conn == nil || conn.cConnection == nil || conn.audioSender == nil {
-		return -1
+		return -2000
 	}
 	readLen := len(data)
 	bytesPerFrameInMs := (sampleRate / 1000) * 2 * channels // 1ms , channels and 16bit
@@ -1224,19 +1224,19 @@ func (conn *RtcConnection) PushAudioPcmData(data []byte, sampleRate int, channel
 }
 func (conn *RtcConnection) PushAudioEncodedData(data []byte, frameInfo *EncodedAudioFrameInfo) int {
 	if conn == nil || conn.cConnection == nil || conn.encodedAudioSender == nil {
-		return -1
+		return -2000
 	}
 	return conn.encodedAudioSender.SendEncodedAudioFrame(data, frameInfo)
 }
 func (conn *RtcConnection) PushVideoFrame(frame *ExternalVideoFrame) int {
 	if conn == nil || conn.cConnection == nil || conn.videoSender == nil {
-		return -1
+		return -2000
 	}
 	return conn.videoSender.SendVideoFrame(frame)
 }
 func (conn *RtcConnection) PushVideoEncodedData(data []byte, frameInfo *EncodedVideoFrameInfo) int {
 	if conn == nil || conn.cConnection == nil || conn.encodedVideoSender == nil {
-		return -1
+		return -2000
 	}
 	return conn.encodedVideoSender.SendEncodedVideoImage(data, frameInfo)
 }
@@ -1252,7 +1252,7 @@ func (conn *RtcConnection) UpdateAudioSenario(scenario AudioScenario) int {
 
 	//1. validate the connection
 	if conn == nil || conn.cConnection == nil {
-		return -1
+		return -2000
 	}
 
 	//2. if scenario is the same as the internal one, do nothing
@@ -1393,7 +1393,7 @@ func (conn *RtcConnection) SetVideoEncoderConfiguration(cfg *VideoEncoderConfigu
 }
 func (conn *RtcConnection) SendAudioMetaData(metaData []byte) int {
 	if conn == nil || conn.cConnection == nil || conn.localUser == nil || conn.localUser.cLocalUser == nil {
-		return -1
+		return -2000
 	}
 	return conn.localUser.sendAudioMetaData(metaData)
 }
