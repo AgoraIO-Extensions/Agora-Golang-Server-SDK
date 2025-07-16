@@ -103,6 +103,7 @@ type AgoraService struct {
 	consByCLocalUser            sync.Map
 	consByCVideoObserver        sync.Map
 	consByCEncodedVideoObserver sync.Map
+	mediaFactory *MediaNodeFactory
 }
 
 // / newAgoraService creates a new instance of AgoraService
@@ -112,6 +113,7 @@ func newAgoraService() *AgoraService {
 		service: nil,
 		isSteroEncodeMode: false,
 		//audioScenario: AudioScenarioChorus,
+		mediaFactory: nil,
 	}
 }
 
@@ -125,7 +127,10 @@ func NewAgoraServiceConfig() *AgoraServiceConfig {
 		AppId:                "",
 		AreaCode:             AreaCodeGlob,
 		ChannelProfile:       ChannelProfileLiveBroadcasting,
-		AudioScenario:        AudioScenarioChorus,
+		// for AI Scenario:
+		// default is AudioScenarioAiServer, if want to use other scenario, pls contact us and make sure the scenario is more optimized for your business
+		// for other business, you can use AudioScenarioChorus, AudioScenarioDefault, etc. but recommend to contact us and make sure the scenario is more optimized for your business
+		AudioScenario:        AudioScenarioAiServer,
 		UseStringUid:         false,
 		LogPath:              "",  // format like: "./agora_rtc_log/agorasdk.log"
 		LogSize:              1024 * 1024,
@@ -190,6 +195,8 @@ func Initialize(cfg *AgoraServiceConfig) int {
 		agoraParam.SetParameters("{\"che.audio.custom_bitrate\":32000}")
 	}
 
+	agoraService.mediaFactory = newMediaNodeFactory()
+
 	agoraService.inited = true
 	return 0
 }
@@ -203,6 +210,11 @@ func Release() int {
 	}
 	// cleanup go layer resources
 	agoraService.cleanup()
+
+	if agoraService.mediaFactory != nil {
+		agoraService.mediaFactory.release()
+		agoraService.mediaFactory = nil
+	}
 
 	// and release c layer resources
 	if agoraService.service != nil {

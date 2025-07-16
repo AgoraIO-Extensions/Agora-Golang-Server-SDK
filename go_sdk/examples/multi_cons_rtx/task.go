@@ -24,15 +24,7 @@ type TaskContext struct {
 
 	con *agoraservice.RtcConnection
 
-	audioPcmSender     *agoraservice.AudioPcmDataSender
-	audioTrack         *agoraservice.LocalAudioTrack
-	encodedAudioSender *agoraservice.AudioEncodedFrameSender
-	encodedAudioTrack  *agoraservice.LocalAudioTrack
-
-	videoYuvSender     *agoraservice.VideoFrameSender
-	videoTrack         *agoraservice.LocalVideoTrack
-	encodedVideoSender *agoraservice.VideoEncodedImageSender
-	encodedVideoTrack  *agoraservice.LocalVideoTrack
+	
 
 	streamId int
 
@@ -92,19 +84,15 @@ func (globalCtx *GlobalContext) newTask(id int, cfg *TaskConfig) *TaskContext {
 
 func (taskCtx *TaskContext) sendPcm(taskCfg *TaskConfig) {
 	ctx := taskCtx.ctx
-	audioTrack := taskCtx.audioTrack
-	pcmSender := taskCtx.audioPcmSender
+	
 	con := taskCtx.con
 
-	audioTrack.SetEnabled(true)
-	senderLocalUser := con.GetLocalUser()
-	senderLocalUser.PublishAudio(audioTrack)
+	con.PublishAudio()
 	// defer func() {
 	// 	senderLocalUser.UnpublishAudio(audioTrack)
 	// 	audioTrack.SetEnabled(false)
 	// }()
 
-	audioTrack.AdjustPublishVolume(100)
 
 	frame := agoraservice.AudioFrame{
 		Type:              agoraservice.AudioFrameTypePCM16,
@@ -151,7 +139,7 @@ func (taskCtx *TaskContext) sendPcm(taskCfg *TaskConfig) {
 				}
 
 				sendCount++
-				pcmSender.SendAudioPcmData(&frame)
+				con.PushAudioPcmData(frame.Buffer, frame.SamplesPerSec, frame.Channels)
 				// fmt.Printf("SendAudioPcmData %d ret: %d\n", sendCount, ret)
 			}
 			// fmt.Printf("Sent %d frames this time\n", shouldSendCount)
@@ -164,13 +152,11 @@ func (taskCtx *TaskContext) sendPcm(taskCfg *TaskConfig) {
 
 func (taskCtx *TaskContext) sendEncodedAudio(taskCfg *TaskConfig) {
 	ctx := taskCtx.ctx
-	encodedAudioTrack := taskCtx.encodedAudioTrack
-	encodedAudioSender := taskCtx.encodedAudioSender
+	
 	con := taskCtx.con
 
-	encodedAudioTrack.SetEnabled(true)
-	senderLocalUser := con.GetLocalUser()
-	senderLocalUser.PublishAudio(encodedAudioTrack)
+	con.PublishAudio()
+	
 	// defer func() {
 	// 	senderLocalUser.UnpublishAudio(encodedAudioTrack)
 	// 	encodedAudioTrack.SetEnabled(false)
@@ -222,7 +208,7 @@ func (taskCtx *TaskContext) sendEncodedAudio(taskCfg *TaskConfig) {
 				// if data[0] != 0xFF || (data[1] != 0xF1 && data[1] != 0xF9) {
 				// 	fmt.Printf("Invalid aac frame\n")
 				// }
-				ret = encodedAudioSender.SendEncodedAudioFrame(data, &agoraservice.EncodedAudioFrameInfo{
+				ret = con.PushAudioEncodedData(data, &agoraservice.EncodedAudioFrameInfo{
 					Speech:            false,
 					Codec:             agoraservice.AudioCodecAacLc,
 					SampleRateHz:      int(codecParam.sample_rate),
@@ -242,11 +228,10 @@ func (taskCtx *TaskContext) sendEncodedAudio(taskCfg *TaskConfig) {
 
 func (taskCtx *TaskContext) sendYuv(taskCfg *TaskConfig) {
 	ctx := taskCtx.ctx
-	videoTrack := taskCtx.videoTrack
-	yuvSender := taskCtx.videoYuvSender
+	
 	con := taskCtx.con
 
-	videoTrack.SetVideoEncoderConfiguration(&agoraservice.VideoEncoderConfiguration{
+	con.SetVideoEncoderConfiguration(&agoraservice.VideoEncoderConfiguration{
 		CodecType:         agoraservice.VideoCodecTypeH264,
 		Width:             taskCfg.sendYuvWidth,
 		Height:            taskCfg.sendYuvHeight,
@@ -256,9 +241,7 @@ func (taskCtx *TaskContext) sendYuv(taskCfg *TaskConfig) {
 		OrientationMode:   agoraservice.OrientationModeAdaptive,
 		DegradePreference: 0,
 	})
-	videoTrack.SetEnabled(true)
-	senderLocalUser := con.GetLocalUser()
-	senderLocalUser.PublishVideo(videoTrack)
+	con.PublishVideo()
 	// defer func() {
 	// 	senderLocalUser.UnpublishVideo(videoTrack)
 	// 	videoTrack.SetEnabled(false)
@@ -296,7 +279,7 @@ func (taskCtx *TaskContext) sendYuv(taskCfg *TaskConfig) {
 				continue
 			}
 			// senderCon.SendStreamMessage(streamId, data)
-			yuvSender.SendVideoFrame(&agoraservice.ExternalVideoFrame{
+			con.PushVideoFrame(&agoraservice.ExternalVideoFrame{
 				Type:      agoraservice.VideoBufferRawData,
 				Format:    agoraservice.VideoPixelI420,
 				Buffer:    data,
@@ -313,13 +296,10 @@ func (taskCtx *TaskContext) sendYuv(taskCfg *TaskConfig) {
 
 func (taskCtx *TaskContext) sendEncodedVideo(taskCfg *TaskConfig) {
 	ctx := taskCtx.ctx
-	encodedVideoTrack := taskCtx.encodedVideoTrack
-	encodedVideoSender := taskCtx.encodedVideoSender
+	
 	con := taskCtx.con
 
-	encodedVideoTrack.SetEnabled(true)
-	localUser := con.GetLocalUser()
-	localUser.PublishVideo(encodedVideoTrack)
+	con.PublishVideo()
 	// defer func() {
 	// 	localUser.UnpublishVideo(encodedVideoTrack)
 	// 	encodedVideoTrack.SetEnabled(false)
@@ -368,7 +348,7 @@ func (taskCtx *TaskContext) sendEncodedVideo(taskCfg *TaskConfig) {
 				frameType = agoraservice.VideoFrameTypeDeltaFrame
 			}
 			data := C.GoBytes(unsafe.Pointer(packet.data), packet.size)
-			encodedVideoSender.SendEncodedVideoImage(data, &agoraservice.EncodedVideoFrameInfo{
+			con.PushVideoEncodedData(data, &agoraservice.EncodedVideoFrameInfo{
 				CodecType:       agoraservice.VideoCodecTypeH264,
 				Width:           int(codecParam.width),
 				Height:          int(codecParam.height),
@@ -396,7 +376,7 @@ func (taskCtx *TaskContext) sendData() {
 	for {
 		select {
 		case <-ticker.C:
-			ret := con.SendStreamMessage(taskCtx.streamId, msg)
+			ret := con.SendStreamMessage(msg)
 			fmt.Printf("SendStreamMessage ret: %d, task %d\n", ret, id)
 		case <-ctx.Done():
 			fmt.Printf("task %d data stream sender finished\n", id)
@@ -496,55 +476,53 @@ func (taskCtx *TaskContext) startTask() {
 	}
 
 	scenario := globalCtx.audioSenario
-	
 
-	con := agoraservice.NewRtcConnection(&agoraservice.RtcConnectionConfig{
+	var con *agoraservice.RtcConnection = nil
+	conCfg := &agoraservice.RtcConnectionConfig{
 		AutoSubscribeAudio: cfg.recvPcm ,
 		AutoSubscribeVideo: cfg.recvYuv || cfg.recvEncodedVideo,
 		ClientRole:         role, //agoraservice.ClientRoleBroadcaster,
 		ChannelProfile:     agoraservice.ChannelProfileLiveBroadcasting,
-	}, scenario)
-	taskCtx.con = con
-	defer taskCtx.releaseTask()
+	}
+	publishConfig := agoraservice.NewRtcConPublishConfig()
+	publishConfig.AudioScenario = scenario
+	// disable publish audio and video, and assign value according to task type
+	publishConfig.IsPublishAudio = false
+	publishConfig.IsPublishVideo = false
+	
+	
 	fmt.Printf("task %d config.role: %d, rtc role: %d, channelname: %s\n", id, cfg.role, role, channelName)
 
+	// according to task type, fill publishConfig
 	if cfg.sendPcm {
-		// create audio track
-		taskCtx.audioPcmSender = globalCtx.mediaNodeFactory.NewAudioPcmDataSender()
-		// defer taskCtx.audioPcmSender.Release()
-		taskCtx.audioTrack = agoraservice.NewCustomAudioTrackPcm(taskCtx.audioPcmSender, scenario)
-		// defer taskCtx.audioTrack.Release()
+		publishConfig.IsPublishAudio = true
+		publishConfig.AudioPublishType = agoraservice.AudioPublishTypePcm
 	}
 	if cfg.sendEncodedAudio {
-		taskCtx.encodedAudioSender = globalCtx.mediaNodeFactory.NewAudioEncodedFrameSender() // .NewAudioPcmDataSender()
-		// defer taskCtx.encodedAudioSender.Release()
-		taskCtx.encodedAudioTrack = agoraservice.NewCustomAudioTrackEncoded(taskCtx.encodedAudioSender, agoraservice.AudioTrackMixDisabled) // .NewCustomAudioTrackPcm(sender)
-		// defer taskCtx.encodedAudioTrack.Release()
+		publishConfig.IsPublishAudio = true
+		publishConfig.AudioPublishType = agoraservice.AudioPublishTypeEncodedPcm
 	}
 	if cfg.sendYuv {
-		// create video track
-		taskCtx.videoYuvSender = globalCtx.mediaNodeFactory.NewVideoFrameSender()
-		// defer taskCtx.videoYuvSender.Release()
-		taskCtx.videoTrack = agoraservice.NewCustomVideoTrackFrame(taskCtx.videoYuvSender)
-		// defer taskCtx.videoTrack.Release()
+		publishConfig.IsPublishVideo = true
+		publishConfig.VideoPublishType = agoraservice.VideoPublishTypeYuv
 	}
 	if cfg.sendEncodedVideo {
-		taskCtx.encodedVideoSender = globalCtx.mediaNodeFactory.NewVideoEncodedImageSender()
-		// defer taskCtx.encodedVideoSender.Release()
-		taskCtx.encodedVideoTrack = agoraservice.NewCustomVideoTrackEncoded(taskCtx.encodedVideoSender, &agoraservice.VideoEncodedImageSenderOptions{
-			CcMode:        agoraservice.VideoSendCcEnabled,
-			CodecType:     agoraservice.VideoCodecTypeH264,
-			TargetBitrate: cfg.sendVideoBitrate,
-		})
-		// defer taskCtx.encodedVideoTrack.Release()
+		publishConfig.IsPublishVideo = true
+		publishConfig.VideoPublishType = agoraservice.VideoPublishTypeEncodedImage
+		publishConfig.VideoEncodedImageSenderOptions.CcMode = agoraservice.VideoSendCcEnabled
+		publishConfig.VideoEncodedImageSenderOptions.CodecType = agoraservice.VideoCodecTypeH264
+		publishConfig.VideoEncodedImageSenderOptions.TargetBitrate = cfg.sendVideoBitrate
 	}
+
+	con = agoraservice.NewRtcConnection(conCfg, publishConfig)
+
+
+	taskCtx.con = con
+	defer taskCtx.releaseTask()
 	// create datastream
 	if cfg.sendData {
-		var errCode int = 0
-		taskCtx.streamId, errCode = con.CreateDataStream(false, false)
-		if errCode != 0 {
-			fmt.Printf("task %d Failed to create data stream: %d, channel %s\n", id, errCode, channelName)
-		}
+		
+		//note :no need to create datastream, it will be created automatically when send stream message
 	}
 
 	localUser := con.GetLocalUser()
@@ -579,7 +557,7 @@ func (taskCtx *TaskContext) startTask() {
 			},
 		}
 		localUser.SetPlaybackAudioFrameBeforeMixingParameters(1, 16000)
-		localUser.RegisterAudioFrameObserver(recvAudioFrameObs, 0, nil)
+		con.RegisterAudioFrameObserver(recvAudioFrameObs, 0, nil)
 	}
 	if cfg.recvYuv {
 		recvVideoFrameObs := &agoraservice.VideoFrameObserver{
@@ -608,7 +586,7 @@ func (taskCtx *TaskContext) startTask() {
 				return true
 			},
 		}
-		localUser.RegisterVideoFrameObserver(recvVideoFrameObs)
+		con.RegisterVideoFrameObserver(recvVideoFrameObs)
 	}
 	localUserObs := &agoraservice.LocalUserObserver{}
 	if cfg.recvEncodedVideo {
@@ -640,16 +618,15 @@ func (taskCtx *TaskContext) startTask() {
 			EncodedFrameOnly: true,
 		}
 		localUser.SubscribeAllVideo(subvideoopt)
-		localUser.RegisterVideoEncodedFrameObserver(encodedVideoObserver)
+		con.RegisterVideoEncodedFrameObserver(encodedVideoObserver)
 	}
 	if cfg.recvData {
 		localUserObs.OnStreamMessage = func(localUser *agoraservice.LocalUser, uid string, streamId int, data []byte) {
 			fmt.Printf("task %d recv stream message: %s, channel %s, uid %s\n", id, string(data), channelName, uid)
 		}
 	}
-	localUser.RegisterLocalUserObserver(localUserObs)
-	// defer localUser.UnregisterLocalUserObserver()
-	localUser.SetAudioScenario(agoraservice.AudioScenarioChorus)
+	con.RegisterLocalUserObserver(localUserObs)
+	
 	con.Connect(token1, channelName, senderId)
 	// defer con.Disconnect()
 
@@ -728,49 +705,11 @@ func (taskCtx *TaskContext) releaseTask() {
 		fmt.Printf("task %d release empty connection\n", taskCtx.id)
 		return
 	}
-	localUser := taskCtx.con.GetLocalUser()
-	if taskCtx.audioPcmSender != nil {
-		taskCtx.audioPcmSender.Release()
-		taskCtx.audioPcmSender = nil
-	}
-	if taskCtx.audioTrack != nil {
-		localUser.UnpublishAudio(taskCtx.audioTrack)
-		taskCtx.audioTrack.Release()
-		taskCtx.audioTrack = nil
-	}
-	if taskCtx.videoYuvSender != nil {
-		taskCtx.videoYuvSender.Release()
-		taskCtx.videoYuvSender = nil
-	}
-	if taskCtx.videoTrack != nil {
-		localUser.UnpublishVideo(taskCtx.videoTrack)
-		taskCtx.videoTrack.Release()
-		taskCtx.videoTrack = nil
-	}
-	if taskCtx.encodedAudioSender != nil {
-		taskCtx.encodedAudioSender.Release()
-		taskCtx.encodedAudioSender = nil
-	}
-	if taskCtx.encodedAudioTrack != nil {
-		localUser.UnpublishAudio(taskCtx.encodedAudioTrack)
-		taskCtx.encodedAudioTrack.Release()
-		taskCtx.encodedAudioTrack = nil
-	}
-	if taskCtx.encodedVideoSender != nil {
-		taskCtx.encodedVideoSender.Release()
-		taskCtx.encodedVideoSender = nil
-	}
-	if taskCtx.encodedVideoTrack != nil {
-		localUser.UnpublishVideo(taskCtx.encodedVideoTrack)
-		taskCtx.encodedVideoTrack.Release()
-		taskCtx.encodedVideoTrack = nil
-	}
-	localUser.UnregisterAudioFrameObserver()
-	localUser.UnregisterVideoFrameObserver()
-	localUser.UnregisterVideoEncodedFrameObserver()
+	
+	// for relase ,only disconnect and release,do not care unregister!!
+	
 	taskCtx.con.Disconnect()
-	taskCtx.con.UnregisterObserver()
-	localUser.UnregisterLocalUserObserver()
+	
 	taskCtx.con.Release()
 	taskCtx.con = nil
 	fmt.Printf("task %d released\n", taskCtx.id)

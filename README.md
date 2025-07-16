@@ -104,6 +104,84 @@ import (
   - if you don't use VAD, and your glibc version is between 2.16 and 2.27, you can disable VAD by rename **audio_vad.go** file in go_sdk/agoraserver/ to **audio_vad.go.bak**
 
 # Change log
+# 2025-07-16 release 2.3.0
+-- update rtc sdk,fixed 2 bugs
+## New Features & Improvements
+
+1. **Audio Scenario Support**  
+   - Added support for `AudioScenarioAiServer` scenario type.  
+   - Default `AudioScenario` is now `AudioScenarioAiServer`.  
+   - Enabled configuring different `scenario` and `profile` for connections within the same process.  
+   - Introduced `publishConfig` in connection creation to set `{scenario, profile, publishAudio, publishVideo, etc.}` [1,2](@ref).
+
+2. **Connection Enhancements**  
+   Added to `connection`:  
+   - Observer registration:  
+     - `RegisterLocalUserObserver`  
+     - `RegisterAudioFrameObserver`  
+     - `RegisterVideoFrameObserver`  
+     - `RegisterVideoEncodedFrameObserver`  
+   - Stream control:  
+     - `PublishAudio`/`UnpublishAudio`  
+     - `PublishVideo`/`UnpublishVideo`  
+   - Data pushing:  
+     - `PushAudioPcmData`/`PushAudioEncodedData`  
+     - `PushVideoFrame`/`PushVideoEncodedData`  
+   - Audio interruption: `InterruptAudio`  
+   - Status check: `IsPushToRTCCompleted`  
+   - Callback implementation: `OnAIQoSCapabilityMissing`  
+   - Metadata: `SendAudioMetaData`  
+   - **Note**: Automatic `CreateDataStream` (no manual calls needed) [1,3](@ref).
+
+3. **Internal Simplifications**  
+   The following are now handled automatically:  
+   - `newMediaNodeFactory`  
+   - Track creation (e.g., `NewCustomAudioTrackPcm`, `NewCustomVideoTrack`)  
+   - Sender initialization (e.g., `NewAudioPcmDataSender`)  
+   - Observer unregistration (e.g., `unregisterAudioFrameObserver`) [1,4](@ref).
+
+---
+
+## Integration Workflow
+```go
+1. svcCfg := agoraservice.NewAgoraServiceConfig()
+2. agoraservice.Initialize(svcCfg)
+3. con := agoraservice.NewRtcConnection(conCfg, publishConfig)
+4. // Register observers:
+   con.RegisterObserver(conHandler)
+   con.RegisterAudioFrameObserver(...)
+   con.RegisterLocalUserObserver(...)
+5. con.Connect(token, channelName, userId)
+6. con.PublishAudio() // or con.PublishVideo()
+7. con.PushAudioPcmData(...) // or con.PushVideoFrame(...)
+8. con.Disconnect()
+9. con.Release()
+10. agoraservice.Release() // Call on process exit
+
+Note 1​​:
+
+Steps 1–2 are called ​​once​​ during process startup.
+Steps 3–9 can loop for multiple connections.
+Step 10 is called ​​once​​ on process exit .
+​​Note 2​​:
+
+​​For AI scenarios​​:
+Use AudioScenarioAiServer (optimized for lower latency + better weak-network performance).
+​​Requirement​​: Client-side SDK must use AIClient scenario (consult Agora SA for compatible SDK versions).
+​​For non-AI scenarios​​:
+Contact Agora Support to match scenarios to your use case.
+​​Connection cleanup​​:
+Observers auto-unregister on Release() (no manual unregister calls) 
+### Key Changes Summary
+| **Before**                     | **After 2.3.0**                     |
+|-------------------------------|-------------------------------------|
+| Manual `CreateDataStream`     | ✅ Automatic                        |
+| Manual observer unregistration | ✅ Automatic on `Release()`         |
+| Fixed per-process scenario    | ✅ Multi-scenario per process      |
+| Client/Server scenario mismatch| ❗ `AIClient` mandatory for AI use |  
+
+> ⚠️ **Critical**: Client-side SDK compatibility is required for `AudioScenarioAiServer` – verify with Agora support 
+
 ## 2025.07.02 release 2.2.10
 -- remove： Removed the setting of scenario in the enableSteroEncodeMode function, as this scenario can be passed as a parameter in NewRtcConnection, making it no longer necessary to set within enableSteroEncodeMode.
 ## 2025.07.01 release 2.2.9

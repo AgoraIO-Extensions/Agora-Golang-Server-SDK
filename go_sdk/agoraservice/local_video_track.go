@@ -73,7 +73,7 @@ func NewCustomVideoTrackEncoded(videoSender *VideoEncodedImageSender, senderOpti
 }
 
 func (track *LocalVideoTrack) Release() {
-	if track.cTrack == nil {
+	if track == nil || track.cTrack == nil {
 		return
 	}
 	C.agora_local_video_track_destroy(track.cTrack)
@@ -81,7 +81,7 @@ func (track *LocalVideoTrack) Release() {
 }
 
 func (track *LocalVideoTrack) SetEnabled(enable bool) {
-	if track.cTrack == nil {
+	if track == nil || track.cTrack == nil {
 		return
 	}
 	cEnable := 0
@@ -91,7 +91,7 @@ func (track *LocalVideoTrack) SetEnabled(enable bool) {
 	C.agora_local_video_track_set_enabled(track.cTrack, C.int(cEnable))
 }
 
-func (track *LocalVideoTrack) SetVideoEncoderConfiguration(cfg *VideoEncoderConfiguration) int {
+func (track *LocalVideoTrack) setVideoEncoderConfiguration(cfg *VideoEncoderConfiguration) int {
 	cCfg := C.struct__video_encoder_config{}
 	C.memset(unsafe.Pointer(&cCfg), 0, C.sizeof_struct__video_encoder_config)
 	cCfg.codec_type = C.int(cfg.CodecType)

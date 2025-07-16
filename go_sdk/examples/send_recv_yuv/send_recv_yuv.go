@@ -54,11 +54,13 @@ func main() {
 		}
 	}
 	svcCfg := agoraservice.NewAgoraServiceConfig()
+	// whether sending or receiving video, we need to set EnableVideo to true!!
 	svcCfg.EnableVideo = true
 	svcCfg.AppId = appid
 
 	agoraservice.Initialize(svcCfg)
-	mediaNodeFactory := agoraservice.NewMediaNodeFactory()
+	scenario := agoraservice.AudioScenarioChorus
+	
 
 	conCfg := agoraservice.RtcConnectionConfig{
 		AutoSubscribeAudio: true,
@@ -66,6 +68,15 @@ func main() {
 		ClientRole:         agoraservice.ClientRoleBroadcaster,
 		ChannelProfile:     agoraservice.ChannelProfileLiveBroadcasting,
 	}
+	
+	publishConfig := agoraservice.NewRtcConPublishConfig()
+	publishConfig.AudioPublishType = agoraservice.AudioPublishTypePcm
+	publishConfig.AudioScenario = scenario
+	publishConfig.IsPublishAudio = true
+	publishConfig.IsPublishVideo = true
+	publishConfig.VideoPublishType = agoraservice.VideoPublishTypeYuv
+	publishConfig.AudioProfile = agoraservice.AudioProfileDefault
+
 	conSignal := make(chan struct{})
 	conHandler := &agoraservice.RtcConnectionObserver{
 		OnConnected: func(con *agoraservice.RtcConnection, info *agoraservice.RtcConnectionInfo, reason int) {
@@ -121,22 +132,20 @@ func main() {
 			return true
 		},
 	}
-	scenario := svcCfg.AudioScenario
-	con := agoraservice.NewRtcConnection(&conCfg, scenario)
-
-	localUser := con.GetLocalUser()
-	con.RegisterObserver(conHandler)
-	localUser.RegisterVideoFrameObserver(videoObserver)
-
-	sender := mediaNodeFactory.NewVideoFrameSender()
 	
-	track := agoraservice.NewCustomVideoTrackFrame(sender)
+	con := agoraservice.NewRtcConnection(&conCfg, publishConfig)
+
+	
+	con.RegisterObserver(conHandler)
+	con.RegisterVideoFrameObserver(videoObserver)
+
 
 
 	con.Connect(token, channelName, userId)
 	<-conSignal
 
-	track.SetVideoEncoderConfiguration(&agoraservice.VideoEncoderConfiguration{
+	// can update in session life cycle
+	con.SetVideoEncoderConfiguration(&agoraservice.VideoEncoderConfiguration{
 		CodecType:         agoraservice.VideoCodecTypeH264,
 		Width:             320,
 		Height:            240,
@@ -146,9 +155,10 @@ func main() {
 		OrientationMode:   agoraservice.OrientationModeAdaptive,
 		DegradePreference: 2,
 	})
-	track.SetEnabled(true)
-	localUser.PublishVideo(track)
+	
+	con.PublishVideo()
 
+	
 	// for yuv test
 	
 	w := 352
@@ -170,7 +180,7 @@ func main() {
 			continue
 		}
 		// senderCon.SendStreamMessage(streamId, data)
-		sender.SendVideoFrame(&agoraservice.ExternalVideoFrame{
+		con.PushVideoFrame(&agoraservice.ExternalVideoFrame{
 			Type:      agoraservice.VideoBufferRawData,
 			Format:    agoraservice.VideoPixelI420,
 			Buffer:    data,
@@ -180,6 +190,7 @@ func main() {
 		})
 		time.Sleep(33 * time.Millisecond)
 	}
+	
 	/*
 	// rgag colos space type test
 	w := 360
@@ -202,7 +213,7 @@ func main() {
 			continue
 		}
 		// senderCon.SendStreamMessage(streamId, data)
-		sender.SendVideoFrame(&agoraservice.ExternalVideoFrame{
+		con.PushVideoFrame(&agoraservice.ExternalVideoFrame{
 			Type:      agoraservice.VideoBufferRawData,
 			Format:    agoraservice.VideoPixelRGBA,
 			Buffer:    data,
@@ -220,32 +231,26 @@ func main() {
 		})
 		time.Sleep(33 * time.Millisecond)
 	}
-*/
+	*/
+
 	//release now
 	
 
-	localUser.UnpublishVideo(track)
-	track.SetEnabled(false)
-	localUser.UnregisterAudioFrameObserver()
-	localUser.UnregisterVideoFrameObserver()
-	localUser.UnregisterLocalUserObserver()
+	
 
 	start_disconnect := time.Now().UnixMilli()
 	con.Disconnect()
 	//<-OnDisconnectedSign
-	con.UnregisterObserver()
+	
 
 	con.Release()
 
-	track.Release()
-	sender.Release()
-	mediaNodeFactory.Release()
+	
 	agoraservice.Release()
 
-	track = nil
+	
 	videoObserver = nil
 	
-	localUser = nil
 	conHandler = nil
 	con = nil
 

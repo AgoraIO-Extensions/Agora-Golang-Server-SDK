@@ -64,15 +64,10 @@ func main() {
 
 	agoraservice.Initialize(svcCfg)
 	
-	mediaNodeFactory := agoraservice.NewMediaNodeFactory()
 	
+	
+	var con *agoraservice.RtcConnection = nil
 
-	conCfg := agoraservice.RtcConnectionConfig{
-		AutoSubscribeAudio: true,
-		AutoSubscribeVideo: true,
-		ClientRole:         agoraservice.ClientRoleBroadcaster,
-		ChannelProfile:     agoraservice.ChannelProfileLiveBroadcasting,
-	}
 	conSignal := make(chan struct{})
 	conHandler := &agoraservice.RtcConnectionObserver{
 		OnConnected: func(con *agoraservice.RtcConnection, info *agoraservice.RtcConnectionInfo, reason int) {
@@ -105,6 +100,10 @@ func main() {
 		OnUserLeft: func(con *agoraservice.RtcConnection, uid string, reason int) {
 			fmt.Println("user left, " + uid)
 		},
+		OnAIQoSCapabilityMissing: func(con *agoraservice.RtcConnection, defaultFallbackSenario int) int {
+			fmt.Printf("onAIQoSCapabilityMissing, defaultFallbackSenario: %d\n", defaultFallbackSenario)
+			return int(agoraservice.AudioScenarioDefault)
+		},
 	}
 
 	videoChan := make(chan *EncodedVideoData, 100)
@@ -124,18 +123,32 @@ func main() {
 			return true
 		},
 	}
-	scenario := svcCfg.AudioScenario
-	con := agoraservice.NewRtcConnection(&conCfg, scenario)
+	scenario := agoraservice.AudioScenarioAiServer
+	conCfg := &agoraservice.RtcConnectionConfig{
+		AutoSubscribeAudio: true,
+		AutoSubscribeVideo: true,
+		ClientRole:         agoraservice.ClientRoleBroadcaster,
+		ChannelProfile:     agoraservice.ChannelProfileLiveBroadcasting,
+	}
+	publishConfig := agoraservice.NewRtcConPublishConfig()
+	publishConfig.AudioScenario = scenario
+	publishConfig.IsPublishAudio = true
+	publishConfig.IsPublishVideo = true
+	publishConfig.AudioProfile = agoraservice.AudioProfileDefault
+	publishConfig.AudioPublishType = agoraservice.AudioPublishTypeNoPublish
+	publishConfig.VideoPublishType = agoraservice.VideoPublishTypeNoPublish
+
+	con = agoraservice.NewRtcConnection(conCfg, publishConfig)
 	
 
-	localUser := con.GetLocalUser()
+
 	con.RegisterObserver(conHandler)
-	ret := localUser.RegisterLocalUserObserver(localUserObserver)
+	ret := con.RegisterLocalUserObserver(localUserObserver)
 	if ret != 0 {
 		fmt.Println("RegisterLocalUserObserver failed, ret ", ret)
 		return
 	}
-	localUser.RegisterVideoEncodedFrameObserver(encodedVideoObserver)
+	con.RegisterVideoEncodedFrameObserver(encodedVideoObserver)
 
 	con.Connect(token, channelName, userId)
 	<-conSignal
@@ -159,25 +172,20 @@ func main() {
 	}
 
 	// release resource
-	
-	localUser.UnregisterAudioFrameObserver()
-	localUser.UnregisterAudioFrameObserver()
-	localUser.UnregisterLocalUserObserver()
 
 	
 	con.Disconnect()
 	//<-OnDisconnectedSign
-	con.UnregisterObserver()
+	
 
 	con.Release()
 
 	
-	mediaNodeFactory.Release()
+
 	agoraservice.Release()
 
 
 	localUserObserver = nil
-	localUser = nil
 	conHandler = nil
 	con = nil
 

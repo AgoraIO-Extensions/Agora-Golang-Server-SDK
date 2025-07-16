@@ -16,7 +16,8 @@ import (
 	rtctokenbuilder "github.com/AgoraIO/Tools/DynamicKey/AgoraDynamicKey/go/src/rtctokenbuilder2"
 )
 
-func PushFileToConsumer(file *os.File, audioConsumer *agoraservice.AudioConsumer, chunk int) {
+func PushFileToConsumer(file *os.File, conn *agoraservice.RtcConnection, samplerate int) {
+	chunk := samplerate * 2  // stream data with 1 s period
 	buffer := make([]byte, chunk)
 	for {
 		readLen, err := file.Read(buffer)
@@ -25,20 +26,21 @@ func PushFileToConsumer(file *os.File, audioConsumer *agoraservice.AudioConsumer
 			file.Seek(0, 0)
 			break
 		}
-		audioConsumer.PushPCMData(buffer)
+		conn.PushAudioPcmData(buffer, samplerate, 1)
 	}
 	buffer = nil
 }
-func ReadFileToConsumer(file *os.File, consumer *agoraservice.AudioConsumer, interval int, done chan bool, chunk int) {
+func ReadFileToConsumer(file *os.File, conn *agoraservice.RtcConnection, interval int, done chan bool, samplerate int) {
 	for {
 		select {
 		case <-done:
 			fmt.Println("ReadFileToConsumer done")
 			return
 		default:
-			len := consumer.Len()
-			if len < chunk*interval {
-				PushFileToConsumer(file, consumer, chunk)
+			pushCompleted := conn.IsPushToRtcCompleted()
+			if pushCompleted {
+				PushFileToConsumer(file, conn, samplerate)
+				fmt.Printf("PushFileToConsumer, time %d, samplerate %d\n", time.Now().UnixMilli(),samplerate)
 			}
 			time.Sleep(time.Duration(interval) * time.Millisecond)
 		}
@@ -46,14 +48,13 @@ func ReadFileToConsumer(file *os.File, consumer *agoraservice.AudioConsumer, int
 }
 
 
-func ConsumeAudio(audioConsumer *agoraservice.AudioConsumer, interval int, done chan bool) {
+func ConsumeAudio(conn *agoraservice.RtcConnection, interval int, done chan bool) {
 	for {
 		select {
 		case <-done:
 			fmt.Println("ConsumeAudio done")
 			return
 		default:
-			audioConsumer.Consume()
 			time.Sleep(time.Duration(interval) * time.Millisecond)
 		}
 	}
@@ -124,26 +125,38 @@ func main() {
 	}
 	svcCfg := agoraservice.NewAgoraServiceConfig()
 	svcCfg.AppId = appid
-	// eanbe callback when muted
-	svcCfg.ShouldCallbackWhenMuted = 1
+	svcCfg.LogPath = "./agora_rtc_log/agorasdk.log"
+	svcCfg.ConfigDir = "./agora_rtc_log"
+	svcCfg.DataDir = "./agora_rtc_log"
+
 
 	agoraservice.Initialize(svcCfg)
 	defer agoraservice.Release()
-	mediaNodeFactory := agoraservice.NewMediaNodeFactory()
-	defer mediaNodeFactory.Release()
-	agoraParam := agoraservice.GetAgoraParameter()
-	// 用来做验证：chorus模式下的延迟和抖动之间的关系
-	agoraParam.SetParameters("{\"che.audio.rsfec\":[1, 0]}")
-	agoraParam.SetParameters("{\"che.audio.custom_bitrate\":32000}")
-	agoraParam.SetParameters("{\"che.audio.max_target_delay\":100}")
 	
-
-	conCfg := agoraservice.RtcConnectionConfig{
+	
+	
+	conCfg := &agoraservice.RtcConnectionConfig{
 		AutoSubscribeAudio: true,
 		AutoSubscribeVideo: false,
 		ClientRole:         agoraservice.ClientRoleBroadcaster,
 		ChannelProfile:     agoraservice.ChannelProfileLiveBroadcasting,
 	}
+	start := time.Now().UnixMilli()
+
+	// can set to what you want
+	scenario := agoraservice.AudioScenarioChorus
+
+	publishConfig := agoraservice.NewRtcConPublishConfig()
+	publishConfig.AudioPublishType = agoraservice.AudioPublishTypePcm
+	publishConfig.AudioScenario = scenario
+	publishConfig.IsPublishAudio = true
+	publishConfig.IsPublishVideo = false
+	publishConfig.AudioProfile = agoraservice.AudioProfileDefault
+	
+
+	con := agoraservice.NewRtcConnection(conCfg, publishConfig)
+	defer con.Release()
+	
 	conSignal := make(chan struct{})
 	OnDisconnectedSign := make(chan struct{})
 	conHandler := &agoraservice.RtcConnectionObserver{
@@ -178,6 +191,10 @@ func main() {
 		OnUserLeft: func(con *agoraservice.RtcConnection, uid string, reason int) {
 			fmt.Println("user left, " + uid)
 		},
+		OnAIQoSCapabilityMissing: func(con *agoraservice.RtcConnection, defaultFallbackSenario int) int {
+			fmt.Printf("onAIQoSCapabilityMissing, defaultFallbackSenario: %d\n", defaultFallbackSenario)
+			return int(agoraservice.AudioScenarioDefault)
+		},
 	}
 	audioObserver := &agoraservice.AudioFrameObserver{
 		OnPlaybackAudioFrameBeforeMixing: func(localUser *agoraservice.LocalUser, channelId string, userId string, frame *agoraservice.AudioFrame, vadResulatState agoraservice.VadState, vadResultFrame *agoraservice.AudioFrame) bool {
@@ -186,13 +203,8 @@ func main() {
 			return true
 		},
 	}
-	start := time.Now().UnixMilli()
-	scenario := svcCfg.AudioScenario
+	
 
-	con := agoraservice.NewRtcConnection(&conCfg, scenario)
-	defer con.Release()
-
-	localStreamId, _ := con.CreateDataStream(false, false)
 
 	//added by wei for localuser observer
 	localUserObserver := &agoraservice.LocalUserObserver{
@@ -200,7 +212,7 @@ func main() {
 			// do something
 			fmt.Printf("*****Stream message, from userId %s\n", uid)
 			//con.SendStreamMessage(streamId, data)
-			con.SendStreamMessage(localStreamId, data)
+			con.SendStreamMessage(data)
 		},
 
 		OnAudioVolumeIndication: func(localUser *agoraservice.LocalUser, audioVolumeInfo []*agoraservice.AudioVolumeInfo, speakerNumber int, totalVolume int) {
@@ -230,42 +242,40 @@ func main() {
 			//ret := "abc"
 			//retbytes := []byte(ret)	
 			
-			localUser.SendAudioMetaData(metaData)
+			con.SendAudioMetaData(metaData)
 		},
+		OnAudioTrackPublishSuccess: func(localUser *agoraservice.LocalUser, audioTrack *agoraservice.LocalAudioTrack) {
+			fmt.Printf("*****Audio track publish success, time %d\n", time.Now().UnixMilli())
+		},
+		OnAudioTrackUnpublished: func(localUser *agoraservice.LocalUser, audioTrack *agoraservice.LocalAudioTrack) {
+			fmt.Printf("*****Audio track unpublished, time %d\n", time.Now().UnixMilli())
+		},
+
 	}
 
 	con.RegisterObserver(conHandler)
 
 	//end
 
-	// sender := con.NewPcmSender()
-	// defer sender.Release()
-	sender := mediaNodeFactory.NewAudioPcmDataSender()
-	defer sender.Release()
-	track := agoraservice.NewCustomAudioTrackPcm(sender, scenario)
-	defer track.Release()
 
 	localUser := con.GetLocalUser()
-	
-	// for lixiang test
-	localUser.SetAudioScenario(agoraservice.AudioScenarioGameStreaming)
-	localUser.SetAudioEncoderConfiguration(&agoraservice.AudioEncoderConfiguration{AudioProfile: int(agoraservice.AudioProfileMusicHighQualityStereo)})
+	localUser.SetPlaybackAudioFrameBeforeMixingParameters(1, 16000)
+	con.RegisterLocalUserObserver(localUserObserver)
 
-	// end lixiang 
+	con.RegisterAudioFrameObserver(audioObserver, 0, nil)
+	
+	
+	
 	con.Connect(token, channelName, userId)
 	<-conSignal
 
 	end := time.Now().UnixMilli()
 	fmt.Printf("Connect cost %d ms\n", end-start)
 
-	localUser = con.GetLocalUser()
-	localUser.SetPlaybackAudioFrameBeforeMixingParameters(1, 16000)
-	localUser.RegisterLocalUserObserver(localUserObserver)
+	
 
-	localUser.RegisterAudioFrameObserver(audioObserver, 0, nil)
-
-	track.SetEnabled(true)
-	localUser.PublishAudio(track)
+	
+	con.PublishAudio()
 
 	file, err := os.Open(filepath)
 	if err != nil {
@@ -276,8 +286,7 @@ func main() {
 
 
 
-	audioConsumer := agoraservice.NewAudioConsumer(sender, samplerate, 1)
-	defer audioConsumer.Release()
+	
 
 	done := make(chan bool)
 	// new method for push
@@ -296,8 +305,8 @@ func main() {
 		    # “Timer”的触发间隔，可以和业务已有的timer间隔一致，也可以根据业务需求调整，推荐在40～80ms之间
 
 	*/
-	go ReadFileToConsumer(file, audioConsumer, 50, done, samplerate*2/100)
-	go ConsumeAudio(audioConsumer, 50, done)
+	go ReadFileToConsumer(file, con, 50, done, samplerate)
+	//go ConsumeAudio(con, 50, done)
 
 
 	//release operation:cancel defer release,try manual release
@@ -306,27 +315,19 @@ func main() {
 	}
 	close(done)
 
-	audioConsumer.Release()
-
-	localUser.UnpublishAudio(track)
-	track.SetEnabled(false)
-	localUser.UnregisterAudioFrameObserver()
-	localUser.UnregisterAudioFrameObserver()
-	localUser.UnregisterLocalUserObserver()
+	
 
 	start_disconnect := time.Now().UnixMilli()
 	con.Disconnect()
 	//<-OnDisconnectedSign
-	con.UnregisterObserver()
+	
 
 	con.Release()
 
-	track.Release()
-	sender.Release()
-	mediaNodeFactory.Release()
+	
 	agoraservice.Release()
 
-	track = nil
+	
 	audioObserver = nil
 	localUserObserver = nil
 	localUser = nil
