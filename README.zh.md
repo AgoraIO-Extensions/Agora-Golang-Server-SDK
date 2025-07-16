@@ -92,7 +92,7 @@ import (
 ```
 - 运行项目时，记得将 **agora_sdk**目录 (或 Mac 上的 **agora_sdk_mac** 目录) 路径添加到 LD_LIBRARY_PATH (或 Mac 上的 DYLD_LIBRARY_PATH) 环境变量中。
 
-## 逻辑关系
+##  ❗ ❗逻辑关系
 在一个进程中，只能有一个agoraservice实例.
 该实例可以创建多个connection实例.
 因此：只能创建/初始化一次agoraservice实例，但可以创建多个connection实例.
@@ -106,9 +106,15 @@ import (
   - 如果可能，你可以升级你的 glibc，或者你需要将运行系统升级到 **所需的操作系统版本**
   - 如果你不使用 VAD，并且你的 glibc 版本在 2.16 和 2.27 之间，你可以通过将 go_sdk/agoraserver/ 中的 **audio_vad.go** 文件重命名为 **audio_vad.go.bak** 来禁用 VAD
 
+#todo
+- [ ] 增加对agora_local_user_send_intra_request的支持
+- [ ] 增加对on_intra_request_received 的支持
+- [ ] 增加onaudio_volume_indication的支持
+
 # 更新日志
 
-## 2025.07.10 发布 2.3.0
+## 2025.07.16 发布 2.3.0
+-- update rtc sdk, fixed 2 bugs
 -- 增加对AudioScenarioAiServer 类型scenario的支持
 -- 默认的AudioScenario是AudioScenarioAiServer
 -- 增加对同一个进程中的conneciton，允许配置为不同的scenario，profile
@@ -117,12 +123,17 @@ import (
   - RegisterLocalUserObserver, RegisterAudioFrameObserver, RegisterVideoFrameObserver,RegisterVideoEncodedFrameObserver
   - PublishAudio/UnpublsihAudio, PublishVideo/UnpublsihVideo
   - PushAudioPcmData/PushAudioEncodedData, PushVideoFrame/PushVideoEncodedData
-  - InterruptAudio
+  - InterruptAudio：支持打断功能
   - IsPushToRTCCompleted方法
   - OnAIQoSCapabilityMissing回调接口的实现
   - SendAudioMetaData方法
   - 不在需要人工调用CreateDataStream，内部自动默认
--- 集成方式：
+-- 不对外公开的方法：
+  - 不再需要开发者人工带用 newMediaNodeFactory
+  - 不在需要开发者人工调用：NewCustomAudioTrackPcm, NewCustomAudioTrackEncoded, NewCustomVideoTrack等
+  - 不在需要开发者人工调用：NewAudioPcmDataSender等sender
+  - 不在需要开发者人工调用 unregisterAudioFrameObserver, unregisterVideoFrameObserver等observer
+-- 集成方式： ❗具体集成方式，如何做升级，请咨询SA
 1. svcCfg := agoraservice.NewAgoraServiceConfig()
 2.agoraservice.Initialize(svcCfg)
 3.con := agoraservice.NewRtcConnection(conCfg, publishConfig)
@@ -130,16 +141,27 @@ import (
   -4.1 con.RegisterObserver(conHandler)
   -4.2 con.RegisterAudioFrameObserver
   -4.3 con.RegisterLocalUserObserver(localUserObserver)
-5.con.Connect(token, channelName, userId)
-6. con.PublisAudio/Video
-7. con.PushAudioPcmData/EncodedData
+5. con.Connect(token, channelName, userId)
+6. con.PublisAudio or con.PublishVideo
+7. con.PushAudioPcmData/EncodedData or con.PushVideoFrame/EncodedData
 8. con.Disconnect
 9. con.Release
 10.agoraservice.Release()
+Note1: 步骤1、2在进程启动的时候调用一次，后面不在需要调用；步骤10在进程退出的时候调用一次，后面不在需要调用。
+循环步骤3-9，可以支持多connection。
 
-Note：
-  对AI场景，推荐用AudioScenarioAIServer，这个场景，针对ai的模式，内部做了优化，在降低延迟的同时，能提高弱网体验。(相比chorus，在iphone下，回环延迟低20～30ms，同时弱网下，体验更好)。服务端用AIServer scenario，客户端一定要用AIClient Scenario，否则，语音会有异常。
-对非AI场景，可以配备别的scenario，推荐咨询agora技术支持，以确保在该设置下，能和客户的业务场景匹配
+Note2：
+  1、对AI场景，推荐用AudioScenarioAIServer，该模式针对ai的模式，内部做了优化，在降低延迟的同时，能提高弱网体验。(相比chorus，在iphone下，回环延迟低20～30ms，同时弱网下，体验更好)。服务端用AIServer scenario，客户端一定要用AIClient Scenario，否则，语音会有异常。（支持AIClient scenario的sdk版本请咨询SA）
+2、对非AI场景，可以配备别的scenario，推荐咨询agora技术支持，以确保在该设置下，能和客户的业务场景匹配
+3、在释放conneciton的时候，不再需要人工调用unregister observer，内部会自动unregister
+核心变更汇总：
+| **Before**                     | **After 2.3.0**                     |
+|-------------------------------|-------------------------------------|
+| Manual `CreateDataStream`     | ✅ Automatic                        |
+| Manual observer unregistration | ✅ Automatic on `Release()`         |
+| Fixed per-process scenario    | ✅ Multi-scenario per process      |
+| Client/Server scenario mismatch| ❗ `AIClient` mandatory for AI use |  
+ ❗ ❗关键提示：支持AICLient scenario的sdk版本请咨询SA
 
 ## 2025.07.08 发布 2.2.11
 -- 增加对AudioScenarioAiServer 类型scenario的支持
