@@ -18,8 +18,8 @@ import (
 	rtctokenbuilder "github.com/AgoraIO/Tools/DynamicKey/AgoraDynamicKey/go/src/rtctokenbuilder2"
 )
 
-func PushFileToConsumer(file *os.File, audioConsumer *agoraservice.AudioConsumer, chunk int) {
-	buffer := make([]byte, chunk*100) // 1s data
+func PushFileToConsumer(file *os.File, con *agoraservice.RtcConnection, samplerate int) {
+	buffer := make([]byte, samplerate*2) // 1s data
 	for {
 		readLen, err := file.Read(buffer)
 		if err != nil {
@@ -28,40 +28,29 @@ func PushFileToConsumer(file *os.File, audioConsumer *agoraservice.AudioConsumer
 			return
 		}
 		// round to integer of chunk
-		packLen := readLen / chunk
-		audioConsumer.PushPCMData(buffer[:packLen*chunk])
-		fmt.Println("PushPCMData done:", packLen*chunk)
+		packLen := readLen / samplerate
+		con.PushAudioPcmData(buffer[:packLen*samplerate], samplerate, 1)
+		fmt.Printf("PushPCMData done:%d\n", readLen)
 	}
 }
-func ReadFileToConsumer(file *os.File, consumer *agoraservice.AudioConsumer, interval int, done chan bool, chunk int) {
+func ReadFileToConsumer(file *os.File, con *agoraservice.RtcConnection, interval int, done chan bool, samplerate int) {
 	for {
 		select {
 		case <-done:
 			fmt.Println("ReadFileToConsumer done")
-			return
+			return	
 		default:
-			len := consumer.Len()
-			fmt.Printf("ReadFileToConsumer len: %d, chunk: %d, interval: %d\n", len, chunk, interval)
-			if len < chunk*interval {
-				PushFileToConsumer(file, consumer, chunk)
+			if con != nil {
+				isPushCompleted := con.IsPushToRtcCompleted()
+				if isPushCompleted {
+					PushFileToConsumer(file, con, samplerate)
+				}
 			}
 			time.Sleep(time.Duration(interval) * time.Millisecond)
 		}
 	}
 }
 
-func ConsumeAudio(audioConsumer *agoraservice.AudioConsumer, interval int, done chan bool) {
-	for {
-		select {
-		case <-done:
-			fmt.Println("ConsumeAudio done")
-			return
-		default:
-			audioConsumer.Consume()
-			time.Sleep(time.Duration(interval) * time.Millisecond)
-		}
-	}
-}
 
 func LoopbackAudio(audioQueue *agoraservice.Queue, audioConsumer *agoraservice.AudioConsumer, done chan bool) {
 	for {
@@ -272,7 +261,7 @@ func main() {
 		},
 		OnAIQoSCapabilityMissing: func(con *agoraservice.RtcConnection, defaultFallbackSenario int) int {
 			fmt.Printf("onAIQoSCapabilityMissing, defaultFallbackSenario: %d\n", defaultFallbackSenario)
-			return int(agoraservice.AudioScenarioDefault)
+			return int(agoraservice.AudioScenarioChorus)
 		},
 	}
 	framecount := 0
@@ -327,7 +316,7 @@ func main() {
 			if mode == 1 {
 				frame.RenderTimeMs = 0
 				//sender.SendAudioPcmData(frame)
-				con.PushAudioPcmData(frame.Buffer, samplerate, 1)
+				con.PushAudioPcmData(frame.Buffer, frame.SamplesPerSec, frame.Channels)
 				// loopback
 				//audioQueue.Enqueue(frame)
 
@@ -479,8 +468,7 @@ func main() {
 
 	*/
 	if mode == 0 {
-		go ReadFileToConsumer(file, nil, 50, done, samplerate*2/100)
-		go ConsumeAudio(nil, 50, done)
+		go ReadFileToConsumer(file, con, 50, done, samplerate)
 	} else if mode == 2 || mode == 3 {
 		//go SendTTSDataToClient(samplerate, audioConsumer, file, done, audioSendEvent, fallackEvent, localUser, track)
 		go func() {
