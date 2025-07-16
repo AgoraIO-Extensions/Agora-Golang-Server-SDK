@@ -326,8 +326,7 @@ func original_main() {
 
 	agoraservice.Initialize(svcCfg)
 
-	mediaNodeFactory := agoraservice.NewMediaNodeFactory()
-	sender := mediaNodeFactory.NewAudioPcmDataSender()
+	
 
 	
 	// generate stero vad
@@ -338,13 +337,22 @@ func original_main() {
 	// For not-so-noisy environments, use this configuration: (16, 30, 50, 0.7, 0.5, 70, -50, 70, -50)
 	// For noisy environments, use this configuration: (16, 30, 50, 0.7, 0.5, 70, -40, 70, -40)
 	// For high-noise environments, use this configuration: (16, 30, 50, 0.7, 0.5, 70, -30, 70, -30)
-
+	scenario := agoraservice.AudioScenarioChorus
 	conCfg := agoraservice.RtcConnectionConfig{
 		AutoSubscribeAudio: true,
 		AutoSubscribeVideo: false,
 		ClientRole:         agoraservice.ClientRoleBroadcaster,
 		ChannelProfile:     agoraservice.ChannelProfileLiveBroadcasting,
 	}
+	publishConfig := agoraservice.NewRtcConPublishConfig()
+	publishConfig.AudioPublishType = agoraservice.AudioPublishTypePcm
+	publishConfig.AudioScenario = scenario
+	publishConfig.IsPublishAudio = true
+	publishConfig.IsPublishVideo = false
+	publishConfig.AudioProfile = agoraservice.AudioProfileDefault
+
+	var con *agoraservice.RtcConnection = nil
+	
 	//conSignal := make(chan struct{})
 	conHandler := &agoraservice.RtcConnectionObserver{
 		OnConnected: func(con *agoraservice.RtcConnection, info *agoraservice.RtcConnectionInfo, reason int) {
@@ -376,6 +384,10 @@ func original_main() {
 		},
 		OnUserLeft: func(con *agoraservice.RtcConnection, uid string, reason int) {
 			fmt.Println("user left, " + uid)
+		},
+		OnAIQoSCapabilityMissing: func(con *agoraservice.RtcConnection, defaultFallbackSenario int) int {
+			fmt.Printf("onAIQoSCapabilityMissing, defaultFallbackSenario: %d\n", defaultFallbackSenario)
+			return int(agoraservice.AudioScenarioDefault)
 		},
 	}
 	// for debuging, can do vad dump but never recommended for production
@@ -417,7 +429,7 @@ func original_main() {
 			}
 
 			if echoBack == 1 {
-				sender.SendAudioPcmData(frame)
+				con.PushAudioPcmData(frame.Buffer, frame.SamplesPerSec, frame.Channels)
 			}
 
 			// vad process here! and you can get the vad result, then send vadResult to ASR/STT service
@@ -434,11 +446,11 @@ func original_main() {
 		},
 	}
 
-	scenario := svcCfg.AudioScenario
-	con := agoraservice.NewRtcConnection(&conCfg, scenario)
+	
+	con = agoraservice.NewRtcConnection(&conCfg, publishConfig)
 	
 
-	track := agoraservice.NewCustomAudioTrackPcm(sender, scenario)
+	
 
 	
 
@@ -484,7 +496,7 @@ func original_main() {
 		},
 		OnAudioMetaDataReceived: func(localUser *agoraservice.LocalUser, uid string, metaData []byte) {
 			fmt.Printf("*****User audio meta data received, uid %s, meta: %s\n", uid, string(metaData))
-			localUser.SendAudioMetaData(metaData)
+			con.SendAudioMetaData(metaData)
 		},
 	}
 
@@ -502,13 +514,13 @@ func original_main() {
 	}
 	if steroMode > 0 {
 		localUser.SetPlaybackAudioFrameBeforeMixingParameters(2, 16000)
-		localUser.RegisterAudioFrameObserver(audioObserver, 0, nil)
+		con.RegisterAudioFrameObserver(audioObserver, 0, nil)
 	} else {
 		localUser.SetPlaybackAudioFrameBeforeMixingParameters(1, 16000)
-		localUser.RegisterAudioFrameObserver(audioObserver, 1, vadConfigure)
+		con.RegisterAudioFrameObserver(audioObserver, 1, vadConfigure)
 	}
 
-	localUser.RegisterLocalUserObserver(localUserObserver)
+	con.RegisterLocalUserObserver(localUserObserver)
 
 	// sender := con.NewPcmSender()
 	// defer sender.Release()
@@ -518,22 +530,34 @@ func original_main() {
 	//<-conSignal
 
 	// for test AudioConsumer
-	audioConsumer := agoraservice.NewAudioConsumer(sender, 16000, 2)
-	defer audioConsumer.Release()
+	
 	// read pcm data from file and push to audioConsumer
-	sourceFilePath := "../test_data/1.pcm"
-	sourceFile, err := os.Open(sourceFilePath)
+	// test 16khz, mono, 2 channel, but some eorror
+	sourceFilePath := make([]string, 2)
+	channel := make([]int, 2)
+	
+	// test 16khz, stero
+	sourceFilePath[0] = "../test_data/1.pcm"
+	channel[0] = 2
+	// test 16khz, mono
+	sourceFilePath[1] = "../test_data/recv_audio_16k_1ch.pcm"
+	channel[1] = 1
+
+	index := 0
+
+	// open file
+	sourceFile, err := os.Open(sourceFilePath[index])
 	defer sourceFile.Close()
 	if err != nil {
 		cwd, _ := os.Getwd()
 		fmt.Printf("open file error: %s, cwd = %s\n", err, cwd)
 	}
-	fileData := make([]byte, 640*100) // 100ms
+	fileData := make([]byte, 320*100*channel[index]) // 100ms
 
-	track.SetEnabled(true)
-	localUser.PublishAudio(track)
+	
+	con.PublishAudio()
 
-	track.AdjustPublishVolume(100)
+	
 
 	for !(*bStop) {
 		time.Sleep(50 * time.Millisecond)
@@ -543,7 +567,7 @@ func original_main() {
 
 		// check file ' length
 
-		if echoBack == 0 && audioConsumer.Len() < 640*100 {
+		if echoBack == 0 && con.IsPushToRtcCompleted() {
 
 			for {
 				n, _ := sourceFile.Read(fileData)
@@ -551,39 +575,32 @@ func original_main() {
 					sourceFile.Seek(0, 0)
 					break
 				}
-				audioConsumer.PushPCMData(fileData[:n])
+				con.PushAudioPcmData(fileData[:n], 16000, channel[index])
 			}
 		}
-
-		audioConsumer.Consume()
 	}
 
 	// release ...
 	dumpFile.Close()
 
-	localUser.UnpublishAudio(track)
-	track.SetEnabled(false)
-	localUser.UnregisterAudioFrameObserver()
-	localUser.UnregisterLocalUserObserver()
+	
 
 	con.Disconnect()
 
-	con.UnregisterObserver()
+	
 
 	con.Release()
 
 	vadDump.Close()
 
-	track.Release()
-	sender.Release()
-	mediaNodeFactory.Release()
+	
 	agoraservice.Release()
 	if steroVadInst != nil {
 		steroVadInst.Release()
 	}
 	steroVadInst = nil
 
-	track = nil
+	
 	audioObserver = nil
 	localUserObserver = nil
 	localUser = nil

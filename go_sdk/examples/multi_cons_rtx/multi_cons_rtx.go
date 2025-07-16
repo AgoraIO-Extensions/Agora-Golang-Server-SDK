@@ -99,7 +99,7 @@ func globalInit() *GlobalContext {
 	svcCfg.AppId = appid
 
 	agoraservice.Initialize(svcCfg)
-	mediaNodeFactory := agoraservice.NewMediaNodeFactory()
+	
 	return &GlobalContext{
 		ctx:               ctx,
 		cancel:            cancel,
@@ -107,7 +107,7 @@ func globalInit() *GlobalContext {
 		appId:             appid,
 		cert:              cert,
 		channelNamePrefix: channelName,
-		mediaNodeFactory:  mediaNodeFactory,
+		
 		waitTasks:         &sync.WaitGroup{},
 		tasks:             nil,
 		taskStopSignal:    make(chan int, 100),
@@ -116,9 +116,12 @@ func globalInit() *GlobalContext {
 }
 
 func (ctx *GlobalContext) release() {
-	ctx.mediaNodeFactory.Release()
+	
 	agoraservice.Release()
 }
+
+// uage like:
+// ./multi_cons_rtx --channelName=weiqi --sendYuv=true --sendEncodedVideo=true --sendEncodedAudio=true --sendPcm=true --sendData=true --recvYuv=true --recvEncodedVideo=true --recvPcm=true --recvData=true --dumpPcm=true --dumpYuv=true --dumpEncodedVideo=true --taskCount=2 --randTask=true --role=1 --pcmFilePath=./test.pcm --encodedAudioFilePath=./test.aac --yuvFilePath=./test.yuv --encodedVideoFilePath=./test.h264 --sendVideoFps=15 --sendVideoMinBitrate=100 --sendVideoBitrate=500 --sendYuvWidth=640 --sendYuvHeight=360
 
 func main() {
 	var enablePprof bool = true

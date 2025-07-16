@@ -6,15 +6,11 @@ package agoraservice
 import "C"
 import (
 	"fmt"
-	"time"
 	"unsafe"
 )
 
 type LocalAudioTrack struct {
 	cTrack unsafe.Pointer
-	audioScenario AudioScenario
-	id int64 // assigend when create and never change!!
-	pcmSender *AudioPcmDataSender  //and never change!!
 }
 
 // NOTE: date：2025-06-27
@@ -39,13 +35,10 @@ func NewCustomAudioTrackPcm(pcmSender *AudioPcmDataSender, audioScenario_of_conn
 	}
 	audioTrack := &LocalAudioTrack{
 		cTrack: cTrack,
-		audioScenario: audioScenario,
-		id: time.Now().UnixMilli(),
-		pcmSender: pcmSender,
 	}
 	pcmSender.audioScenario = audioScenario
 
-	fmt.Printf("NewCustomAudioTrackPcm, audioTrack.audioScenario: %d, audioTrack.pcmSender.audioScenario: %d, pcmSender.audioScenario: %d\n", audioTrack.audioScenario, audioTrack.pcmSender.audioScenario, pcmSender.audioScenario)
+	fmt.Printf("NewCustomAudioTrackPcm, scenario: %d\n", audioScenario)
 
 	// set send delay ms to 10ms, to avoid audio delay. NOTE: do not set it to 0, otherwise, it would set to default value: 260ms
 	if audioTrack.cTrack != nil {
@@ -64,13 +57,9 @@ func NewCustomAudioTrackEncoded(encodedAudioSender *AudioEncodedFrameSender, mix
 	if cTrack == nil {
 		return nil
 	}
-	//audioScenario := agoraService.audioScenario
-	audioScenario := AudioScenarioChorus
+	
 	return &LocalAudioTrack{
 		cTrack: cTrack,
-		audioScenario: audioScenario,
-		id: time.Now().UnixMilli(),
-		pcmSender: nil,
 	}
 }
 
@@ -83,7 +72,7 @@ func (track *LocalAudioTrack) Release() {
 }
 
 func (track *LocalAudioTrack) SetEnabled(enable bool) {
-	if track.cTrack == nil {
+	if track == nil || track.cTrack == nil {
 		return
 	}
 	cEnable := 0
@@ -94,7 +83,7 @@ func (track *LocalAudioTrack) SetEnabled(enable bool) {
 }
 
 func (track *LocalAudioTrack) AdjustPublishVolume(volume int) int {
-	if track.cTrack == nil {
+	if track == nil || track.cTrack == nil {
 		return -1
 	}
 	return int(C.agora_local_audio_track_adjust_publish_volume(track.cTrack, C.int(volume)))
@@ -104,21 +93,21 @@ func (track *LocalAudioTrack) AdjustPublishVolume(volume int) int {
 // size is the number of 10ms audio frames
 // the default value of this param is 30, ie. 300ms
 func (track *LocalAudioTrack) SetMaxBufferedAudioFrameNumber(frameNum int) {
-	if track.cTrack == nil {
+	if track == nil || track.cTrack == nil {
 		return
 	}
 	C.agora_local_audio_track_set_max_bufferd_frame_number(track.cTrack, C.int(frameNum))
 }
 
 func (track *LocalAudioTrack) ClearSenderBuffer() int {
-	if track.cTrack == nil {
+	if track == nil || track.cTrack == nil {
 		return -1
 	}
 	return int(C.agora_local_audio_track_clear_sender_buffer(track.cTrack))
 }
 
 func (track *LocalAudioTrack) SetSendDelayMs(delayMs int) int {
-	if track.cTrack == nil {
+	if track == nil || track.cTrack == nil {
 		return -1
 	}
 	C.agora_local_audio_track_set_send_delay_ms(track.cTrack, C.int(delayMs))
@@ -132,9 +121,8 @@ func NewDirectCustomAudioTrackPcm(pcmSender *AudioPcmDataSender) *LocalAudioTrac
 	if cTrack == nil {
 		return nil
 	}
-	pcmSender.audioScenario = AudioScenarioAiServer
+
 	return &LocalAudioTrack{
 		cTrack: cTrack,
-		audioScenario: AudioScenarioAiServer,
 	}
 }

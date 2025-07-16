@@ -70,11 +70,9 @@ func main() {
 
 	agoraservice.Initialize(svcCfg)
 	defer agoraservice.Release()
-	mediaNodeFactory := agoraservice.NewMediaNodeFactory()
-	defer mediaNodeFactory.Release()
 
-	var sender *agoraservice.AudioPcmDataSender = nil
-	
+	var conn *agoraservice.RtcConnection = nil
+
 	audioModel := 1 // 0: direct, 1: channel
 
 	pcmQueue := agoraservice.NewQueue(10)
@@ -85,7 +83,7 @@ func main() {
 				//fmt.Printf("AudioFrame: %d\n", time.Now().UnixMilli())
 				if frame, ok := AudioFrame.(*agoraservice.AudioFrame); ok {
 					frame.RenderTimeMs = 0
-					ret := sender.SendAudioPcmData(frame)
+					ret := conn.PushAudioPcmData(frame.Buffer, frame.SamplesPerSec, frame.Channels)
 					if ret != 0 {
 						fmt.Printf("Send audio pcm data failed, error code %d\n", ret)
 					}
@@ -94,18 +92,25 @@ func main() {
 		}
 		fmt.Printf("AudioRoutine end\n")
 	}
-	
 
 	// a go routine to send audio data to channel
 
 	go audioRoutine()
 
+	scenario := agoraservice.AudioScenarioAiServer
 	conCfg := agoraservice.RtcConnectionConfig{
 		AutoSubscribeAudio: true,
 		AutoSubscribeVideo: false,
 		ClientRole:         agoraservice.ClientRoleBroadcaster,
 		ChannelProfile:     agoraservice.ChannelProfileLiveBroadcasting,
 	}
+	publishConfig := agoraservice.NewRtcConPublishConfig()
+	publishConfig.AudioPublishType = agoraservice.AudioPublishTypePcm
+	publishConfig.AudioScenario = scenario
+	publishConfig.IsPublishAudio = true
+	publishConfig.IsPublishVideo = false
+	publishConfig.AudioProfile = agoraservice.AudioProfileDefault
+
 	conSignal := make(chan struct{})
 	OnDisconnectedSign := make(chan struct{})
 	conHandler := &agoraservice.RtcConnectionObserver{
@@ -140,6 +145,10 @@ func main() {
 		OnUserLeft: func(con *agoraservice.RtcConnection, uid string, reason int) {
 			fmt.Printf("user left: %s, reason = %d\n", uid, reason)
 		},
+		OnAIQoSCapabilityMissing: func(con *agoraservice.RtcConnection, defaultFallbackSenario int) int {
+			fmt.Printf("onAIQoSCapabilityMissing, defaultFallbackSenario: %d\n", defaultFallbackSenario)
+			return int(agoraservice.AudioScenarioDefault)
+		},
 	}
 	audioObserver := &agoraservice.AudioFrameObserver{
 		OnPlaybackAudioFrameBeforeMixing: func(localUser *agoraservice.LocalUser, channelId string, userId string, frame *agoraservice.AudioFrame, vadResultState agoraservice.VadState, vadResultFrame *agoraservice.AudioFrame) bool {
@@ -150,17 +159,15 @@ func main() {
 				fmt.Printf("Enqueue audio frame, size %d\n", pcmQueue.Size())
 			}
 			if audioModel == 0 {
-				if sender != nil {
-					sender.SendAudioPcmData(frame)
+				if conn != nil {
+					conn.PushAudioPcmData(frame.Buffer, frame.SamplesPerSec, frame.Channels)
 				}
 			}
 			return true
 		},
 	}
 
-	scenario := svcCfg.AudioScenario
-
-	con := agoraservice.NewRtcConnection(&conCfg, scenario)
+	conn = agoraservice.NewRtcConnection(&conCfg, publishConfig)
 
 	//added by wei for localuser observer
 	localUserObserver := &agoraservice.LocalUserObserver{
@@ -193,68 +200,58 @@ func main() {
 		},
 	}
 
-	con.RegisterObserver(conHandler)
+	conn.RegisterObserver(conHandler)
 
-	//end
-
-	// sender := con.NewPcmSender()
-	// defer sender.Release()
-	sender = mediaNodeFactory.NewAudioPcmDataSender()
-
-	track := agoraservice.NewCustomAudioTrackPcm(sender, scenario)
-
-	localUser := con.GetLocalUser()
+	localUser := conn.GetLocalUser()
 	//localUser.SetAudioScenario(agoraservice.AudioScenarioChorus)
-	con.Connect(token, channelName, userId)
+	conn.Connect(token, channelName, userId)
 	<-conSignal
 
-	localUser = con.GetLocalUser()
+	localUser = conn.GetLocalUser()
 	localUser.SetPlaybackAudioFrameBeforeMixingParameters(1, 16000)
-	localUser.SetAudioVolumeIndicationParameters(300, 1, true)
-	localUser.RegisterLocalUserObserver(localUserObserver)
+	conn.RegisterLocalUserObserver(localUserObserver)
 
-	localUser.RegisterAudioFrameObserver(audioObserver, 0, nil)
+	conn.RegisterAudioFrameObserver(audioObserver, 0, nil)
 
-	track.SetEnabled(true)
-	localUser.PublishAudio(track)
+	conn.PublishAudio()
 
 	/*
-	// disalbe pre-load audio data from version 2.1.x, by wei
-	// all use build-in function for low-latency
+		// disalbe pre-load audio data from version 2.1.x, by wei
+		// all use build-in function for low-latency
 
-	frame := &agoraservice.AudioFrame{
-		Type:              agoraservice.AudioFrameTypePCM16,
-		SamplesPerChannel: 160,
-		BytesPerSample:    2,
-		Channels:          1,
-		SamplesPerSec:     16000,
-		Buffer:            make([]byte, 320),
-		RenderTimeMs:      0,
-	}
-
-	file, err := os.Open("../test_data/send_audio_16k_1ch.pcm")
-	if err != nil {
-		fmt.Println("Error opening file:", err)
-		return
-	}
-	defer file.Close()
-
-	//track.AdjustPublishVolume(100)
-
-
-	sendCount := 0
-
-	// send 180ms audio data
-	for i := 0; i < 18; i++ {
-		dataLen, err := file.Read(frame.Buffer)
-		if err != nil || dataLen < 320 {
-			fmt.Println("Finished reading file:", err)
-			break
+		frame := &agoraservice.AudioFrame{
+			Type:              agoraservice.AudioFrameTypePCM16,
+			SamplesPerChannel: 160,
+			BytesPerSample:    2,
+			Channels:          1,
+			SamplesPerSec:     16000,
+			Buffer:            make([]byte, 320),
+			RenderTimeMs:      0,
 		}
-		sendCount++
-		ret := sender.SendAudioPcmData(frame)
-		fmt.Printf("SendAudioPcmData %d ret: %d\n", sendCount, ret)
-	}
+
+		file, err := os.Open("../test_data/send_audio_16k_1ch.pcm")
+		if err != nil {
+			fmt.Println("Error opening file:", err)
+			return
+		}
+		defer file.Close()
+
+		//track.AdjustPublishVolume(100)
+
+
+		sendCount := 0
+
+		// send 180ms audio data
+		for i := 0; i < 18; i++ {
+			dataLen, err := file.Read(frame.Buffer)
+			if err != nil || dataLen < 320 {
+				fmt.Println("Finished reading file:", err)
+				break
+			}
+			sendCount++
+			ret := sender.SendAudioPcmData(frame)
+			fmt.Printf("SendAudioPcmData %d ret: %d\n", sendCount, ret)
+		}
 	*/
 
 	//added by wei for loop back
@@ -266,36 +263,25 @@ func main() {
 
 	//release operation:cancel defer release,try manual release
 
-	localUser.UnpublishAudio(track)
-	track.SetEnabled(false)
-	localUser.UnregisterAudioFrameObserver()
-	localUser.UnregisterAudioFrameObserver()
-	localUser.UnregisterLocalUserObserver()
-
 	start_disconnect := time.Now().UnixMilli()
-	con.Disconnect()
+	conn.Disconnect()
 	<-OnDisconnectedSign
-	con.UnregisterObserver()
 
 	fmt.Printf("Disconnect, cost %d ms\n", time.Now().UnixMilli()-start_disconnect)
 	//a, b, c, d := agoraservice.GetMapInfo()
 	//fmt.Printf("mapinfo:: %d,%d,%d,%d\n", a, b, c, d)
 
-	con.Release()
+	conn.Release()
 	//a, b, c, d = agoraservice.GetMapInfo()
 	//fmt.Printf("mapinfo:: %d,%d,%d,%d\n", a, b, c, d)
 
-	track.Release()
-	sender.Release()
-	mediaNodeFactory.Release()
 	agoraservice.Release()
 
-	track = nil
 	audioObserver = nil
 	localUserObserver = nil
 	localUser = nil
 	conHandler = nil
-	con = nil
+	conn = nil
 
 	fmt.Printf("Disconnected, cost %d ms\n", time.Now().UnixMilli()-start_disconnect)
 }

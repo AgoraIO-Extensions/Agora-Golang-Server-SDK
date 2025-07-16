@@ -92,6 +92,11 @@ import (
 ```
 - 运行项目时，记得将 **agora_sdk**目录 (或 Mac 上的 **agora_sdk_mac** 目录) 路径添加到 LD_LIBRARY_PATH (或 Mac 上的 DYLD_LIBRARY_PATH) 环境变量中。
 
+##  ❗ ❗逻辑关系
+在一个进程中，只能有一个agoraservice实例.
+该实例可以创建多个connection实例.
+因此：只能创建/初始化一次agoraservice实例，但可以创建多个connection实例.
+
 # 常见问题
 ## 编译错误
 ### 未定义符号引用 GLIBC_xxx
@@ -101,59 +106,67 @@ import (
   - 如果可能，你可以升级你的 glibc，或者你需要将运行系统升级到 **所需的操作系统版本**
   - 如果你不使用 VAD，并且你的 glibc 版本在 2.16 和 2.27 之间，你可以通过将 go_sdk/agoraserver/ 中的 **audio_vad.go** 文件重命名为 **audio_vad.go.bak** 来禁用 VAD
 
+#todo
+- [ ] 增加对agora_local_user_send_intra_request的支持
+- [ ] 增加对on_intra_request_received 的支持
+- [ ] 增加onaudio_volume_indication的支持
+
 # 更新日志
-## todo
--- factory 内置在agoraservice中，不再需要单独的factory
---  connection pool实现：在service中实现一个connection pool，用于管理connection的生命周期
-  - 从servcie中创建connection
-  - connection不在具备release 功能，在service中统一管理
--- datastream：
-  - 不需要在conneciton中创建，直接提供sendstreammessge接口
-  -- 是否不需要onplayback之类的？但因为我们的客户有pcm，encoded，yuv等，如果单一的用livekit::AudioStream可能不是特别灵活，所以需要解决的是如何防止阻塞操作？而不是设计
-  一个新的？？？--建议不需要
-  -- 增加一个getstatics的接口
-  -- 增加了一个Dequeue，用于线程安全的chan机制。参考： sendrcvpcmyuv done
 
-## todo：2025.05.31 ai_server senario 版本
--- 增加了log/data/config 目录，用于存放日志，数据，配置文件
--- 支持ai_server senario + 支持direct custom audio track
--- 支持对aiqosmissing模式下的通知：所谓aiqosmissing，就是当端侧的版本不支持aiqos能力的时候（是版本，不是端侧所选择的具体senario），需要通过aiqosmissing来通知服务端，服务端在这个会有OnAIQoSCapabilityMissing，在这个回调中，开发者可以返回期望设置的senario，sdk会自动切换到这个senario。如果开发者不希望自动切换，可以返回-1.然后开发者可以自己调用localuse.UpdateAudioTrack(senario)来做切换！
+## 2025.07.16 发布 2.3.0
+-- update rtc sdk, fixed 2 bugs
+-- 增加对AudioScenarioAiServer 类型scenario的支持
+-- 默认的AudioScenario是AudioScenarioAiServer
+-- 增加对同一个进程中的conneciton，允许配置为不同的scenario，profile
+-- 在创建connection的时候，增加publishconfigure，通过该configure来设置{scenario, profile,publishAudio, publishVideo,ect}
+-- conneciton中，增加了：
+  - RegisterLocalUserObserver, RegisterAudioFrameObserver, RegisterVideoFrameObserver,RegisterVideoEncodedFrameObserver
+  - PublishAudio/UnpublsihAudio, PublishVideo/UnpublsihVideo
+  - PushAudioPcmData/PushAudioEncodedData, PushVideoFrame/PushVideoEncodedData
+  - InterruptAudio：支持打断功能
+  - IsPushToRTCCompleted方法
+  - OnAIQoSCapabilityMissing回调接口的实现
+  - SendAudioMetaData方法
+  - 不在需要人工调用CreateDataStream，内部自动默认
+-- 不对外公开的方法：
+  - 不再需要开发者人工带用 newMediaNodeFactory
+  - 不在需要开发者人工调用：NewCustomAudioTrackPcm, NewCustomAudioTrackEncoded, NewCustomVideoTrack等
+  - 不在需要开发者人工调用：NewAudioPcmDataSender等sender
+  - 不在需要开发者人工调用 unregisterAudioFrameObserver, unregisterVideoFrameObserver等observer
+-- 集成方式： ❗具体集成方式，如何做升级，请咨询SA
+1. svcCfg := agoraservice.NewAgoraServiceConfig()
+2.agoraservice.Initialize(svcCfg)
+3.con := agoraservice.NewRtcConnection(conCfg, publishConfig)
+4. register observer;
+  -4.1 con.RegisterObserver(conHandler)
+  -4.2 con.RegisterAudioFrameObserver
+  -4.3 con.RegisterLocalUserObserver(localUserObserver)
+5. con.Connect(token, channelName, userId)
+6. con.PublisAudio or con.PublishVideo
+7. con.PushAudioPcmData/EncodedData or con.PushVideoFrame/EncodedData
+8. con.Disconnect
+9. con.Release
+10.agoraservice.Release()
+Note1: 步骤1、2在进程启动的时候调用一次，后面不在需要调用；步骤10在进程退出的时候调用一次，后面不在需要调用。
+循环步骤3-9，可以支持多connection。
 
--- server端：需要用directAudioTrack来做推送，不再用customAudioTrack；也不需要按照10ms的速率来发送，就是有多少就发送多少
--- server端：不在需要audioConsumer，或者在audioconsumer内部做对senario的适配，这样能做兼容
--- server端：vad打断的时候，需要调用publish/unpublish方法，替代localaudiotrack的clearsendbuffer方法
-是否可以unpub后，多久可以在做pub？
-DirectCustomAudioTrackPcm：
-- 内部是否还需要设置senddelayinms？内部是否有缓存？--内部没有缓存。
-- 内部原理大概是啥？内部会拆分成10个ms一个包，不停的发送。总体的发送速度取决于编码/上行带宽等综合因素。
-- 如果app层也是10ms的频率push数据，和cuscomaudiotrack是否行为一致？--基本一致
-- 是否可以用在别的senario？==如果用在别的senario，需要按照10ms来推。否则不太推荐。
-- ai client目前不限制
-- 打断需要用unpub 机制
--- 增加对日志的管理
--- 增加能力协商
+Note2：
+  1、对AI场景，推荐用AudioScenarioAIServer，该模式针对ai的模式，内部做了优化，在降低延迟的同时，能提高弱网体验。(相比chorus，在iphone下，回环延迟低20～30ms，同时弱网下，体验更好)。服务端用AIServer scenario，客户端一定要用AIClient Scenario，否则，语音会有异常。（支持AIClient scenario的sdk版本请咨询SA）
+2、对非AI场景，可以配备别的scenario，推荐咨询agora技术支持，以确保在该设置下，能和客户的业务场景匹配
+3、在释放conneciton的时候，不再需要人工调用unregister observer，内部会自动unregister
+核心变更汇总：
+| **Before**                     | **After 2.3.0**                     |
+|-------------------------------|-------------------------------------|
+| Manual `CreateDataStream`     | ✅ Automatic                        |
+| Manual observer unregistration | ✅ Automatic on `Release()`         |
+| Fixed per-process scenario    | ✅ Multi-scenario per process      |
+| Client/Server scenario mismatch| ❗ `AIClient` mandatory for AI use |  
+ ❗ ❗关键提示：支持AICLient scenario的sdk版本请咨询SA
 
---设计思想
--- 1. 对外来说，并没有customAudioTrack和DirectAudioTrack的区别，都是AudioTrack，只是内部根据senario的不同而做不同的实现；
--- 2. 在service中，根据senario的不同，创建不同的AudioTrack，并做适配；
--- 3. 在service中，根据senario的不同，创建不同的AudioConsumer，并做适配；
--- 4. 在service中，根据senario的不同，对pcmdatasender做不同的适配
--- 5. 在service中，无论是那种senario，对外都是一致的，都是AudioTrack和AudioConsumer、PcmDataSender，但内部根据senario的不同，做不同的实现
---AI server的用法：
--- 1. 在创建service的时候，指定senario为ai_server
--- 2. 别的用法都不用修改
--- 3. 当有ai对话，需要做打断的时候，调用unpub方法，打断后，调用pub方法，重新开始？？？
-pub/unpub: 只是api调用，大概是0～1ms；
-
-
---测试结果： 0603
-  -1. 不能在onplaybackbeformixing中，直接调用sendpcmdata，否则会block！原来的版本是可以的。参考/recv_pcm_loopback
-  -2. 能力协商的case：
-    case1: server 先加入，别的另外加入？
-    case2: server后加入，别的先加入？
-
-done:
---1. publish和unplbish中增加了一个bool判断当前的状态，允许多次pub/unpub。
+## 2025.07.08 发布 2.2.11
+-- 增加对AudioScenarioAiServer 类型scenario的支持
+-- 默认的AudioScenario是AudioScenarioAiServer
+-- 增加对同一个进程中的conneciton，允许配置为不同的scenario，profile
 
 ## 2025.07.02 发布 2.2.10
 -- remove： 去除了在enableSteroEncodeMode函数中设置senraio的代码，因为这个senario的设置，可以在NewRtcConnection中作为一个参数传入，不在需要在这个enableSteroEncodeMode中设置。

@@ -67,19 +67,15 @@ func main() {
 	}
 	svcCfg := agoraservice.NewAgoraServiceConfig()
 	svcCfg.AppId = appid
+	// whether sending or receiving video, we need to set EnableVideo to true!!
 	svcCfg.EnableVideo = true
 
 	agoraservice.Initialize(svcCfg)
-	defer agoraservice.Release()
-	mediaNodeFactory := agoraservice.NewMediaNodeFactory()
-	defer mediaNodeFactory.Release()
 
-	conCfg := agoraservice.RtcConnectionConfig{
-		AutoSubscribeAudio: true,
-		AutoSubscribeVideo: true,
-		ClientRole:         agoraservice.ClientRoleBroadcaster,
-		ChannelProfile:     agoraservice.ChannelProfileLiveBroadcasting,
-	}
+	var con *agoraservice.RtcConnection = nil
+
+	
+	
 	conSignal := make(chan struct{})
 	conHandler := agoraservice.RtcConnectionObserver{
 		OnConnected: func(con *agoraservice.RtcConnection, info *agoraservice.RtcConnectionInfo, reason int) {
@@ -97,6 +93,10 @@ func main() {
 		OnUserLeft: func(con *agoraservice.RtcConnection, uid string, reason int) {
 			fmt.Println("user left, " + uid)
 		},
+		OnAIQoSCapabilityMissing: func(con *agoraservice.RtcConnection, defaultFallbackSenario int) int {
+			fmt.Printf("onAIQoSCapabilityMissing, defaultFallbackSenario: %d\n", defaultFallbackSenario)
+			return int(agoraservice.AudioScenarioDefault)
+		},
 	}
 	// conCfg.AudioFrameObserver = &agoraservice.RtcConnectionAudioFrameObserver{
 	// 	OnPlaybackAudioFrameBeforeMixing: func(con *agoraservice.RtcConnection, channelId string, userId string, frame *agoraservice.PcmAudioFrame) {
@@ -105,34 +105,38 @@ func main() {
 	// 	},
 	// }
 
-	scenario := svcCfg.AudioScenario
-	con := agoraservice.NewRtcConnection(&conCfg, scenario)
-	defer con.Release()
+	scenario := agoraservice.AudioScenarioAiServer
+	conCfg := &agoraservice.RtcConnectionConfig{
+		AutoSubscribeAudio: true,
+		AutoSubscribeVideo: true,
+		ClientRole:         agoraservice.ClientRoleBroadcaster,
+		ChannelProfile:     agoraservice.ChannelProfileLiveBroadcasting,
+	}
+	publishConfig := agoraservice.NewRtcConPublishConfig()
+	publishConfig.AudioScenario = scenario
+	publishConfig.IsPublishAudio = true
+	publishConfig.IsPublishVideo = true
+	publishConfig.AudioPublishType = agoraservice.AudioPublishTypePcm
+	publishConfig.VideoPublishType = agoraservice.VideoPublishTypeEncodedImage
 
-	localUser := con.GetLocalUser()
+	publishConfig.VideoEncodedImageSenderOptions.CcMode = agoraservice.VideoSendCcDisabled
+	publishConfig.VideoEncodedImageSenderOptions.CodecType = agoraservice.VideoCodecTypeH264
+	publishConfig.VideoEncodedImageSenderOptions.TargetBitrate = 500
+
+	con = agoraservice.NewRtcConnection(conCfg, publishConfig)
+	
+
 	con.RegisterObserver(&conHandler)
 
-	localUser.SetPlaybackAudioFrameBeforeMixingParameters(1, 16000)
-	audioSender := mediaNodeFactory.NewAudioPcmDataSender()
-	defer audioSender.Release()
-	audioTrack := agoraservice.NewCustomAudioTrackPcm(audioSender, scenario)
-	defer audioTrack.Release()
+	con.GetLocalUser().SetPlaybackAudioFrameBeforeMixingParameters(1, 16000)
+	
 
-	videoSender := mediaNodeFactory.NewVideoEncodedImageSender()
-	defer videoSender.Release()
-	videoTrack := agoraservice.NewCustomVideoTrackEncoded(videoSender, &agoraservice.VideoEncodedImageSenderOptions{
-		CcMode:    agoraservice.VideoSendCcDisabled,
-		CodecType: agoraservice.VideoCodecTypeH264,
-	})
-	defer videoTrack.Release()
 
 	con.Connect(token, channelName, userId)
 	<-conSignal
 
-	audioTrack.SetEnabled(true)
-	localUser.PublishAudio(audioTrack)
-	videoTrack.SetEnabled(true)
-	localUser.PublishVideo(videoTrack)
+	con.PublishAudio()
+	con.PublishVideo()
 
 	fn := C.CString(filePath)
 	defer C.free(unsafe.Pointer(fn))
@@ -179,7 +183,9 @@ func main() {
 			fmt.Println("First pts:", firstPts)
 		}
 		if int64(cPkt.pts)-firstPts > totalSendTime {
-			time.Sleep(50 * time.Millisecond)
+			// NOte: you can sleep here,but the sleep time can be up to 100ms,and can still work!
+			// for the reason, the encoded video frame has pts and dts in binaray stream, so no need to set them
+			time.Sleep(30 * time.Millisecond)
 			fmt.Println("Sleeping for 50ms")
 		}
 		if cPkt.media_type == C.AVMEDIA_TYPE_AUDIO {
@@ -196,16 +202,13 @@ func main() {
 				fmt.Println("Unsupported audio format")
 				continue
 			}
-			audioFrame := agoraservice.AudioFrame{
-				Type:              agoraservice.AudioFrameTypePCM16,
-				SamplesPerChannel: int(cFrame.samples),
-				BytesPerSample:    int(cFrame.bytes_per_sample),
-				Channels:          int(cFrame.channels),
-				SamplesPerSec:     int(cFrame.sample_rate),
-				Buffer:            unsafe.Slice((*byte)(unsafe.Pointer(cFrame.buffer)), cFrame.buffer_size),
-				RenderTimeMs:      int64(cFrame.pts),
-			}
-			ret := audioSender.SendAudioPcmData(&audioFrame)
+	
+			// no memory copy, but should be careful about the life time of the audio data,
+			// should not be released before the audio frame is sent
+			audioData := unsafe.Slice((*byte)(unsafe.Pointer(cFrame.buffer)), cFrame.buffer_size)
+			sampleRate := int(cFrame.sample_rate)
+			channels := int(cFrame.channels)
+			ret := con.PushAudioPcmData(audioData, sampleRate, channels)
 			fmt.Printf("SendPcmData %d ret: %d\n", cFrame.pts, ret)
 		} else if cPkt.media_type == C.AVMEDIA_TYPE_VIDEO {
 			ret = C.h264_to_annexb(decoder, &cPkt)
@@ -218,20 +221,30 @@ func main() {
 				frameType = agoraservice.VideoFrameTypeDeltaFrame
 			}
 			data := unsafe.Slice((*byte)(unsafe.Pointer(cPkt.pkt.data)), cPkt.pkt.size)
-			ret := videoSender.SendEncodedVideoImage(data, &agoraservice.EncodedVideoFrameInfo{
+			curFrameRate := int(cPkt.framerate_num / cPkt.framerate_den)
+			//note： CaptureTimeMs and DecodeTimeMs are not used in the sdk, so we set them to 0
+			// curFrameRate is not used in the sdk, so we set it to 0
+			// for the reason, the encoded video frame has pts and dts in binaray stream, so no need to set them
+			ret := con.PushVideoEncodedData(data, &agoraservice.EncodedVideoFrameInfo{
 				CodecType:       agoraservice.VideoCodecTypeH264,
 				Width:           int(cPkt.width),
 				Height:          int(cPkt.height),
-				FramesPerSecond: int(cPkt.framerate_num / cPkt.framerate_den),
+				FramesPerSecond: 0,//curFrameRate,
 				FrameType:       frameType,
-				CaptureTimeMs:   int64(cPkt.pts),
-				DecodeTimeMs:    int64(cPkt.pts),
+				CaptureTimeMs:   0,//int64(cPkt.pts),
+				DecodeTimeMs:    0,//int64(cPkt.pts),
 				Rotation:        agoraservice.VideoOrientation0,
 			})
-			fmt.Printf("SendVideoFrame %d, data size %d, sync header %x%x%x%x, frametype %d ret: %d\n",
-				cPkt.pts, cPkt.pkt.size, data[0], data[1], data[2], data[3], frameType, ret)
+			fmt.Printf("SendVideoFrame %d, data size %d, sync header %x%x%x%x, frametype %d ret: %d, frame rate %d\n",
+				cPkt.pts, cPkt.pkt.size, data[0], data[1], data[2], data[3], frameType, ret, curFrameRate)
 			C.free_packet(&cPkt)
 		}
 	}
+
+
+	con.Disconnect()
+	con.Release()
+	agoraservice.Release()
+	fmt.Println("Application terminated")
 
 }
