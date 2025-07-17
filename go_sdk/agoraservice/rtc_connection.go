@@ -497,10 +497,11 @@ func NewRtcConnection(cfg *RtcConnectionConfig, publishConfig *RtcConnectionPubl
 	ret.localUser.SetAudioScenario(audioScenario)
 	fmt.Printf("______set audio scenario to %d, audio profile to %d\n", audioScenario,audioProfile)
 
-	// for stero encoding mode
-	if agoraService.isSteroEncodeMode {
+	// for stero encoding mode: from 2.3.0, developer can set the codectype & bitrate through setparameter api and do 
+	// in app layer!
+	/* if agoraService.isSteroEncodeMode {
 		ret.enableSteroEncodeMode()
-	}
+	 }*/
 
 	// save to sync map
 	agoraService.setConFromHandle(ret.cConnection, ret, ConTypeCCon)
