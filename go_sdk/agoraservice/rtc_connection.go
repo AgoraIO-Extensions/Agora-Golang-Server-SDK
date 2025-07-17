@@ -1289,10 +1289,17 @@ func (conn *RtcConnection) UpdateAudioSenario(scenario AudioScenario) int {
 	if scenario == AudioScenarioAiServer {
 		isAiServer = true
 	}
+	// for audio, pcmdatasender and encodedaudiosender, check which one is valid
+	var csender unsafe.Pointer = nil
+	if conn.audioSender != nil {
+		csender = conn.audioSender.cSender
+	} else if conn.encodedAudioSender != nil {
+		csender = conn.encodedAudioSender.cSender
+	}
 	if isAiServer {
-		cTrack  = C.agora_service_create_direct_custom_audio_track_pcm(agoraService.service, conn.audioSender.cSender)
+		cTrack  = C.agora_service_create_direct_custom_audio_track_pcm(agoraService.service, csender)
 	} else {
-		cTrack = C.agora_service_create_custom_audio_track_pcm(agoraService.service, conn.audioSender.cSender)
+		cTrack = C.agora_service_create_custom_audio_track_pcm(agoraService.service, csender)
 	}
 
 	//5. assign the new cTrack
