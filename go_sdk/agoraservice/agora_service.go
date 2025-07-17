@@ -73,7 +73,7 @@ type AgoraServiceConfig struct {
 	// if <=0, when remote user muted itself, the onplaybackbeforemixing will be no longer called back
 	// default to 0, i.e when muted, no callback will be triggered
 	ShouldCallbackWhenMuted int
-	// version  2.2.1
+	// from version 2.3.0, the name is misleading, it is not about stero encode mode, it is about audio label generator
 	EnableSteroEncodeMode int
 	// version 2.2.9 and later, if not set, use default path	
 	ConfigDir string
@@ -96,7 +96,7 @@ type AgoraService struct {
 	inited  bool
 	service unsafe.Pointer
 	
-	isSteroEncodeMode bool
+	//isSteroEncodeMode bool
 	//audioScenario AudioScenario
 	// mediaFactory         unsafe.Pointer
 	consByCCon                  sync.Map
@@ -111,7 +111,7 @@ func newAgoraService() *AgoraService {
 	return &AgoraService{
 		inited:  false,
 		service: nil,
-		isSteroEncodeMode: false,
+		//isSteroEncodeMode: false,
 		//audioScenario: AudioScenarioChorus,
 		mediaFactory: nil,
 	}
@@ -185,14 +185,6 @@ func Initialize(cfg *AgoraServiceConfig) int {
 	// from version 2.2.1
 	if cfg.ShouldCallbackWhenMuted > 0 {
 		agoraParam.SetParameters("{\"rtc.audio.enable_user_silence_packet\": true}")
-	}
-
-	
-	agoraService.isSteroEncodeMode = (cfg.EnableSteroEncodeMode > 0)
-	//agoraService.audioScenario = cfg.AudioScenario
-	//added by wei for stero encode mode
-	if cfg.EnableSteroEncodeMode > 0 {
-		agoraParam.SetParameters("{\"che.audio.custom_bitrate\":32000}")
 	}
 
 	agoraService.mediaFactory = newMediaNodeFactory()
