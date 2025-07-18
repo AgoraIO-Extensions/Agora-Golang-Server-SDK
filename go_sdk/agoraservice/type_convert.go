@@ -139,7 +139,7 @@ func CLocalUserObserver() *C.struct__local_user_observer {
 	ret.on_user_video_track_state_changed = (*[0]byte)(C.cgo_on_user_video_track_state_changed)
 	ret.on_audio_publish_state_changed = (*[0]byte)(C.cgo_on_audio_publish_state_changed)
 	// todo: check if need to use this, still can not work now,should check why can not work
-	//ret.on_audio_volume_indication = (*[0]byte)(C.cgo_on_audio_volume_indication)
+	ret.on_audio_volume_indication = (*[0]byte)(C.cgo_on_audio_volume_indication)
 	// not finished ,only a title
 	// void (*on_audio_meta_data_received)(AGORA_HANDLE agora_local_user, user_id_t userId, const char* meta_data, size_t length);
 	ret.on_audio_meta_data_received = (*[0]byte)(C.cgo_on_audio_meta_data_received)
