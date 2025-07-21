@@ -104,7 +104,16 @@ import (
   - if you don't use VAD, and your glibc version is between 2.16 and 2.27, you can disable VAD by rename **audio_vad.go** file in go_sdk/agoraserver/ to **audio_vad.go.bak**
 
 # Change log
-# 2025-07-16 release 2.3.0
+# 2025-07-21 release 2.3.1
+-- ​​Added:​​ OnAudioVolumeIndication, which allows you to get the UID of the user currently speaking.
+​​Usage:​​
+
+a.Enable audio_volume_indication and set parameters as follows:
+localUser.SetAudioVolumeIndicationParameters(intervalInMs, smooth:default=3, isvad)
+b.In the OnAudioVolumeIndication callback, get the UID of the user currently speaking.
+
+
+# 2025-07-16 release 2.3.0 (IMPORTANT, please upgrade)
 -- update rtc sdk,fixed 2 bugs
 ## New Features & Improvements
 

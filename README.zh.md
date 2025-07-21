@@ -112,6 +112,11 @@ import (
 - [ ] 增加onaudio_volume_indication的支持
 
 # 更新日志
+## 2025.07.21 发布 2.3.1
+-- 增加：OnAudioVolumeIndication，可以通过该接口获取当前正在说话的用户的uid
+用法：
+1、启用audio_volume_indication,并设置参数,如下：localUser.SetAudioVolumeIndicationParameters(intervalInMs, smooth:default=3, isvad)
+2、在onAudioVolumeIndication中获取当前正在说话的用户的uid
 
 ## 2025.07.16 发布 2.3.0
 -- update rtc sdk, fixed 2 bugs

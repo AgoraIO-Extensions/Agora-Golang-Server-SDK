@@ -839,11 +839,12 @@ func (conn *RtcConnection) RegisterLocalUserObserver(handler *LocalUserObserver)
 
 	// register new observer
 	conn.localUserObserver = handler
+	var ret int = -100
 	if conn.cLocalUserObserver == nil {
 		conn.cLocalUserObserver = CLocalUserObserver()
-		C.agora_local_user_register_observer(conn.localUser.cLocalUser, conn.cLocalUserObserver)
+		ret = int(C.agora_local_user_register_observer(conn.localUser.cLocalUser, conn.cLocalUserObserver))
 	}
-	return 0
+	return int(ret)
 }
 
 func (conn *RtcConnection) unregisterLocalUserObserver() int {
