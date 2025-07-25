@@ -234,7 +234,7 @@ func main() {
 		OnUserAudioTrackStateChanged: func(localUser *agoraservice.LocalUser, uid string, remoteAudioTrack *agoraservice.RemoteAudioTrack, state int, reason int, elapsed int) {
 			fmt.Printf("*****User audio track state changed, uid %s\n", uid)
 		},
-		OnUserVideoTrackStateChanged: func(localUser *agoraservice.LocalUser, uid string, remoteAudioTrack *agoraservice.RemoteVideoTrack, state int, reason int, elapsed int) {
+		OnUserVideoTrackStateChanged: func(localUser *agoraservice.LocalUser, uid string, remoteVideoTrack *agoraservice.RemoteVideoTrack, state int, reason int, elapsed int) {
 			fmt.Printf("*****User video track state changed, uid %s\n", uid)
 		},
 		OnAudioMetaDataReceived: func(localUser *agoraservice.LocalUser, uid string, metaData []byte) {
