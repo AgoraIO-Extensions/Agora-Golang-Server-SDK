@@ -189,7 +189,6 @@ func main() {
 	
 
 	agoraservice.Initialize(svcCfg)
-	defer agoraservice.Release()
 	
 
 	
@@ -221,7 +220,7 @@ func main() {
 	
 
 	con := agoraservice.NewRtcConnection(conCfg, publishConfig)
-	defer con.Release()
+	
 
 	audioQueue := agoraservice.NewQueue(10)
 
@@ -288,7 +287,7 @@ func main() {
 	audioObserver := &agoraservice.AudioFrameObserver{
 		OnPlaybackAudioFrameBeforeMixing: func(localUser *agoraservice.LocalUser, channelId string, userId string, frame *agoraservice.AudioFrame, vadResulatState agoraservice.VadState, vadResultFrame *agoraservice.AudioFrame) bool {
 			// do something
-			//fmt.Printf("Playback audio frame before mixing, from userId %s, far :%d,rms:%d, pitch: %d\n", userId, frame.FarFieldFlag, frame.Rms, frame.Pitch)
+			fmt.Printf("Playback audio frame before mixing, from userId %s, far :%d,rms:%d, pitch: %d\n", userId, frame.FarFieldFlag, frame.Rms, frame.Pitch)
 			//energy := calculateEnergyFast(frame.Buffer)
 			//fmt.Printf("energy: %d, rms: %d, ravg: %f, framecount: %d\n", energy, frame.Rms,float64(energy)/float64(frame.SamplesPerChannel),framecount)
 			now := time.Now().UnixMilli()
@@ -351,7 +350,7 @@ func main() {
 	start := time.Now().UnixMilli()
 
 	
-
+	agoraservice.GetAgoraParameter()
 	
 
 	event_count := 0
@@ -423,7 +422,15 @@ func main() {
 	localUser.SetPlaybackAudioFrameBeforeMixingParameters(1, 16000)
 	con.RegisterLocalUserObserver(localUserObserver)
 
-	con.RegisterAudioFrameObserver(audioObserver, 0, nil)
+	vadConfig := &agoraservice.AudioVadConfigV2{
+		PreStartRecognizeCount: 16,
+		StartRecognizeCount: 30,
+		StopRecognizeCount: 50,
+		ActivePercent: 0.7,
+		InactivePercent: 0.5,
+	}
+
+	con.RegisterAudioFrameObserver(audioObserver, 1, vadConfig)
 
 
 	con.Connect(token, channelName, userId)
