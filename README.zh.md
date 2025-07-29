@@ -92,6 +92,12 @@ import (
 ```
 - 运行项目时，记得将 **agora_sdk**目录 (或 Mac 上的 **agora_sdk_mac** 目录) 路径添加到 LD_LIBRARY_PATH (或 Mac 上的 DYLD_LIBRARY_PATH) 环境变量中。
 
+## 如何使用rtm
+1、先遵循上述步骤make deps/make build 构建rtc
+2、用script/rtminstall.sh 安装rtm有关的sdk
+3、用script/rtmbuild.sh 构建rtm demo
+4、参考cmd/example demo 来使用rtm
+
 ##  ❗ ❗逻辑关系
 在一个进程中，只能有一个agoraservice实例.
 该实例可以创建多个connection实例.
