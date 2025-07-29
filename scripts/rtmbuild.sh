@@ -1,23 +1,28 @@
 #!/bin/bash
 
-# 设置错误时退出
+# set error exit
 set -e
 
-# 创建输出目录
+# Create output directory
 if [ -d "bin" ]; then
-    echo "bin dir already exists, deleting all files inside..."
-    rm -rf bin/*
+    echo "bin dir already exists, checking for existing rtmdemo file..."
+    if [ -f "./bin/rtmdemo" ]; then
+        echo "Removing existing rtmdemo file..."
+        rm ./bin/rtmdemo
+    else
+        echo "rtmdemo file does not exist, skipping deletion"
+    fi
 else
     mkdir -p bin
 fi
 
-# 构建命令
+# build command
 echo "Building example application..."
-go build -o ./bin/ ./cmd/example/
+go build -o ./bin/rtmdemo ./cmd/example/
 
 
 
-# 检查构建是否成功
+# check if build is successful
 if [ $? -eq 0 ]; then
     echo "Build successful! Binary is located at ./bin/example"
 else
