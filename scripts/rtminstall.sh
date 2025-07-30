@@ -61,6 +61,7 @@ cd - > /dev/null
 
 # create target directory: if exists, do not modify, otherwise create
 mkdir -p "$AGORA_SDK_DIR"
+mkdir -p "$AGORA_SDK_DIR_MAC"
 
 # check write permission for target directory
 if [ ! -w "$AGORA_SDK_DIR" ]; then
