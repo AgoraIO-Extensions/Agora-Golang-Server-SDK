@@ -81,7 +81,7 @@ require github.com/AgoraIO-Extensions/Agora-Golang-Server-SDK/v2 v2.1.0
 - 在你的 Go 文件中添加 import
 ```
 import (
-  agoraservice "github.com/AgoraIO-Extensions/Agora-Golang-Server-SDK/v2/go_sdk/agoraservice"
+  agoraservice "github.com/AgoraIO-Extensions/Agora-Golang-Server-SDK/v2/go_sdk/rtc"
 )
 ```
 - 在代码中调用 agoraservice 接口

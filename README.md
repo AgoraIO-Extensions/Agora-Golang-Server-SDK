@@ -82,7 +82,7 @@ require github.com/AgoraIO-Extensions/Agora-Golang-Server-SDK/v2 v2.1.0
 - Add import in your go file
 ```
 import (
-  agoraservice "github.com/AgoraIO-Extensions/Agora-Golang-Server-SDK/v2/go_sdk/agoraservice"
+  agoraservice "github.com/AgoraIO-Extensions/Agora-Golang-Server-SDK/v2/go_sdk/rtc"
 )
 ```
 - Call agoraservice interface in your code
