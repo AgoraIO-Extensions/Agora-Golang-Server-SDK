@@ -7,10 +7,26 @@ set -e
 RTM_URL="https://download.agora.io/sdk/release/rtm_agora_sdk.zip"
 TEMP_DIR="/tmp/rtm_install_$$"
 AGORA_SDK_DIR="./agora_sdk"
+AGORA_SDK_DIR_MAC="./agora_sdk_mac"
+
+UNAME_S=`uname -s`
+OS=unknown
+
+
+
+if [[ $UNAME_S == Linux ]]; then
+    OS=linux
+elif [[ $UNAME_S == Darwin ]]; then
+    OS=mac
+else
+    echo "Unsupported OS: ${UNAME_S}"
+    exit 1
+fi
+echo "OS: ${OS}"
 
 echo "start download RTM SDK..."
 
-# 创建临时目录
+# Create temporary directory
 mkdir -p "$TEMP_DIR"
 
 # download RTM SDK
@@ -67,8 +83,10 @@ echo "copy .so files..."
 find "$TEMP_DIR/agora_sdk" -name "*.so" -exec cp -n {} "$AGORA_SDK_DIR/" \;
 
 # copy .dylib files, not overwrite if exists
-echo "copy .dylib files..."
-find "$TEMP_DIR/agora_sdk" -name "*.dylib" -exec cp -n {} "$AGORA_SDK_DIR/" \;
+if [ "$OS" == "mac" ]; then
+    echo "copy .dylib files..."
+    find "$TEMP_DIR/agora_sdk" -name "*.dylib" -exec cp -n {} "$AGORA_SDK_DIR_MAC/" \;
+fi
 
 # 清理临时目录
 echo "clean temporary files..."
