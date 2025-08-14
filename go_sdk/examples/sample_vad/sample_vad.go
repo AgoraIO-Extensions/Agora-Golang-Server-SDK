@@ -302,6 +302,7 @@ func original_main() {
 	}
 	svcCfg := agoraservice.NewAgoraServiceConfig()
 	svcCfg.AppId = appid
+	svcCfg.LogPath = "./agora_rtc_log/agorasdk.log"
 	// setting senario for diff mode
 	var steroVadInst *agoraservice.SteroAudioVad = nil
 	if steroMode > 0 {
@@ -429,7 +430,7 @@ func original_main() {
 			}
 
 			if echoBack == 1 {
-				con.PushAudioPcmData(frame.Buffer, frame.SamplesPerSec, frame.Channels)
+				con.PushAudioPcmData(frame.Buffer, frame.SamplesPerSec, frame.Channels, 0)
 			}
 
 			// vad process here! and you can get the vad result, then send vadResult to ASR/STT service
@@ -446,9 +447,18 @@ func original_main() {
 		},
 	}
 
+	// set to dump
+	// change audio senario, by wei for stero encodeing
+	agoraParameterHandler := agoraservice.GetAgoraParameter()
+
+	//agoraParameterHandler.SetParameters("{\"che.audio.frame_dump\":{\"location\":\"all\",\"action\":\"start\",\"max_size_bytes\":\"100000000\",\"uuid\":\"123456789\", \"duration\": \"150000\"}}")
+	// end
+
+
 	
 	con = agoraservice.NewRtcConnection(&conCfg, publishConfig)
-	
+	//agoraParameterHandler = con.GetAgoraParameter()
+	agoraParameterHandler.SetParameters("{\"che.audio.frame_dump\":{\"location\":\"all\",\"action\":\"start\",\"max_size_bytes\":\"100000000\",\"uuid\":\"123456789\", \"duration\": \"150000\"}}")
 
 	
 
@@ -457,12 +467,10 @@ func original_main() {
 
 	localUser := con.GetLocalUser()
 
-	// change audio senario, by wei for stero encodeing
-	agoraParameterHandler := agoraservice.GetAgoraParameter()
-
+	
 	// dump audio
 	// set to dump
-	agoraParameterHandler.SetParameters("{\"che.audio.frame_dump\":{\"location\":\"all\",\"action\":\"start\",\"max_size_bytes\":\"100000000\",\"uuid\":\"123456789\", \"duration\": \"150000\"}}")
+	//agoraParameterHandler.SetParameters("{\"che.audio.frame_dump\":{\"location\":\"all\",\"action\":\"start\",\"max_size_bytes\":\"100000000\",\"uuid\":\"123456789\", \"duration\": \"150000\"}}")
 	// end
 
 	localUserObserver := &agoraservice.LocalUserObserver{
@@ -575,7 +583,7 @@ func original_main() {
 					sourceFile.Seek(0, 0)
 					break
 				}
-				con.PushAudioPcmData(fileData[:n], 16000, channel[index])
+				con.PushAudioPcmData(fileData[:n], 16000, channel[index], 0)
 			}
 		}
 	}

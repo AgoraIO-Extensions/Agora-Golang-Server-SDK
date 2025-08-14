@@ -26,7 +26,7 @@ func PushFileToConsumer(file *os.File, conn *agoraservice.RtcConnection, sampler
 			file.Seek(0, 0)
 			break
 		}
-		conn.PushAudioPcmData(buffer, samplerate, 1)
+		conn.PushAudioPcmData(buffer, samplerate, 1, 0)
 	}
 	buffer = nil
 }

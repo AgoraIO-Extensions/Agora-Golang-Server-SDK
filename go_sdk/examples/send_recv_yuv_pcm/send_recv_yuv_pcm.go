@@ -32,8 +32,6 @@ func ConvertVideoFrameToExternalVideoFrame(frame *agoraservice.VideoFrame) *agor
 	return extFrame
 }
 
-
-
 // generate wave header
 // for 16bit pcm data to wav file
 /*
@@ -114,16 +112,16 @@ func main() {
 	// whether sending or receiving video, we need to set EnableVideo to true!!
 	svcCfg.EnableVideo = true
 	svcCfg.AppId = appid
+	svcCfg.LogPath = "./agora_rtc_log/agrasdk.log"
 
 	agoraservice.Initialize(svcCfg)
-	
+
 	var con *agoraservice.RtcConnection = nil
 
 	// create a queue for yuv and pcm
 	yuvQueue := agoraservice.NewQueue(20)
 	pcmQueue := agoraservice.NewQueue(10)
 
-	
 	conSignal := make(chan struct{})
 	conHandler := &agoraservice.RtcConnectionObserver{
 		OnConnected: func(con *agoraservice.RtcConnection, info *agoraservice.RtcConnectionInfo, reason int) {
@@ -162,28 +160,26 @@ func main() {
 		},
 	}
 	// for calling onFrame
-	
+
 	videoObserver := &agoraservice.VideoFrameObserver{
 		OnFrame: func(channelId string, userId string, frame *agoraservice.VideoFrame) bool {
 			if frame == nil {
 				return true
 
 			}
-			
+
 			//fmt.Printf("recv video frame, from channel %s, user %s, type %d, width %d, height %d, stride %d, ysize %d, usize %d, vsize %d\n",channelId, userId, frame.Type, frame.Width, frame.Height, frame.YStride, len(frame.YBuffer), len(frame.UBuffer), len(frame.VBuffer))
 
 			yuvQueue.Enqueue(frame)
-			
 
 			return true
 		},
 	}
-	
+
 	var err error
 	audioObserver := &agoraservice.AudioFrameObserver{
 		OnPlaybackAudioFrameBeforeMixing: func(localUser *agoraservice.LocalUser, channelId string, userId string, frame *agoraservice.AudioFrame, vadResulatState agoraservice.VadState, vadResultFrame *agoraservice.AudioFrame) bool {
 			// do something: for play a file
-			
 
 			pcmQueue.Enqueue(frame)
 			//fmt.Printf("Playback audio frame before mixing, from userId %s, far :%d,rms:%d, pitch: %d\n", userId, frame.FarFieldFlag, frame.Rms, frame.Pitch)
@@ -208,7 +204,6 @@ func main() {
 		},
 	}
 
-
 	// open a pcm file for push
 	pcmfile, err := os.Open("../test_data/send_audio_16k_1ch.pcm")
 	if err != nil {
@@ -219,7 +214,6 @@ func main() {
 
 	done := make(chan bool)
 
-
 	// create 2 rouite for process audio and video
 	audioRoutine := func() {
 		for !*bStop {
@@ -228,7 +222,7 @@ func main() {
 				//fmt.Printf("AudioFrame: %d\n", time.Now().UnixMilli())
 				if frame, ok := AudioFrame.(*agoraservice.AudioFrame); ok {
 					frame.RenderTimeMs = 0
-					ret := con.PushAudioPcmData(frame.Buffer, frame.SamplesPerSec, frame.Channels)
+					ret := con.PushAudioPcmData(frame.Buffer, frame.SamplesPerSec, frame.Channels, 0)
 					if ret != 0 {
 						fmt.Printf("Send audio pcm data failed, error code %d\n", ret)
 					}
@@ -278,17 +272,13 @@ func main() {
 	// step1: register video frame observer and video track
 	con.RegisterVideoFrameObserver(videoObserver)
 
-	
-
 	// step2: register audio frame observer and audio track
 	localUser.SetPlaybackAudioFrameBeforeMixingParameters(1, 16000)
-	
+
 	con.RegisterAudioFrameObserver(audioObserver, 1, nil)
 
 	//localuserobserver
 	con.RegisterLocalUserObserver(localUserObserver)
-
-	
 
 	con.Connect(token, channelName, userId)
 	<-conSignal
@@ -305,37 +295,30 @@ func main() {
 	})
 
 	// step4: publish video and audio
-	
+
 	con.PublishAudio()
 	con.PublishVideo()
 
 	// for yuv test
 
-	
-
-	
 	// rgag colos space type test
 
 	for !*bStop {
-		
-		
+
 		time.Sleep(33 * time.Millisecond)
 	}
 	close(done)
 
 	//release now
 
-	
-
 	start_disconnect := time.Now().UnixMilli()
 	con.Disconnect()
 	//<-OnDisconnectedSign
-	
+
 	con.Release()
-	
+
 	agoraservice.Release()
 
-	
 	videoObserver = nil
 
 	localUser = nil

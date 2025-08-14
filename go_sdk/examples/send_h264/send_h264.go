@@ -151,9 +151,9 @@ func main() {
 	publishConfig.VideoPublishType = agoraservice.VideoPublishTypeEncodedImage
 
 	// for send encoded video image, we need to set the codec type and target bitrate
-	publishConfig.VideoEncodedImageSenderOptions.CcMode = agoraservice.VideoSendCcDisabled
+	publishConfig.VideoEncodedImageSenderOptions.CcMode = agoraservice.VideoSendCcEnabled
 	publishConfig.VideoEncodedImageSenderOptions.CodecType = agoraservice.VideoCodecTypeH264
-	publishConfig.VideoEncodedImageSenderOptions.TargetBitrate = 500
+	publishConfig.VideoEncodedImageSenderOptions.TargetBitrate = 5000
 
 	con = agoraservice.NewRtcConnection(conCfg, publishConfig)
 
