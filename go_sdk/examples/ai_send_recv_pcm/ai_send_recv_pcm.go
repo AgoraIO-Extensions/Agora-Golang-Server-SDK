@@ -147,27 +147,38 @@ mode：4， 也是根据audio meta 来做chuany的测试，也就是：
 
 位分布：高4位（version:不能超过0x7)|中间16位（sessionid)|中间16位（sentenceid)|低10位(chunkid）｜2位（session是否结束的标记)｜低16位（basepts）
 */
-func CombineToInt64(sessionid int16, sentenceid int16, isend int8, basepts int32) int64 {
-   // 1. 处理 sessionid（高16位，bits 48-63）
-   sessionPart := int64(sessionid) << 48
+// CombineToInt64 合并六个字段为 int64
+// 位分布：高4位(version) | 16位(sessionid) | 16位(sentenceid) | 10位(chunkid) | 2位(isSessionEnd) | 16位(basepts)
+func CombineToInt64(version int8, sessionid uint16, sentenceid uint16, chunkid uint16, issessionend bool) int64 {
+	// 1. 验证 version 范围（0-7）
+	if version < 0 || version > 0x7 {
+		panic("version must be between 0 and 7")
+	}
+	versionPart := int64(version) << 60 // 高4位（bits 60-63）
 
-   // 2. 处理 sentenceid（中间14位，bits 34-47）
-   // 屏蔽 sentenceid 的高2位（确保只取14位）
-   sentenceMask := int16(0x3FFF) // 二进制 0011 1111 1111 1111（14位掩码）
-   sentencePart := int64(sentenceid & sentenceMask) << 34
+	// 2. sessionid（16位，bits 44-59）
+	sessionPart := int64(sessionid) << 44
 
-   // 3. 处理 isend（2位，bits 32-33）
-   // 确保 isend 的值在 [0, 3] 范围内（2位最大值）
-   if isend < 0 || isend > 3 {
-	   panic("isend must be in range [0, 3]")
-   }
-   isendPart := int64(isend) << 32
+	// 3. sentenceid（16位，bits 28-43）
+	sentencePart := int64(sentenceid) << 28
 
-   // 4. 处理 basepts（低32位，bits 0-31）
-   baseptsPart := int64(basepts) & 0xFFFFFFFF
+	// 4. chunkid（10位，bits 18-27）
+	chunkMask := uint16(0x3FF) // 二进制 0011 1111 1111（10位掩码）
+	chunkPart := int64(chunkid&chunkMask) << 18
 
-   // 5. 合并所有部分（按位或）
-   return sessionPart | sentencePart | isendPart | baseptsPart
+	// 5. issessionend（2位，bits 16-17）
+	isend := int8(0)
+	if issessionend {
+		isend = 1
+	}
+	endPart := int64(isend) << 16
+
+	// 6. basepts（16位，bits 0-15）
+	basepts := uint16(0) // 默认是0,不需要用户设置
+	baseptsPart := int64(basepts) & 0xFFFF // 确保仅保留低16位
+
+	// 合并所有部分（按位或）
+	return versionPart | sessionPart | sentencePart | chunkPart | endPart | baseptsPart
 }
 /*
 date:2025-08-14
@@ -177,12 +188,8 @@ param: conn: rtc connection
 param: done: done channel
 param: audioSendEvent: audio send event
 param: interruptEvent: interrupt event
-规则是：
-每次触发sendDataEvent的时候，算一个sentenct；
-每10次，更新一个sentnece。
-basepts是从5W开始，是为了避免跳动而产生的。
 */
-func lixiang_test(conn *agoraservice.RtcConnection, done chan bool, audioSendEvent chan struct{}, interruptEvent chan struct{}, file *os.File, samplerate int) {
+func chuanyin_test(conn *agoraservice.RtcConnection, done chan bool, audioSendEvent chan struct{}, interruptEvent chan struct{}, file *os.File, samplerate int) {
 	
 	// allocate buffer
 	leninsecond := 20
@@ -192,12 +199,16 @@ func lixiang_test(conn *agoraservice.RtcConnection, done chan bool, audioSendEve
 	bytesinms := samplerate * 2 / 1000
 	readLen = (readLen / bytesinms) * bytesinms
 
-	basepts := int32(50000)
-	sessionid := int16(1)
-	sentenceid := int16(1)
-	isend := int8(0)
 	
-	sentence_num_inround := int16(4)
+	// 默认session，sentence，chunkid都是从1开始
+	// 模拟场景是： 一个sessio有3个句子； 一个句子分3个chunk来发送
+	// 
+	sessionid := uint16(1)
+	sentenceid := uint16(1)
+	isSessionEnd := false
+	chunkid := uint16(1)
+	version := int8(4)
+	
 
 	for {
 		select {
@@ -205,17 +216,24 @@ func lixiang_test(conn *agoraservice.RtcConnection, done chan bool, audioSendEve
 			fmt.Println("lixiang_test done")
 			return
 		case <-audioSendEvent:
-			isend = 0
-			if (sentenceid+1)%sentence_num_inround == 0 {
-			    isend = 1
+			isSessionEnd = false
+			if (sentenceid ==3 && chunkid == 3) {
+			    isSessionEnd = true
 			}
-			masknumber := CombineToInt64(sessionid, sentenceid, isend, basepts)
+			masknumber := CombineToInt64(version, sessionid, sentenceid, chunkid, isSessionEnd)
 			ret := conn.PushAudioPcmData(buffer[:readLen], samplerate, 1, masknumber)
-			fmt.Printf("lixiang_test audioSendEvent, ret: %d, sessionid: %d, sentenceid: %d, isend: %d, masknumber: %d\n", ret, sessionid, sentenceid, isend, masknumber)
-			sentenceid++
-			if sentenceid % sentence_num_inround == 0 {
+			fmt.Printf("lixiang_test audioSendEvent, ret: %d, sessionid: %d, sentenceid: %d, chunkid: %d, isend: %d, masknumber: %d\n", ret, sessionid, sentenceid, chunkid, isSessionEnd, masknumber)
+		
+			chunkid++
+			
+			if chunkid > 3 {
+				chunkid = 1
+				sentenceid++
+			}
+			if sentenceid > 3 {
 				sessionid++
 				sentenceid = 1
+				chunkid = 1
 			}
 
 		case <-interruptEvent:
@@ -644,7 +662,7 @@ func main() {
 		}()
 	} else  if mode == 4 {
 		//go SendTTSDataToClient(samplerate, audioConsumer, file, done, audioSendEvent, fallackEvent, localUser, track)
-		go lixiang_test(con, done, audioSendEvent, interruptEvent, file, samplerate)
+		go chuanyin_test(con, done, audioSendEvent, interruptEvent, file, samplerate)
 	}
 
 	//release operation:cancel defer release,try manual release
