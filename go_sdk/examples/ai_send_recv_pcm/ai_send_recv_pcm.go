@@ -13,7 +13,7 @@ import (
 	"time"
 	"unsafe"
 
-	agoraservice "github.com/AgoraIO-Extensions/Agora-Golang-Server-SDK/v2/go_sdk/agoraservice"
+	agoraservice "github.com/AgoraIO-Extensions/Agora-Golang-Server-SDK/v2/go_sdk/rtc"
 
 	rtctokenbuilder "github.com/AgoraIO/Tools/DynamicKey/AgoraDynamicKey/go/src/rtctokenbuilder2"
 )
@@ -29,7 +29,7 @@ func PushFileToConsumer(file *os.File, con *agoraservice.RtcConnection, samplera
 		}
 		// round to integer of chunk
 		packLen := readLen / samplerate
-		con.PushAudioPcmData(buffer[:packLen*samplerate], samplerate, 1)
+		con.PushAudioPcmData(buffer[:packLen*samplerate], samplerate, 1, 0)
 		fmt.Printf("PushPCMData done:%d\n", readLen)
 	}
 }
@@ -38,7 +38,7 @@ func ReadFileToConsumer(file *os.File, con *agoraservice.RtcConnection, interval
 		select {
 		case <-done:
 			fmt.Println("ReadFileToConsumer done")
-			return	
+			return
 		default:
 			if con != nil {
 				isPushCompleted := con.IsPushToRtcCompleted()
@@ -50,7 +50,6 @@ func ReadFileToConsumer(file *os.File, con *agoraservice.RtcConnection, interval
 		}
 	}
 }
-
 
 func LoopbackAudio(audioQueue *agoraservice.Queue, audioConsumer *agoraservice.AudioConsumer, done chan bool) {
 	for {
@@ -101,12 +100,149 @@ func SendTTSDataToClient(samplerate int, audioConsumer *agoraservice.AudioConsum
 }
 
 func calculateEnergyFast(data []byte) uint64 {
-    var energy uint64
-    samples := unsafe.Slice((*int16)(unsafe.Pointer(&data[0])), len(data)/2)
-    for _, s := range samples {
-        energy += uint64(s) * uint64(s)
-    }
-    return energy
+	var energy uint64
+	samples := unsafe.Slice((*int16)(unsafe.Pointer(&data[0])), len(data)/2)
+	for _, s := range samples {
+		energy += uint64(s) * uint64(s)
+	}
+	return energy
+}
+func NonblockNotiyEvent( event chan struct{}) int {
+	select {
+	case event<- struct{}{}:
+		return 0
+	default:
+		return -1
+	}
+}
+/*
+date:2025-08-14
+author: weihongqin
+description: nonblock notiy event
+param: event: event channel
+return: 0 if success, -1 if failed
+
+mode: 0 loop send file mode
+mode： 1 echo mode, just echo back rmeote user 's audio
+mode： 2是根据audio meta 信息来触发发送文件和打断
+mode：3 是用来做方波信号回环延迟的测试
+mode：4， 也是根据audio meta 来做chuany的测试，也就是：
+收到audiometa，做打断；在收到后，发送一个新的句子。并且用更新pts
+*/
+/*
+// 位分布：高16位(sessionid) | 中间14位(sentenceid) | 2位(isend) | 低32位(basepts)
+
+// v2 版本： 
+改动1: 引入chunk的概念，模拟每调用一次sendpcm的api，就自增加一次。
+改动2: 将basepts从int32修改为uint16,并且默认位0
+改动3: 不在需要用确保同一个句子分段调用api的时候，需要人工计算basepts的麻烦
+设计依据：
+1分钟是6Wms，也就是：0xEA60，对24000的音频来说，是2MB数据，这个对一个chunk来说，是完全足够的。因此pts用uint16来表示
+限制：
+版本最多支持7个版本：0x0-0x7
+支持的session次数是65536（一轮对话最少1s，实际远大于。就可以支持65536s的对话周期，也就是18H的对话，足够）
+一个session的sentence最多是65536次
+一个sentence最多有1023次chunk
+一个chunk有6Wms的语音：也就是1分钟的语音，2MB的数据
+
+位分布：高4位（version:不能超过0x7)|中间16位（sessionid)|中间16位（sentenceid)|低10位(chunkid）｜2位（session是否结束的标记)｜低16位（basepts）
+*/
+// CombineToInt64 合并六个字段为 int64
+// 位分布：高4位(version) | 16位(sessionid) | 16位(sentenceid) | 10位(chunkid) | 2位(isSessionEnd) | 16位(basepts)
+func CombineToInt64(version int8, sessionid uint16, sentenceid uint16, chunkid uint16, issessionend bool) int64 {
+	// 1. 验证 version 范围（0-7）
+	if version < 0 || version > 0x7 {
+		panic("version must be between 0 and 7")
+	}
+	versionPart := int64(version) << 60 // 高4位（bits 60-63）
+
+	// 2. sessionid（16位，bits 44-59）
+	sessionPart := int64(sessionid) << 44
+
+	// 3. sentenceid（16位，bits 28-43）
+	sentencePart := int64(sentenceid) << 28
+
+	// 4. chunkid（10位，bits 18-27）
+	chunkMask := uint16(0x3FF) // 二进制 0011 1111 1111（10位掩码）
+	chunkPart := int64(chunkid&chunkMask) << 18
+
+	// 5. issessionend（2位，bits 16-17）
+	isend := int8(0)
+	if issessionend {
+		isend = 1
+	}
+	endPart := int64(isend) << 16
+
+	// 6. basepts（16位，bits 0-15）
+	basepts := uint16(0) // 默认是0,不需要用户设置
+	baseptsPart := int64(basepts) & 0xFFFF // 确保仅保留低16位
+
+	// 合并所有部分（按位或）
+	return versionPart | sessionPart | sentencePart | chunkPart | endPart | baseptsPart
+}
+/*
+date:2025-08-14
+author: weihongqin
+description: lixiang_test
+param: conn: rtc connection
+param: done: done channel
+param: audioSendEvent: audio send event
+param: interruptEvent: interrupt event
+*/
+func chuanyin_test(conn *agoraservice.RtcConnection, done chan bool, audioSendEvent chan struct{}, interruptEvent chan struct{}, file *os.File, samplerate int) {
+	
+	// allocate buffer
+	leninsecond := 20
+			
+	buffer := make([]byte, samplerate*2*leninsecond) // max to 20s data
+	readLen, _ := file.Read(buffer)
+	bytesinms := samplerate * 2 / 1000
+	readLen = (readLen / bytesinms) * bytesinms
+
+	
+	// 默认session，sentence，chunkid都是从1开始
+	// 模拟场景是： 一个sessio有3个句子； 一个句子分3个chunk来发送
+	// 
+	sessionid := uint16(1)
+	sentenceid := uint16(1)
+	isSessionEnd := false
+	chunkid := uint16(1)
+	version := int8(4)
+	
+
+	for {
+		select {
+		case <-done:
+			fmt.Println("lixiang_test done")
+			return
+		case <-audioSendEvent:
+			isSessionEnd = false
+			if (sentenceid ==3 && chunkid == 3) {
+			    isSessionEnd = true
+			}
+			masknumber := CombineToInt64(version, sessionid, sentenceid, chunkid, isSessionEnd)
+			ret := conn.PushAudioPcmData(buffer[:readLen], samplerate, 1, masknumber)
+			fmt.Printf("lixiang_test audioSendEvent, ret: %d, sessionid: %d, sentenceid: %d, chunkid: %d, isend: %d, masknumber: %d\n", ret, sessionid, sentenceid, chunkid, isSessionEnd, masknumber)
+		
+			chunkid++
+			
+			if chunkid > 3 {
+				chunkid = 1
+				sentenceid++
+			}
+			if sentenceid > 3 {
+				sessionid++
+				sentenceid = 1
+				chunkid = 1
+			}
+
+		case <-interruptEvent:
+			fmt.Println("lixiang_test interruptEvent")
+			conn.InterruptAudio()
+		default:
+			time.Sleep(40 * time.Millisecond)
+		}
+	}
 }
 
 func main() {
@@ -186,13 +322,8 @@ func main() {
 
 	// about AudioScenario: default is AudioScenarioAiServer
 	// if want to use other scenario, pls contact us and make sure the scenario is much apdated for your business
-	
 
 	agoraservice.Initialize(svcCfg)
-	
-
-	
-	
 
 	conCfg := &agoraservice.RtcConnectionConfig{
 		AutoSubscribeAudio: true,
@@ -203,26 +334,22 @@ func main() {
 	conSignal := make(chan struct{})
 	OnDisconnectedSign := make(chan struct{})
 
-
 	//NOTE: you can set senario here, and every connection has its own senario, which can diff from the service config
 	// and can diff from each other
 	// but recommend to use the same senario for a connection and related audio track
-	
 
 	publishConfig := agoraservice.NewRtcConPublishConfig()
-	
+
 	publishConfig.IsPublishAudio = true
 	publishConfig.IsPublishVideo = false
 	publishConfig.AudioPublishType = agoraservice.AudioPublishTypePcm
 	publishConfig.VideoPublishType = agoraservice.VideoPublishTypeNoPublish
 	publishConfig.AudioScenario = agoraservice.AudioScenarioAiServer
 	publishConfig.AudioProfile = agoraservice.AudioProfileDefault
-	
 
 	con := agoraservice.NewRtcConnection(conCfg, publishConfig)
-	
 
-	audioQueue := agoraservice.NewQueue(10)
+	//audioQueue := agoraservice.NewQueue(10)
 
 	conHandler := &agoraservice.RtcConnectionObserver{
 		OnConnected: func(con *agoraservice.RtcConnection, info *agoraservice.RtcConnectionInfo, reason int) {
@@ -270,7 +397,6 @@ func main() {
 	audioSendEvent := make(chan struct{})
 	fallackEvent := make(chan struct{})
 	interruptEvent := make(chan struct{})
-	
 
 	filename := "./ai_server_recv_pcm.pcm"
 	pcm_file, err := os.Create(filename)
@@ -282,12 +408,11 @@ func main() {
 
 	is_square_wave_inpeak := false
 	square_wave_count := 0
-	
 
 	audioObserver := &agoraservice.AudioFrameObserver{
 		OnPlaybackAudioFrameBeforeMixing: func(localUser *agoraservice.LocalUser, channelId string, userId string, frame *agoraservice.AudioFrame, vadResulatState agoraservice.VadState, vadResultFrame *agoraservice.AudioFrame) bool {
 			// do something
-			fmt.Printf("Playback audio frame before mixing, from userId %s, far :%d,rms:%d, pitch: %d\n", userId, frame.FarFieldFlag, frame.Rms, frame.Pitch)
+			//fmt.Printf("Playback audio frame before mixing, from userId %s, far :%d,rms:%d, pitch: %d\n", userId, frame.FarFieldFlag, frame.Rms, frame.Pitch)
 			//energy := calculateEnergyFast(frame.Buffer)
 			//fmt.Printf("energy: %d, rms: %d, ravg: %f, framecount: %d\n", energy, frame.Rms,float64(energy)/float64(frame.SamplesPerChannel),framecount)
 			now := time.Now().UnixMilli()
@@ -305,7 +430,7 @@ func main() {
 					fmt.Printf("******** frame :%d, duration: %d, avg frame time: %f\n", framecount, frame_diff, float64(frame_diff)/100)
 					start_frame_time = now
 				}
-				if framecount % 4000 == 0  && mode != 3 {
+				if framecount%4000 == 0 && mode != 3 {
 					//audioSendEvent <- struct{}{}
 				}
 
@@ -314,8 +439,9 @@ func main() {
 
 			if mode == 1 {
 				frame.RenderTimeMs = 0
+				frame.PresentTimeMs = 0
 				//sender.SendAudioPcmData(frame)
-				con.PushAudioPcmData(frame.Buffer, frame.SamplesPerSec, frame.Channels)
+				con.PushAudioPcmData(frame.Buffer, frame.SamplesPerSec, frame.Channels, 0)
 				// loopback
 				//audioQueue.Enqueue(frame)
 
@@ -349,9 +475,7 @@ func main() {
 	}
 	start := time.Now().UnixMilli()
 
-	
 	agoraservice.GetAgoraParameter()
-	
 
 	event_count := 0
 
@@ -391,13 +515,16 @@ func main() {
 
 			event_count++
 			/*
-			if event_count == 10 {
-				fallackEvent <- struct{}{}
-			} else */if event_count%2 == 0 {
+				if event_count == 10 {
+					fallackEvent <- struct{}{}
+				} else */if event_count%2 == 0 {
+					//NonblockNotiyEvent(interruptEvent)
 
 				interruptEvent <- struct{}{}
 			} else { // simulate to interrupt audio
 				audioSendEvent <- struct{}{}
+				//NonblockNotiyEvent(audioSendEvent)
+				fmt.Printf("lixiang_test audioSendEvent, event_count: %d\n", event_count)
 			}
 
 			con.SendAudioMetaData(metaData)
@@ -424,14 +551,13 @@ func main() {
 
 	vadConfig := &agoraservice.AudioVadConfigV2{
 		PreStartRecognizeCount: 16,
-		StartRecognizeCount: 30,
-		StopRecognizeCount: 50,
-		ActivePercent: 0.7,
-		InactivePercent: 0.5,
+		StartRecognizeCount:    30,
+		StopRecognizeCount:     50,
+		ActivePercent:          0.7,
+		InactivePercent:        0.5,
 	}
 
 	con.RegisterAudioFrameObserver(audioObserver, 1, vadConfig)
-
 
 	con.Connect(token, channelName, userId)
 	<-conSignal
@@ -454,8 +580,6 @@ func main() {
 		return
 	}
 	defer file.Close()
-
-	
 
 	done := make(chan bool)
 	// new method for push
@@ -484,11 +608,12 @@ func main() {
 			if mode == 3 {
 				leninsecond = 5
 			}
-			buffer := make([]byte, samplerate*2*leninsecond)     // max to 20s data
-			bytesPerFrame := (samplerate / 100) * 2 * 1 // 10ms , mono
+			buffer := make([]byte, samplerate*2*leninsecond) // max to 20s data
+			bytesPerFrame := (samplerate / 100) * 2 * 1      // 10ms , mono
+			bytesInMs := samplerate * 2 / 1000
 			frame := &agoraservice.AudioFrame{
 				Buffer:            nil,
-				RenderTimeMs:      0,
+				RenderTimeMs:     0,
 				SamplesPerChannel: samplerate / 100,
 				BytesPerSample:    2,
 				Channels:          1,
@@ -519,45 +644,43 @@ func main() {
 						file.Seek(0, 0)
 						continue
 					}
+					//round readLen to bytesInMs
+					readLen = (readLen / bytesInMs) * bytesInMs
 					frame.Buffer = buffer[:readLen]
 					packnum := readLen / bytesPerFrame
 					frame.SamplesPerChannel = (samplerate / 100) * packnum
-					ret := con.PushAudioPcmData(buffer[:readLen], samplerate, 1)
-					
+					ret := con.PushAudioPcmData(buffer[:readLen], samplerate, 1, 0)
 
 					//audioConsumer.PushPCMData(frame.Buffer)
 					// and seek to the begin of the file
 					file.Seek(0, 0)
-					fmt.Printf("SendTTSDataToClient done, ret: %d\n", ret)
+					fmt.Printf("SendTTSDataToClient done, ret: %d, samplerate: %d\n", ret, samplerate)
 				default:
 					time.Sleep(40 * time.Millisecond)
 				}
 			}
 		}()
-	} else {
-		//go LoopbackAudio(audioQueue, audioConsumer, done)
-		fmt.Printf("len: %d\n", audioQueue.Size())
+	} else  if mode == 4 {
+		//go SendTTSDataToClient(samplerate, audioConsumer, file, done, audioSendEvent, fallackEvent, localUser, track)
+		go chuanyin_test(con, done, audioSendEvent, interruptEvent, file, samplerate)
 	}
 
 	//release operation:cancel defer release,try manual release
 	for !(*bStop) {
 		time.Sleep(100 * time.Millisecond)
+		//simulate to send audio meta data
+
 	}
 	close(done)
-
-	
 
 	start_disconnect := time.Now().UnixMilli()
 	con.Disconnect()
 	//<-OnDisconnectedSign
-	
 
 	con.Release()
 
-	
 	agoraservice.Release()
 
-	
 	audioObserver = nil
 	localUserObserver = nil
 	localUser = nil

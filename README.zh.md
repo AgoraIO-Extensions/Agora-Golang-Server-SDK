@@ -81,7 +81,7 @@ require github.com/AgoraIO-Extensions/Agora-Golang-Server-SDK/v2 v2.1.0
 - 在你的 Go 文件中添加 import
 ```
 import (
-  agoraservice "github.com/AgoraIO-Extensions/Agora-Golang-Server-SDK/v2/go_sdk/agoraservice"
+  agoraservice "github.com/AgoraIO-Extensions/Agora-Golang-Server-SDK/v2/go_sdk/rtc"
 )
 ```
 - 在代码中调用 agoraservice 接口
@@ -91,6 +91,12 @@ import (
   agoraservice.Initialize(svcCfg)
 ```
 - 运行项目时，记得将 **agora_sdk**目录 (或 Mac 上的 **agora_sdk_mac** 目录) 路径添加到 LD_LIBRARY_PATH (或 Mac 上的 DYLD_LIBRARY_PATH) 环境变量中。
+
+## 如何使用rtm
+1、先遵循上述步骤make deps/make build 构建rtc
+2、用script/rtminstall.sh 安装rtm有关的sdk
+3、用script/rtmbuild.sh 构建rtm demo
+4、参考cmd/example demo 来使用rtm
 
 ##  ❗ ❗逻辑关系
 在一个进程中，只能有一个agoraservice实例.

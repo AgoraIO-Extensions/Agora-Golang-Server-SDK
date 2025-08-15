@@ -8,7 +8,7 @@ import (
 	"os/signal"
 	"time"
 
-	agoraservice "github.com/AgoraIO-Extensions/Agora-Golang-Server-SDK/v2/go_sdk/agoraservice"
+	agoraservice "github.com/AgoraIO-Extensions/Agora-Golang-Server-SDK/v2/go_sdk/rtc"
 
 	rtctokenbuilder "github.com/AgoraIO/Tools/DynamicKey/AgoraDynamicKey/go/src/rtctokenbuilder2"
 )
@@ -83,7 +83,7 @@ func main() {
 				//fmt.Printf("AudioFrame: %d\n", time.Now().UnixMilli())
 				if frame, ok := AudioFrame.(*agoraservice.AudioFrame); ok {
 					frame.RenderTimeMs = 0
-					ret := conn.PushAudioPcmData(frame.Buffer, frame.SamplesPerSec, frame.Channels)
+					ret := conn.PushAudioPcmData(frame.Buffer, frame.SamplesPerSec, frame.Channels, 0)
 					if ret != 0 {
 						fmt.Printf("Send audio pcm data failed, error code %d\n", ret)
 					}
@@ -160,7 +160,7 @@ func main() {
 			}
 			if audioModel == 0 {
 				if conn != nil {
-					conn.PushAudioPcmData(frame.Buffer, frame.SamplesPerSec, frame.Channels)
+					conn.PushAudioPcmData(frame.Buffer, frame.SamplesPerSec, frame.Channels,0)
 				}
 			}
 			return true
