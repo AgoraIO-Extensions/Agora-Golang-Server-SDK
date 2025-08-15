@@ -129,7 +129,24 @@ mode：3 是用来做方波信号回环延迟的测试
 mode：4， 也是根据audio meta 来做chuany的测试，也就是：
 收到audiometa，做打断；在收到后，发送一个新的句子。并且用更新pts
 */
+/*
 // 位分布：高16位(sessionid) | 中间14位(sentenceid) | 2位(isend) | 低32位(basepts)
+
+// v2 版本： 
+改动1: 引入chunk的概念，模拟每调用一次sendpcm的api，就自增加一次。
+改动2: 将basepts从int32修改为uint16,并且默认位0
+改动3: 不在需要用确保同一个句子分段调用api的时候，需要人工计算basepts的麻烦
+设计依据：
+1分钟是6Wms，也就是：0xEA60，对24000的音频来说，是2MB数据，这个对一个chunk来说，是完全足够的。因此pts用uint16来表示
+限制：
+版本最多支持7个版本：0x0-0x7
+支持的session次数是65536（一轮对话最少1s，实际远大于。就可以支持65536s的对话周期，也就是18H的对话，足够）
+一个session的sentence最多是65536次
+一个sentence最多有1023次chunk
+一个chunk有6Wms的语音：也就是1分钟的语音，2MB的数据
+
+位分布：高4位（version:不能超过0x7)|中间16位（sessionid)|中间16位（sentenceid)|低10位(chunkid）｜2位（session是否结束的标记)｜低16位（basepts）
+*/
 func CombineToInt64(sessionid int16, sentenceid int16, isend int8, basepts int32) int64 {
    // 1. 处理 sessionid（高16位，bits 48-63）
    sessionPart := int64(sessionid) << 48
