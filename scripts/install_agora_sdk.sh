@@ -38,7 +38,7 @@ mac_sdk="https://download.agora.io/sdk/release/agora_sdk_mac_v4.4.32_25295_FULL_
 #mac_sdk="https://download.agora.io/sdk/release/agora_sdk_mac_v4.4.32_25295_FULL_20250818_1850_843923-test.zip"
 #date: 20250820 update sdk with pts callback, and add sessionParser helper for parse pts
 linux_sdk="https://download.agora.io/sdk/release/agora_rtc_sdk-x86_64-linux-gnu-v4.4.32-20250820_100926-846510-aed.zip"
-mac_sdk="https://download.agora.io/sdk/release/agora_sdk_mac_v4.4.32_25321_FULL_20250820_1052_846534-aed.zip“
+mac_sdk="https://download.agora.io/sdk/release/agora_sdk_mac_v4.4.32_25321_FULL_20250820_1052_846534-aed.zip"
 
 
 if [[ $UNAME_S == Linux ]]; then
