@@ -131,8 +131,6 @@ mode：4， 也是根据audio meta 来做chuany的测试，也就是：
 收到audiometa，做打断；在收到后，发送一个新的句子。并且用更新pts
 */
 /*
-// 位分布：高16位(sessionid) | 中间14位(sentenceid) | 2位(isend) | 低32位(basepts)
-
 // v2 版本：
 改动1: 引入chunk的概念，模拟每调用一次sendpcm的api，就自增加一次。
 改动2: 将basepts从int32修改为uint16,并且默认位0
@@ -151,47 +149,13 @@ mode：4， 也是根据audio meta 来做chuany的测试，也就是：
 // CombineToInt64 合并六个字段为 int64
 // 位分布：高4位(version) | 16位(sessionid) | 16位(sentenceid) | 10位(chunkid) | 2位(isSessionEnd) | 16位(basepts)
 
-/*
-v3:
-// CombineToInt64 合并六个字段为 int64
-// 位分布：高3位(version) | 4位(sessionid) | 14位(sentenceid) | 10位(chunkid) | 16位(sentence_duration)|1位(isSessionEnd) | 16位(basepts)
-sentence_duration 开始是0，后面一个chunk的时候会变更为真实的duration
-1 0 0 0 b0
-1 0 0 0 b0+dur
-1 0 0 0 b0+2dur
-1 0 0 0 b0+3dur
-1 0 0 0 b0+4dur
-1 0 0 0 b0+5dur
-1 0 0 0 b0+6dur
-1 0 0 0 b0+7dur
-最后一次：
-1 0 0 sentence_duration b0+8dur
-last chunk| last_chuck_duration
-server端关闭拟合？？？
-*/
+
 
 /*
 V4: from client to servereV4: from client to servere
 // 位分布：高3位(version) | 18位(sessionid) |  10位(last_chunk_durationinms)|1位(isSessionEnd) | 32位(basepts)
 */
-func ParseInt64V4(value int64) (version uint8, sessionid uint32, lastChunkDuration uint16, isSessionEnd int, basepts uint32) {
-	// 1. 提取高3位 version (bits 61-63)
-	version = uint8(value>>61) & 0x07 // 0x07 = 二进制 0111（3位掩码）
 
-	// 2. 提取18位 sessionid (bits 43-60)
-	sessionid = uint32((value >> 43) & 0x3FFFF) // 0x3FFFF = 二进制 0011 1111 1111 1111 1111（18位掩码）
-
-	// 3. 提取10位 last_chunk_durationinms (bits 33-42)
-	lastChunkDuration = uint16((value >> 33) & 0x3FF) // 0x3FF = 二进制 0000 0011 1111 1111（10位掩码）
-
-	// 4. 提取1位 isSessionEnd (bit 32)
-	isSessionEnd = int((value >> 32) & 0x01) // 0x01 = 二进制 0000 0001（1位掩码）
-
-	// 5. 提取低32位 basepts (bits 0-31)
-	basepts = uint32(value & 0xFFFFFFFF) // 0xFFFFFFFF = 二进制 1111 1111 1111 1111 1111 1111 1111 1111（32位掩码）
-
-	return
-}
 func CombineToInt64(version int8, sessionid uint16, sentenceid uint16, chunkid uint16, issessionend bool) int64 {
 	// 1. 验证 version 范围（0-7）
 	if version < 0 || version > 0x7 {
@@ -224,33 +188,7 @@ func CombineToInt64(version int8, sessionid uint16, sentenceid uint16, chunkid u
 	return versionPart | sessionPart | sentencePart | chunkPart | endPart | baseptsPart
 }
 
-// ParseInt64Fields 解析一个 int64 整数，按照指定的位域结构，提取各字段
-// from client to server:
-// 高3位(version) | 4位(sessionid) | 24位(chunkid) | 16位(duration)|1位(isSessionEnd) | 16位(basepts)
 
-func ParseInt64Fields(value int64) (version int, sessionid int, chunkid int, duration int, isSessionEnd int, basepts int) {
-	// 注意：Go 的 int 可能是 32 或 64 位，但这里我们解析的值不会超过 int 范围，所以用 int 接收也可以
-
-	// version: [63-61]，共3位，右移61位后取低3位
-	version = int((value >> 61) & 0x7)
-
-	// sessionid: [60-57]，共4位，右移57位后取低4位
-	sessionid = int((value >> 57) & 0xF)
-
-	// chunkid: [56-33]，共24位，右移33位后取低24位
-	chunkid = int((value >> 33) & 0xFFFFFF)
-
-	// duration: [32-17]，共16位，右移17位后取低16位
-	duration = int((value >> 17) & 0xFFFF)
-
-	// isSessionEnd: [16]，共1位，右移16位后取最低位
-	isSessionEnd = int((value >> 16) & 0x1)
-
-	// basepts: [15-0]，共16位，无需移位，直接取低16位
-	basepts = int(value & 0xFFFF)
-
-	return
-}
 
 type SessionInfo struct {
 	version                 uint8
@@ -299,8 +237,8 @@ func (sp *SessionParser) Start() int {
 	sp.isInited = true
 	sp.isStop = false
 	go func() {
-		var interval int = 50
-		diff := int64(interval * 3 / 2)
+		var interval int = 100
+		diff := int64(200)
 		ticker := time.NewTicker(time.Duration(interval) * time.Millisecond)
 		defer ticker.Stop()
 		for {
@@ -309,7 +247,12 @@ func (sp *SessionParser) Start() int {
 				return
 			case <-ticker.C:
 				//diff : 75~125ms to do timedout
-				if time.Now().UnixMilli()-sp.lastCallbackTime >= diff {
+				if sp.sessionInfo.recvedLastChunkDuration > 0 {
+					diff = int64(200)
+				} else {
+					diff = int64(500)
+				}
+				if time.Now().UnixMilli()-sp.lastCallbackTime > diff {
 					// callback to notiy current sesion is end, and a new sesion is coming
 					sp.doEnd(sp.sessionInfo.sessionid, SessionEndReasonTimeout)
 				}
@@ -327,8 +270,28 @@ func (sp *SessionParser) End() int {
 	sp.exitChan <- struct{}{}
 	return 0
 }
+func(sp *SessionParser) parseInt64V4(value int64) (version uint8, sessionid uint32, lastChunkDuration uint16, isSessionEnd int, basepts uint32) {
+	
+		// 1. 提取高3位 version (bits 61-63)
+		version = uint8(value>>61) & 0x07 // 0x07 = 二进制 0111（3位掩码）
+	
+		// 2. 提取18位 sessionid (bits 43-60)
+		sessionid = uint32((value >> 43) & 0x3FFFF) // 0x3FFFF = 二进制 0011 1111 1111 1111 1111（18位掩码）
+	
+		// 3. 提取10位 last_chunk_durationinms (bits 33-42)
+		lastChunkDuration = uint16((value >> 33) & 0x3FF) // 0x3FF = 二进制 0000 0011 1111 1111（10位掩码）
+	
+		// 4. 提取1位 isSessionEnd (bit 32)
+		isSessionEnd = int((value >> 32) & 0x01) // 0x01 = 二进制 0000 0001（1位掩码）
+	
+		// 5. 提取低32位 basepts (bits 0-31)
+		basepts = uint32(value & 0xFFFFFFFF) // 0xFFFFFFFF = 二进制 1111 1111 1111 1111 1111 1111 1111 1111（32位掩码）
+	
+		return
+}
+
 func (sp *SessionParser) Parse(value int64) {
-	version, sessionid, lastChunkDuration, isSessionEnd, basepts := ParseInt64V4(value)
+	version, sessionid, lastChunkDuration, isSessionEnd, basepts := sp.parseInt64V4(value)
 	//compare cur frame's sesison id to session's id
 	// 需要判断是否是当前新的sesion：如果是第一次，就触发doFist
 	// 如果有sesion不一致，就触发doEnd,并且assign 给当前的sessionid
@@ -477,13 +440,7 @@ func main() {
 
 	println("Start to send and receive PCM data\nusage:\n	./send_recv_pcm <appid> <channel_name>\n	press ctrl+c to exit\n")
 
-	// todo: test pasrse
-	arr := [5]int64{7061646552179146752, 7061646560769081344, 7061646569359015936, 7205760975750823936, 7205760990401593344}
-	for _, v := range arr {
-		version, sessionid, chunkid, duration, isSessionEnd, basepts := ParseInt64Fields(v)
-		fmt.Printf("version: %d, sessionid: %d, chunkid: %d, duration: %d, isSessionEnd: %d, basepts: %d\n", version, sessionid, chunkid, duration, isSessionEnd, basepts)
-	}
-	//return
+	
 
 	// todo: chuanyin test
 	parser := NewSessionParser(chuanyin_callback)
@@ -642,12 +599,7 @@ func main() {
 			//fmt.Printf("energy: %d, rms: %d, ravg: %f, framecount: %d\n", energy, frame.Rms,float64(energy)/float64(frame.SamplesPerChannel),framecount)
 			//for test on 2025-08-18,
 
-			curpts := (frame.PresentTimeMs)
-			version, sessionid, lastChunkDuration, isSessionEnd, basepts := ParseInt64V4(curpts)
-			fmt.Printf("Playback audio frame before mixing, from userId %s, present time: %d, version: %d, sessionid: %d, lastChunkDuration: %d, isSessionEnd: %d, basepts: %d,rts: %d\n",
-				userId, curpts, version, sessionid, lastChunkDuration, isSessionEnd, basepts, frame.RenderTimeMs)
-
-			parser.Parse(curpts)
+			parser.Parse(frame.PresentTimeMs)
 
 			//end
 			now := time.Now().UnixMilli()
