@@ -510,8 +510,7 @@ func (pa *PTSAllocator) Allocate(curPushDataLen int, isSessionEnd bool) int64 {
 // CombineToInt64V4 合并字段到int64
 // V5: 
 // 位分布：高14位(version) | 10位(sessionid) | 16位(last_frame_number) | 1位(isSessionEnd) | 21位(basepts)
-// V6: session结束的时候，固定是发送4个包，在server内部自己实现
-// 位分布：高16位(version) | 4位(sessionid) | 10位(sentenceid) | 1位（sentence 是否结束）|1位(isSessionEnd) | 32位(basepts)
+
 func (pa *PTSAllocator) combineToInt64V5(version int16, sessionid uint16, last_frame_number uint16, isend bool, basepts uint32) int64 {
 	// 参数校验
 	if version < -8192 || version > 8191 { // int16范围，但只使用14位（有符号：-8192~8191）
@@ -549,6 +548,80 @@ func (pa *PTSAllocator) combineToInt64V5(version int16, sessionid uint16, last_f
 	result |= int64(basepts & 0x1FFFFF)
 
 	return result
+}
+/*
+date:2025-08-22
+author: weihongqin
+description: V6: session结束的时候，固定是发送4个包，在server内部自己实现
+V6:note: v6 is not work
+/ V6: session结束的时候，固定是发送4个包，在server内部自己实现。也就是说当开发者发送isSessionEnd为true的时候，server内部会自动发送4个静音包，来标记session结束。
+// 规则：sesion结束的时候，固定是发送4个静音包，在server内部自己实现！或者开发者自己来实现
+// 位分布：高16位(version) | 4位(sessionid) | 11位(sentenceid) |1位(isSessionEnd) | 32位(basepts)
+不标记sentenct是否结束：是因为在一个session内的sentence，是连续的，所以不需要标记。通过后一个sentenceid的变化来通知
+session结束：通过isSessionEnd来标记，当isSessionEnd为true的时候，server内部会自动发送4个静音包，来标记session结束。
+用来解决的场景：通常当作是一个Flag，允许用户自己来传递，可以设计为UINT16的值，来传递。
+1、用来做字幕对齐
+2、用来做句子结束的标记
+3、用来做session结束的标记
+4、用来做其他事件的标记
+需要做的验证：
+*/
+// CombineToInt64V6合并字段到int64
+// 位分布：高16位(version) | 4位(sessionid) | 11位(sentenceid) | 1位(isSessionEnd) | 32位(basepts)
+func CombineToInt64V6(version int16, sessionid uint16, sentenceid uint16, isend bool, basepts uint32) int64 {
+	// 参数校验
+	if sessionid > 0xF { // 4位最大值15 (0xF)
+		panic("sessionid exceeds 4 bits")
+	}
+	if sentenceid > 0x7FF { // 11位最大值2047 (0x7FF)
+		panic("sentenceid exceeds 11 bits")
+	}
+	if basepts > 0xFFFFFFFF { // 32位最大值
+		panic("basepts exceeds 32 bits")
+	}
+
+	// 合并字段（注意处理version的符号位）
+	var result int64
+
+	// version (16位，左移48位)
+	// 直接将int16转为uint16保留原始位模式
+	result |= int64(uint16(version)) << 48
+
+	// sessionid (4位，左移44位)
+	result |= int64(sessionid&0xF) << 44
+
+	// sentenceid (11位，左移33位)
+	result |= int64(sentenceid&0x7FF) << 33
+
+	// isend (1位，左移32位)
+	if isend {
+		result |= 1 << 32
+	}
+
+	// basepts (32位，最低位)
+	result |= int64(basepts & 0xFFFFFFFF)
+
+	return result
+}
+
+// ParseInt64V4 从int64解析字段
+func ParseInt64V6(value int64) (version int16, sessionid uint16, sentenceid uint16, isend bool, basepts uint32) {
+	// version (16位，先取uint16再转int16保留原始位模式)
+	version = int16(uint16(value >> 48))
+
+	// sessionid (4位)
+	sessionid = uint16((value >> 44) & 0xF)
+
+	// sentenceid (11位)
+	sentenceid = uint16((value >> 33) & 0x7FF)
+
+	// isend (1位)
+	isend = (value>>32)&0x1 != 0
+
+	// basepts (32位)
+	basepts = uint32(value & 0xFFFFFFFF)
+
+	return
 }
 
 /*
@@ -652,6 +725,76 @@ func chuanyin_testV4(conn *agoraservice.RtcConnection, done chan bool, audioSend
 			}
 			masknumber := pa.Allocate(curLen, isSessionEnd)
 			ret := conn.PushAudioPcmData(buffer[:curLen], samplerate, 1, masknumber)
+			fmt.Printf("lixiang_test audioSendEvent, ret: %d, sessionid: %d, sentenceid: %d, chunkid: %d, isend: %d, masknumber: %d, curLen: %d\n", ret, sessionid, sentenceid, chunkid, isSessionEnd, masknumber, curLen)
+			//fmt.Printf("lixiang_test audioSendEvent, ret: %d, sessionid: %d, sentenceid: %d, chunkid: %d, isend: %d, masknumber: %d\n", ret, sessionid, sentenceid, chunkid, isSessionEnd, masknumber)
+
+			chunkid++
+
+			
+			if chunkid > 2 {
+				sessionid++
+				sentenceid = 1
+				chunkid = 1
+			}
+			time.Sleep(100 * time.Millisecond)
+		}
+		now := time.Now().UnixMilli()
+		fmt.Printf("lixiang_test Fin, now: %d\n", now)
+		time.Sleep(2000 * time.Millisecond)
+		now = time.Now().UnixMilli()
+		fmt.Printf("lixiang_test Fin unpblish, now: %d\n", now)
+		conn.UnpublishAudio()
+
+		case <-interruptEvent:
+			fmt.Println("lixiang_test interruptEvent")
+			//conn.InterruptAudio()
+		default:
+			time.Sleep(40 * time.Millisecond)
+		}
+	}
+}
+
+func chuanyin_testV6(conn *agoraservice.RtcConnection, done chan bool, audioSendEvent chan struct{}, interruptEvent chan struct{}, file *os.File, samplerate int) {
+
+	// allocate buffer
+	leninsecond := 2
+
+	buffer := make([]byte, samplerate*2*leninsecond) // max to 20s data
+	readLen, _ := file.Read(buffer)
+	bytesinms := samplerate * 2 / 1000
+	readLen = (readLen / bytesinms) * bytesinms
+
+	pa := NewPTSAllocatorV5(samplerate)
+
+	// 默认session，sentence，chunkid都是从1开始
+	// 模拟场景是： 一个sessio有3个句子； 一个句子分3个chunk来发送
+	//
+	sessionid := uint16(1)
+	sentenceid := uint16(1)
+	isSessionEnd := false
+	chunkid := uint16(1)
+	
+
+	for {
+		select {
+		case <-done:
+			fmt.Println("lixiang_test done")
+			return
+		case <-audioSendEvent:
+			for i := 0; i < 2; i++ {
+			isSessionEnd = false
+			curLen := readLen
+			if chunkid == 2  {
+				isSessionEnd = true
+
+				//对结尾的chunk，最多是10个包！
+				curLen = (bytesinms * 10)*7
+			}
+			masknumber := pa.Allocate(curLen, isSessionEnd)
+			masknumber = CombineToInt64V6(0, sessionid, sentenceid, isSessionEnd, 0)
+			ret := conn.PushAudioPcmData(buffer[:curLen/2], samplerate, 1, masknumber)
+			ret = conn.PushAudioPcmData(buffer[curLen/2:], samplerate, 1, masknumber)
+			ret = conn.PushAudioPcmData(buffer[curLen/2:], samplerate, 1, masknumber)
 			fmt.Printf("lixiang_test audioSendEvent, ret: %d, sessionid: %d, sentenceid: %d, chunkid: %d, isend: %d, masknumber: %d, curLen: %d\n", ret, sessionid, sentenceid, chunkid, isSessionEnd, masknumber, curLen)
 			//fmt.Printf("lixiang_test audioSendEvent, ret: %d, sessionid: %d, sentenceid: %d, chunkid: %d, isend: %d, masknumber: %d\n", ret, sessionid, sentenceid, chunkid, isSessionEnd, masknumber)
 
@@ -1122,7 +1265,7 @@ func main() {
 		}()
 	} else if mode == 4 {
 		//go SendTTSDataToClient(samplerate, audioConsumer, file, done, audioSendEvent, fallackEvent, localUser, track)
-		go chuanyin_testV4(con, done, audioSendEvent, interruptEvent, file, samplerate)
+		go chuanyin_testV6(con, done, audioSendEvent, interruptEvent, file, samplerate)
 	}
 
 	//release operation:cancel defer release,try manual release
