@@ -193,6 +193,7 @@ func GoPcmAudioFrame(frame *C.struct__audio_frame) *AudioFrame {
 		VoiceProb:         int(frame.voice_prob),
 		MusicProb:         int(frame.music_prob),
 		Pitch:             int(frame.pitch),
+		PresentTimeMs:     int64(frame.presentation_ms), // NOTE: next version, should include pts in audio_frame in c api layer!!??
 	}
 	return ret
 }

@@ -16,7 +16,7 @@ import (
 	"time"
 	"unsafe"
 
-	agoraservice "github.com/AgoraIO-Extensions/Agora-Golang-Server-SDK/v2/go_sdk/agoraservice"
+	agoraservice "github.com/AgoraIO-Extensions/Agora-Golang-Server-SDK/v2/go_sdk/rtc"
 
 	rtctokenbuilder "github.com/AgoraIO/Tools/DynamicKey/AgoraDynamicKey/go/src/rtctokenbuilder2"
 )
@@ -119,9 +119,9 @@ func main() {
 	publishConfig.AudioPublishType = agoraservice.AudioPublishTypePcm
 	publishConfig.VideoPublishType = agoraservice.VideoPublishTypeEncodedImage
 
-	publishConfig.VideoEncodedImageSenderOptions.CcMode = agoraservice.VideoSendCcDisabled
+	publishConfig.VideoEncodedImageSenderOptions.CcMode = agoraservice.VideoSendCcEnabled
 	publishConfig.VideoEncodedImageSenderOptions.CodecType = agoraservice.VideoCodecTypeH264
-	publishConfig.VideoEncodedImageSenderOptions.TargetBitrate = 500
+	publishConfig.VideoEncodedImageSenderOptions.TargetBitrate = 5000
 
 	con = agoraservice.NewRtcConnection(conCfg, publishConfig)
 	
@@ -208,7 +208,7 @@ func main() {
 			audioData := unsafe.Slice((*byte)(unsafe.Pointer(cFrame.buffer)), cFrame.buffer_size)
 			sampleRate := int(cFrame.sample_rate)
 			channels := int(cFrame.channels)
-			ret := con.PushAudioPcmData(audioData, sampleRate, channels)
+			ret := con.PushAudioPcmData(audioData, sampleRate, channels, 0)
 			fmt.Printf("SendPcmData %d ret: %d\n", cFrame.pts, ret)
 		} else if cPkt.media_type == C.AVMEDIA_TYPE_VIDEO {
 			ret = C.h264_to_annexb(decoder, &cPkt)
@@ -234,6 +234,7 @@ func main() {
 				CaptureTimeMs:   0,//int64(cPkt.pts),
 				DecodeTimeMs:    0,//int64(cPkt.pts),
 				Rotation:        agoraservice.VideoOrientation0,
+				PresentTimeMs:   int64(0),
 			})
 			fmt.Printf("SendVideoFrame %d, data size %d, sync header %x%x%x%x, frametype %d ret: %d, frame rate %d\n",
 				cPkt.pts, cPkt.pkt.size, data[0], data[1], data[2], data[3], frameType, ret, curFrameRate)

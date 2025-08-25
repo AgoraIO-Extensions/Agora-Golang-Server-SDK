@@ -38,7 +38,7 @@ deps:
 .PHONY: build
 build:
 	mkdir -p $(CURRENT_PATH)/bin
-	$(GOBUILD) -C $(CURRENT_PATH)/go_sdk/agoraservice -v -o $(CURRENT_PATH)/bin/agoraservice.a
+	$(GOBUILD) -C $(CURRENT_PATH)/go_sdk/rtc -v -o $(CURRENT_PATH)/bin/rtc.a
 
 # Clean the project
 .PHONY: clean
@@ -54,7 +54,7 @@ test:
 # Install the project
 .PHONY: install
 install: deps
-	$(GOCMD) install -C $(CURRENT_PATH)/go_sdk/agoraservice -v
+	$(GOCMD) install -C $(CURRENT_PATH)/go_sdk/rtc -v
 
 # Build examples
 .PHONY: examples

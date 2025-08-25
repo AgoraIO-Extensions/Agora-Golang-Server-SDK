@@ -16,6 +16,7 @@ type AudioFrame struct {
 	SamplesPerSec     int    // The Sample rate.
 	Buffer            []byte // The pointer to the data buffer.
 	RenderTimeMs      int64  // The timestamp to render the audio data. Use this member to synchronize the audio renderer while rendering the audio streams.
+	PresentTimeMs     int64  // The timestamp to present the audio data. Use this member to synchronize the audio renderer while rendering the audio streams.
 	AvsyncType        int
 
 	// these field below are only used for audio observer.
@@ -80,7 +81,8 @@ func (sender *AudioPcmDataSender) SendAudioPcmData(frame *AudioFrame) int {
 	cData, pinner := unsafeCBytes(frame.Buffer)
 	defer pinner.Unpin()
 	return int(C.agora_audio_pcm_data_sender_send(sender.cSender, cData,
-		C.uint(frame.RenderTimeMs), C.uint(frame.SamplesPerChannel),
+		C.uint(frame.RenderTimeMs), C.int64_t(frame.PresentTimeMs),
+		C.uint(frame.SamplesPerChannel),
 		C.uint(frame.BytesPerSample), C.uint(frame.Channels),
 		C.uint(frame.SamplesPerSec)))
 }

@@ -13,7 +13,7 @@ import (
 	"time"
 	"unsafe"
 
-	agoraservice "github.com/AgoraIO-Extensions/Agora-Golang-Server-SDK/v2/go_sdk/agoraservice"
+	agoraservice "github.com/AgoraIO-Extensions/Agora-Golang-Server-SDK/v2/go_sdk/rtc"
 )
 
 type TaskContext struct {
@@ -23,8 +23,6 @@ type TaskContext struct {
 	globalCtx *GlobalContext
 
 	con *agoraservice.RtcConnection
-
-	
 
 	streamId int
 
@@ -84,7 +82,7 @@ func (globalCtx *GlobalContext) newTask(id int, cfg *TaskConfig) *TaskContext {
 
 func (taskCtx *TaskContext) sendPcm(taskCfg *TaskConfig) {
 	ctx := taskCtx.ctx
-	
+
 	con := taskCtx.con
 
 	con.PublishAudio()
@@ -93,7 +91,6 @@ func (taskCtx *TaskContext) sendPcm(taskCfg *TaskConfig) {
 	// 	audioTrack.SetEnabled(false)
 	// }()
 
-
 	frame := agoraservice.AudioFrame{
 		Type:              agoraservice.AudioFrameTypePCM16,
 		SamplesPerChannel: 160,
@@ -101,7 +98,8 @@ func (taskCtx *TaskContext) sendPcm(taskCfg *TaskConfig) {
 		Channels:          1,
 		SamplesPerSec:     16000,
 		Buffer:            make([]byte, 320),
-		RenderTimeMs:      0,
+		RenderTimeMs:     0,
+		PresentTimeMs:    0,
 	}
 	filePath := taskCfg.pcmFilePath
 
@@ -139,7 +137,7 @@ func (taskCtx *TaskContext) sendPcm(taskCfg *TaskConfig) {
 				}
 
 				sendCount++
-				con.PushAudioPcmData(frame.Buffer, frame.SamplesPerSec, frame.Channels)
+				con.PushAudioPcmData(frame.Buffer, frame.SamplesPerSec, frame.Channels, 0)
 				// fmt.Printf("SendAudioPcmData %d ret: %d\n", sendCount, ret)
 			}
 			// fmt.Printf("Sent %d frames this time\n", shouldSendCount)
@@ -152,11 +150,11 @@ func (taskCtx *TaskContext) sendPcm(taskCfg *TaskConfig) {
 
 func (taskCtx *TaskContext) sendEncodedAudio(taskCfg *TaskConfig) {
 	ctx := taskCtx.ctx
-	
+
 	con := taskCtx.con
 
 	con.PublishAudio()
-	
+
 	// defer func() {
 	// 	senderLocalUser.UnpublishAudio(encodedAudioTrack)
 	// 	encodedAudioTrack.SetEnabled(false)
@@ -228,7 +226,7 @@ func (taskCtx *TaskContext) sendEncodedAudio(taskCfg *TaskConfig) {
 
 func (taskCtx *TaskContext) sendYuv(taskCfg *TaskConfig) {
 	ctx := taskCtx.ctx
-	
+
 	con := taskCtx.con
 
 	con.SetVideoEncoderConfiguration(&agoraservice.VideoEncoderConfiguration{
@@ -296,7 +294,7 @@ func (taskCtx *TaskContext) sendYuv(taskCfg *TaskConfig) {
 
 func (taskCtx *TaskContext) sendEncodedVideo(taskCfg *TaskConfig) {
 	ctx := taskCtx.ctx
-	
+
 	con := taskCtx.con
 
 	con.PublishVideo()
@@ -325,7 +323,7 @@ func (taskCtx *TaskContext) sendEncodedVideo(taskCfg *TaskConfig) {
 
 	//sendInterval := 1000 * int64(codecParam.framerate.den) / int64(codecParam.framerate.num)
 	//change sendInterval to configured value not the file framerate
-	sendInterval := 1000 / taskCfg.sendVideoFps	
+	sendInterval := 1000 / taskCfg.sendVideoFps
 	ticker := time.NewTicker(time.Duration(sendInterval) * time.Millisecond)
 	defer ticker.Stop()
 	for {
@@ -394,7 +392,7 @@ func (taskCtx *TaskContext) startTask() {
 	cfg := taskCtx.cfg
 
 	var channelName string
-	if cfg.role == 1 {  // for broadcaster
+	if cfg.role == 1 { // for broadcaster
 		channelName = fmt.Sprintf("%s%d", globalCtx.channelNamePrefix, id)
 	} else {
 		channelName = globalCtx.channelNamePrefix
@@ -406,7 +404,6 @@ func (taskCtx *TaskContext) startTask() {
 		return
 	}
 
-	
 	if cfg.taskTime > 0 {
 		ctx, cancel := context.WithTimeout(taskCtx.ctx, time.Duration(cfg.taskTime)*time.Second)
 		taskCtx.ctx = ctx
@@ -479,7 +476,7 @@ func (taskCtx *TaskContext) startTask() {
 
 	var con *agoraservice.RtcConnection = nil
 	conCfg := &agoraservice.RtcConnectionConfig{
-		AutoSubscribeAudio: cfg.recvPcm ,
+		AutoSubscribeAudio: cfg.recvPcm,
 		AutoSubscribeVideo: cfg.recvYuv || cfg.recvEncodedVideo,
 		ClientRole:         role, //agoraservice.ClientRoleBroadcaster,
 		ChannelProfile:     agoraservice.ChannelProfileLiveBroadcasting,
@@ -489,8 +486,7 @@ func (taskCtx *TaskContext) startTask() {
 	// disable publish audio and video, and assign value according to task type
 	publishConfig.IsPublishAudio = false
 	publishConfig.IsPublishVideo = false
-	
-	
+
 	fmt.Printf("task %d config.role: %d, rtc role: %d, channelname: %s\n", id, cfg.role, role, channelName)
 
 	// according to task type, fill publishConfig
@@ -516,12 +512,11 @@ func (taskCtx *TaskContext) startTask() {
 
 	con = agoraservice.NewRtcConnection(conCfg, publishConfig)
 
-
 	taskCtx.con = con
 	defer taskCtx.releaseTask()
 	// create datastream
 	if cfg.sendData {
-		
+
 		//note :no need to create datastream, it will be created automatically when send stream message
 	}
 
@@ -614,7 +609,7 @@ func (taskCtx *TaskContext) startTask() {
 			},
 		}
 		subvideoopt := &agoraservice.VideoSubscriptionOptions{
-			StreamType: agoraservice.VideoStreamHigh,
+			StreamType:       agoraservice.VideoStreamHigh,
 			EncodedFrameOnly: true,
 		}
 		localUser.SubscribeAllVideo(subvideoopt)
@@ -626,7 +621,7 @@ func (taskCtx *TaskContext) startTask() {
 		}
 	}
 	con.RegisterLocalUserObserver(localUserObs)
-	
+
 	con.Connect(token1, channelName, senderId)
 	// defer con.Disconnect()
 
@@ -705,11 +700,11 @@ func (taskCtx *TaskContext) releaseTask() {
 		fmt.Printf("task %d release empty connection\n", taskCtx.id)
 		return
 	}
-	
+
 	// for relase ,only disconnect and release,do not care unregister!!
-	
+
 	taskCtx.con.Disconnect()
-	
+
 	taskCtx.con.Release()
 	taskCtx.con = nil
 	fmt.Printf("task %d released\n", taskCtx.id)

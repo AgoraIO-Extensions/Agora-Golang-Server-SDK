@@ -54,6 +54,7 @@ type EncodedVideoFrameInfo struct {
 	 * The stream type of video frame.
 	 */
 	StreamType int
+	PresentTimeMs int64
 }
 
 type VideoEncodedImageSender struct {
@@ -93,6 +94,7 @@ func (sender *VideoEncodedImageSender) SendEncodedVideoImage(payload []byte, fra
 		decode_time_ms:    C.int64_t(frameInfo.DecodeTimeMs),
 		uid:               C.uint(frameInfo.Uid),
 		stream_type:       C.int(frameInfo.StreamType),
+		presentation_ms:   C.int64_t(frameInfo.PresentTimeMs),
 	}
 	return int(C.agora_video_encoded_image_sender_send(sender.cSender, (*C.uint8_t)(cData), C.uint32_t(len(payload)), cFrameInfo))
 }

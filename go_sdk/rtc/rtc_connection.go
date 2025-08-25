@@ -444,8 +444,9 @@ func NewRtcConPublishConfig() *RtcConnectionPublishConfig {
 		AudioPublishType: AudioPublishTypePcm,
 		VideoPublishType: VideoPublishTypeNoPublish,
 		VideoEncodedImageSenderOptions: &VideoEncodedImageSenderOptions{
-			CcMode:    VideoSendCcDisabled, // should check todo???
+			CcMode:    VideoSendCcEnabled, // should check todo???
 			CodecType: VideoCodecTypeH264,
+			TargetBitrate: 5000,
 		},
 	}
 }
@@ -1189,8 +1190,19 @@ func (conn *RtcConnection) InterruptAudio() int {
 	}
 	return 0
 }
-
-func (conn *RtcConnection) PushAudioPcmData(data []byte, sampleRate int, channels int) int {
+/*
+date:2025-08-14
+author: weihongqin
+description: push audio pcm data to agora sdk
+param: data: audio data
+param: sampleRate: sample rate
+param: channels: channels
+param: startPtsMs: start present timestamp in ms. and it can pass to onPlaybackBeforeMixing's audioframe.
+default value is 0. Note: be carefully to set the pstvalue
+for server end, the AudioFrame.RenderTimeMs is the capture timestamp
+and the presentTimeMs is really the present timestamp.
+*/
+func (conn *RtcConnection) PushAudioPcmData(data []byte, sampleRate int, channels int, startPtsInMs int64) int {
 	if conn == nil || conn.cConnection == nil || conn.audioSender == nil {
 		return -2000
 	}
@@ -1207,6 +1219,7 @@ func (conn *RtcConnection) PushAudioPcmData(data []byte, sampleRate int, channel
 	frame := &AudioFrame{
 				Buffer:            nil,
 				RenderTimeMs:      0,
+				PresentTimeMs:     startPtsInMs,
 				SamplesPerChannel: sampleRate / 100,
 				BytesPerSample:    2,
 				Channels:          channels,
