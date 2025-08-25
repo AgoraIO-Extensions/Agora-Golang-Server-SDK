@@ -118,6 +118,19 @@ import (
 - [ ] 增加onaudio_volume_indication的支持
 
 # 更新日志
+## 2025.08.25 发布 2.3.2 版本
+-- 融合版本：将rtc 和rtm融合在一起，后续都这样来发布。开发者使用的时候，如果不想使用rtm，就不要去执行scripts/rtminstall.sh和rtmbuild.sh，这样就不会有rtm的依赖。
+-- 更新：update rtc sdk 到44.32.0820版本
+-- 增加：在pushAudioFrame中，增加pts参数，用于设置帧的pts
+-- 增加：在pushVideoFrame中，增加pts参数，用于设置帧的pts
+-- 增加：在onplaybackBeforMixing等audioFrame的回调中，增加pts参数
+-- 增加：在sample,ai_send_recv_pcm.go中，
+  -- 增加v2/v4协议，这个是用验证过可以使用的协议；
+  -- 增加PTSAllocator，用来管理PTS的分配
+  -- 增加PcmRawDataManager，用来对音频字节做管理，可以pop出来bytesinms长度的音频数据，避免开发者自己去计算
+  -- 增加SessionParser，用来对pts做解析，根据具体的协议，可以在session开始和结束的时候提供通知。通知的机制为：
+    - sessionid改变的时候：通知上一次session结束；下一个session开始
+    - 在超时的时候，通知sesion结束
 ## 2025.07.21 发布 2.3.1
 -- 增加：OnAudioVolumeIndication，可以通过该接口获取当前正在说话的用户的uid
 用法：

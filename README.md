@@ -104,6 +104,22 @@ import (
   - if you don't use VAD, and your glibc version is between 2.16 and 2.27, you can disable VAD by rename **audio_vad.go** file in go_sdk/agoraserver/ to **audio_vad.go.bak**
 
 # Change log
+
+2025.08.25 Release 2.3.2 - 2025.08.25
+#Merged Version: first merge version of RTC and RTM sdk
+​​  RTC & RTM Integration​​: The RTC and RTM sdk are now merged into a single release. Developers who do not wish to use RTM can skip executing scripts/rtminstall.sh and  scripts/rtmbuild.sh, ensuring no RTM dependencies are included.
+#Updates
+​-- ​RTC SDK Update​​: Upgraded to version ​​44.32.0820​​.
+-- Added ptsparameter to pushAudioFramefor setting the presentation timestamp (PTS) of audio frames.
+-- Added ptsparameter to onPlaybackBeforeMixingand other audio frame callbacks.
+​​-- Video Frame Enhancements​​, Added ptsparameter to pushVideoFramefor setting the presentation timestamp (PTS) of video frames.
+​-- ​Sample Code Enhancements (sample/ai_send_recv_pcm.go)​​
+​​  - Protocol Support​​: Added ​​v2/v4 protocols​​, which have been verified and are ready for use.
+​​  - PTS Management​​: Introduced PTSAllocatorfor managing PTS allocation.
+​​  - Audio Data Management​​: Added PcmRawDataManager to handle audio byte management, allowing developers to pop audio data in bytesinmslength without manual calculations.
+​ -​Session Parsing​​: Added SessionParserfor PTS parsing, providing notifications for session events:
+​​    - Session ID Change​​: Notifies when a previous session ends and a new session begins.
+​​    - Timeout Handling​​: Notifies when a session ends due to timeout.
 # 2025-07-21 release 2.3.1
 -- ​​Added:​​ OnAudioVolumeIndication, which allows you to get the UID of the user currently speaking.
 ​​Usage:​​
