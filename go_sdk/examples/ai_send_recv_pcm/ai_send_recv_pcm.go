@@ -10,6 +10,7 @@ import (
 	"os/signal"
 	"runtime"
 	"strconv"
+	"sync"
 	"time"
 	"unsafe"
 
@@ -107,14 +108,15 @@ func calculateEnergyFast(data []byte) uint64 {
 	}
 	return energy
 }
-func NonblockNotiyEvent( event chan struct{}) int {
+func NonblockNotiyEvent(event chan struct{}) int {
 	select {
-	case event<- struct{}{}:
+	case event <- struct{}{}:
 		return 0
 	default:
 		return -1
 	}
 }
+
 /*
 date:2025-08-14
 author: weihongqin
@@ -130,9 +132,7 @@ mode：4， 也是根据audio meta 来做chuany的测试，也就是：
 收到audiometa，做打断；在收到后，发送一个新的句子。并且用更新pts
 */
 /*
-// 位分布：高16位(sessionid) | 中间14位(sentenceid) | 2位(isend) | 低32位(basepts)
-
-// v2 版本： 
+// v2 版本：
 改动1: 引入chunk的概念，模拟每调用一次sendpcm的api，就自增加一次。
 改动2: 将basepts从int32修改为uint16,并且默认位0
 改动3: 不在需要用确保同一个句子分段调用api的时候，需要人工计算basepts的麻烦
@@ -149,6 +149,12 @@ mode：4， 也是根据audio meta 来做chuany的测试，也就是：
 */
 // CombineToInt64 合并六个字段为 int64
 // 位分布：高4位(version) | 16位(sessionid) | 16位(sentenceid) | 10位(chunkid) | 2位(isSessionEnd) | 16位(basepts)
+
+/*
+V4: from client to servereV4: from client to servere
+// 位分布：高3位(version) | 18位(sessionid) |  10位(last_chunk_durationinms)|1位(isSessionEnd) | 32位(basepts)
+*/
+
 func CombineToInt64(version int8, sessionid uint16, sentenceid uint16, chunkid uint16, issessionend bool) int64 {
 	// 1. 验证 version 范围（0-7）
 	if version < 0 || version > 0x7 {
@@ -174,12 +180,450 @@ func CombineToInt64(version int8, sessionid uint16, sentenceid uint16, chunkid u
 	endPart := int64(isend) << 16
 
 	// 6. basepts（16位，bits 0-15）
-	basepts := uint16(0) // 默认是0,不需要用户设置
+	basepts := uint16(0)                   // 默认是0,不需要用户设置
 	baseptsPart := int64(basepts) & 0xFFFF // 确保仅保留低16位
 
 	// 合并所有部分（按位或）
 	return versionPart | sessionPart | sentencePart | chunkPart | endPart | baseptsPart
 }
+
+type SessionInfo struct {
+	version                 uint8
+	sessionid               uint32
+	lastChunkDuration       uint16
+	isSessionEnd            bool
+	basepts                 uint32
+	recvedLastChunkDuration uint16
+}
+type SessionParser struct {
+	sessionInfo      SessionInfo
+	lastCallbackTime int64
+	lastSessionId    uint32
+	exitChan         chan struct{}
+	callbackFunc     func(sessionId uint32, isFirstOrLastFrame bool) // true: frist frame; false: last frame
+	isInited         bool
+	isStop           bool
+}
+type SessionEndReason int
+
+const (
+	SessionEndReasonLastChunk SessionEndReason = 0
+	SessionEndReasonTimeout   SessionEndReason = 1
+	SessionEndReasonInterrupt SessionEndReason = 2
+	SessionEndReasonOther     SessionEndReason = 3
+)
+
+// isFist: 1-- 开始；0--结束
+func NewSessionParser(callbackFunc func(sessionId uint32, isFirstOrLastFrame bool)) *SessionParser {
+	return &SessionParser{
+		sessionInfo:      SessionInfo{},
+		lastCallbackTime: 0,
+		lastSessionId:    0,
+		exitChan:         make(chan struct{}),
+		callbackFunc:     callbackFunc,
+		isInited:         false,
+		isStop:           true,
+	}
+}
+
+func (sp *SessionParser) Start() int {
+	// start a timer.Ticker to check last callback time
+	if sp.isInited {
+		return 0
+	}
+	sp.isInited = true
+	sp.isStop = false
+	go func() {
+		var interval int = 100
+		diff := int64(200)
+		ticker := time.NewTicker(time.Duration(interval) * time.Millisecond)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-sp.exitChan:
+				return
+			case <-ticker.C:
+				//diff : 75~125ms to do timedout
+				if sp.sessionInfo.recvedLastChunkDuration > 0 {
+					diff = int64(200)
+				} else {
+					diff = int64(500)
+				}
+				if time.Now().UnixMilli()-sp.lastCallbackTime > diff {
+					// callback to notiy current sesion is end, and a new sesion is coming
+					sp.doEnd(sp.sessionInfo.sessionid, SessionEndReasonTimeout)
+				}
+			}
+
+		}
+	}()
+	return 0
+}
+func (sp *SessionParser) End() int {
+	if sp.isStop {
+		return 0
+	}
+	sp.isStop = true
+	sp.exitChan <- struct{}{}
+	return 0
+}
+func (sp *SessionParser) parseInt64V4(value int64) (version uint8, sessionid uint32, lastChunkDuration uint16, isSessionEnd int, basepts uint32) {
+
+	// 1. 提取高3位 version (bits 61-63)
+	version = uint8(value>>61) & 0x07 // 0x07 = 二进制 0111（3位掩码）
+
+	// 2. 提取18位 sessionid (bits 43-60)
+	sessionid = uint32((value >> 43) & 0x3FFFF) // 0x3FFFF = 二进制 0011 1111 1111 1111 1111（18位掩码）
+
+	// 3. 提取10位 last_chunk_durationinms (bits 33-42)
+	lastChunkDuration = uint16((value >> 33) & 0x3FF) // 0x3FF = 二进制 0000 0011 1111 1111（10位掩码）
+
+	// 4. 提取1位 isSessionEnd (bit 32)
+	isSessionEnd = int((value >> 32) & 0x01) // 0x01 = 二进制 0000 0001（1位掩码）
+
+	// 5. 提取低32位 basepts (bits 0-31)
+	basepts = uint32(value & 0xFFFFFFFF) // 0xFFFFFFFF = 二进制 1111 1111 1111 1111 1111 1111 1111 1111（32位掩码）
+
+	return
+}
+
+func (sp *SessionParser) Parse(value int64) {
+	version, sessionid, lastChunkDuration, isSessionEnd, basepts := sp.parseInt64V4(value)
+	//compare cur frame's sesison id to session's id
+	// 需要判断是否是当前新的sesion：如果是第一次，就触发doFist
+	// 如果有sesion不一致，就触发doEnd,并且assign 给当前的sessionid
+	if sessionid != sp.sessionInfo.sessionid {
+		//判断是否是结束？
+		// 还是说是开始新的session？
+		if sp.sessionInfo.sessionid != 0 {
+			sp.doEnd(sp.sessionInfo.sessionid, SessionEndReasonInterrupt)
+		}
+		sp.doFirst(sessionid)
+	}
+
+	//
+	sp.sessionInfo.version = version
+	sp.sessionInfo.sessionid = sessionid
+	sp.sessionInfo.lastChunkDuration = lastChunkDuration
+	sp.sessionInfo.isSessionEnd = isSessionEnd == 1
+	sp.sessionInfo.basepts = basepts
+	sp.lastCallbackTime = time.Now().UnixMilli()
+	//check if the session is end
+	if sp.sessionInfo.isSessionEnd {
+		// update lastcyunk
+		sp.sessionInfo.recvedLastChunkDuration += 10
+		// for frame with isSessionEnd is true, the lastChunkValue is same
+		// but under poor net, the value maybe changed. so only allow to become biger
+		if lastChunkDuration > sp.sessionInfo.lastChunkDuration {
+			sp.sessionInfo.lastChunkDuration = lastChunkDuration
+		}
+
+		if sp.sessionInfo.recvedLastChunkDuration >= sp.sessionInfo.lastChunkDuration {
+			//call back:
+			// and reset
+			sp.doEnd(sp.sessionInfo.sessionid, SessionEndReasonLastChunk)
+		}
+	}
+}
+
+func (sp *SessionParser) doEnd(sessionId uint32, reason SessionEndReason) {
+
+	//fmt.Printf("doEnd, sessionId: %d, reason: %d, lastSessionId: %d, currentSessionId: %d\n", sessionId, reason, sp.lastSessionId, sp.sessionInfo.sessionid)
+
+	if sp.callbackFunc != nil && sp.sessionInfo.sessionid != 0 && sp.lastSessionId != sp.sessionInfo.sessionid {
+		sp.callbackFunc(sessionId, false)
+	}
+	// set to current session id
+	sp.lastSessionId = sp.sessionInfo.sessionid
+
+	//empty sesion
+	sp.sessionInfo.lastChunkDuration = 0
+	sp.sessionInfo.isSessionEnd = false
+	sp.sessionInfo.basepts = 0
+	sp.sessionInfo.recvedLastChunkDuration = 0
+	sp.lastCallbackTime = 0
+
+}
+func (sp *SessionParser) doFirst(sessionid uint32) {
+	if sp.callbackFunc != nil {
+		sp.callbackFunc(sessionid, true)
+	}
+}
+
+/*
+date:2025-08-21
+author: weihongqin
+description: byte manager for pcm raw data
+*/
+
+// ByteManager: the manager for pcm raw data
+type PcmRawDataManager struct {
+	data       []byte
+	start      int // the start position of the buffer
+	lock       sync.Mutex
+	sampleRate int // the sample rate of the pcm data
+	channels   int // the channels of the pcm data
+	bytesInMs  int // the bytes in ms of the pcm data
+}
+
+// NewByteManager: create a new byte manager
+func NewPcmRawDataManager(sampleRate int, channels int) *PcmRawDataManager {
+	bm := &PcmRawDataManager{
+		data:       make([]byte, 0),
+		sampleRate: 24000,
+		channels:   1,
+		bytesInMs:  0,
+	}
+	bm.sampleRate = sampleRate
+	bm.channels = channels
+	bm.bytesInMs = sampleRate * 2 / 1000 * channels
+	return bm
+}
+
+// UpdateParameters: update the parameters of the byte manager
+// return 0: success
+// return 1: if the parameters are the same as the current parameters, do nothing
+func (bm *PcmRawDataManager) UpdateParameters(sampleRate int, channels int) int {
+	bm.lock.Lock()
+	defer bm.lock.Unlock()
+	if sampleRate != bm.sampleRate || channels != bm.channels {
+		bm.sampleRate = sampleRate
+		bm.channels = channels
+		bm.bytesInMs = sampleRate * 2 / 1000 * channels
+		// and reset the data
+		bm.Reset()
+		return 0
+	}
+	return 1
+}
+
+// Push: push data to the end of the buffer without copy
+// always push the data to the end of the buffer
+func (bm *PcmRawDataManager) Push(data []byte) {
+	bm.lock.Lock()
+	defer bm.lock.Unlock()
+	bm.data = append(bm.data, data...)
+}
+
+// Pop: pop data from the begin of the buffer without copy
+// the returned slice is the view of the internal data, and the caller should not modify it
+// if the available data is not round to the nearest multiple of bytesInMs, return nil
+func (bm *PcmRawDataManager) Pop() []byte {
+	bm.lock.Lock()
+	defer bm.lock.Unlock()
+
+	available := len(bm.data) - bm.start
+	// round to the nearest multiple of bytesInMs
+	length := available / bm.bytesInMs * bm.bytesInMs
+	// if length is 0, return empty slice
+	if length == 0 {
+		return nil
+	}
+
+	// return the data view of the requested length
+	result := bm.data[bm.start : bm.start+length]
+	bm.start += length
+
+	// 如果已弹出超过一半的数据，进行内存整理
+	if bm.start > len(bm.data)/2 {
+		bm.data = bm.data[bm.start:]
+		bm.start = 0
+	}
+
+	return result
+}
+
+// Len : return the data length in the buffer
+func (bm *PcmRawDataManager) Len() int {
+	bm.lock.Lock()
+	defer bm.lock.Unlock()
+	return len(bm.data) - bm.start
+}
+
+// Reset: reset the buffer or empty the buffer
+// and return the remain data length
+func (bm *PcmRawDataManager) Reset() int {
+	bm.lock.Lock()
+	defer bm.lock.Unlock()
+	remain := len(bm.data) - bm.start
+	bm.data = bm.data[:0]
+	bm.start = 0
+	return remain
+}
+
+/*
+date:2025-08-21
+author: weihongqin
+description: PTS allocator for V5 protocol, to simplify the PTS calculation
+v5:
+// 位分布：高3位(version) | 12位(sessionid) | 16位(last_chunk_durationinms) | 1位(isSessionEnd) | 32位(basepts)
+*/
+type PTSAllocator struct {
+	version    int16
+	sessionId  uint16
+	basePts    uint32
+	sampleRate int
+	bytesInMs  int
+}
+
+func NewPTSAllocatorV5(sampleRate int) *PTSAllocator {
+	pa := &PTSAllocator{
+		version:   0,
+		sessionId: 1, // MUST start from 1, and limitation is 12 bits
+		basePts:   0,
+	}
+	pa.sampleRate = sampleRate
+	pa.bytesInMs = sampleRate * 2 / 1000
+	return pa
+}
+
+func (pa *PTSAllocator) Allocate(curPushDataLen int, isSessionEnd bool) int64 {
+	// combination to 64 bits:
+	curDuration := curPushDataLen / pa.bytesInMs
+	curPts := pa.basePts
+	lastFrameNumber := uint16(0)
+
+	if isSessionEnd {
+		lastFrameNumber = uint16(curDuration/10) // 10ms per frame
+	}
+
+	combined := pa.combineToInt64V5(pa.version, pa.sessionId, lastFrameNumber, isSessionEnd, curPts)
+
+	// increase the base pts
+	pa.basePts += uint32(curDuration)
+
+	// 1. check if the session is end
+	if isSessionEnd {
+		pa.sessionId++
+		// limitation check: should be less than 12 bits
+		if pa.sessionId > 0xFFF {
+			pa.sessionId = 1
+		}
+
+		pa.basePts = 0
+	}
+
+	return combined
+}
+
+
+// CombineToInt64V4 合并字段到int64
+// V5: 
+// 位分布：高14位(version) | 10位(sessionid) | 16位(last_frame_number) | 1位(isSessionEnd) | 21位(basepts)
+
+func (pa *PTSAllocator) combineToInt64V5(version int16, sessionid uint16, last_frame_number uint16, isend bool, basepts uint32) int64 {
+	// 参数校验
+	if version < -8192 || version > 8191 { // int16范围，但只使用14位（有符号：-8192~8191）
+		panic("version exceeds 14 bits")
+	}
+	if sessionid > 0x3FF { // 10位最大值1023 (0x3FF)
+		panic("sessionid exceeds 10 bits")
+	}
+	if last_frame_number > 0xFFFF { // 16位最大值65535
+		panic("last_duration exceeds 16 bits")
+	}
+	if basepts > 0x1FFFFF { // 21位最大值2097151 (0x1FFFFF)
+		panic("basepts exceeds 21 bits")
+	}
+
+	// 合并字段（注意处理version的符号位）
+	var result int64
+
+	// version (14位，左移50位)
+	// 将int16转为无符号14位：version & 0x3FFF
+	result |= int64(uint16(version)&0x3FFF) << 50
+
+	// sessionid (10位，左移40位)
+	result |= int64(sessionid&0x3FF) << 40
+
+	// last_duration (16位，左移24位)
+	result |= int64(last_frame_number) << 24
+
+	// isend (1位，左移23位)
+	if isend {
+		result |= 1 << 23
+	}
+
+	// basepts (21位，最低位)
+	result |= int64(basepts & 0x1FFFFF)
+
+	return result
+}
+/*
+date:2025-08-22
+author: weihongqin
+description: V6: session结束的时候，固定是发送4个包，在server内部自己实现
+V6:note: v6 is not work
+/ V6: session结束的时候，固定是发送4个包，在server内部自己实现。也就是说当开发者发送isSessionEnd为true的时候，server内部会自动发送4个静音包，来标记session结束。
+// 规则：sesion结束的时候，固定是发送4个静音包，在server内部自己实现！或者开发者自己来实现
+// 位分布：高16位(version) | 4位(sessionid) | 11位(sentenceid) |1位(isSessionEnd) | 32位(basepts)
+不标记sentenct是否结束：是因为在一个session内的sentence，是连续的，所以不需要标记。通过后一个sentenceid的变化来通知
+session结束：通过isSessionEnd来标记，当isSessionEnd为true的时候，server内部会自动发送4个静音包，来标记session结束。
+用来解决的场景：通常当作是一个Flag，允许用户自己来传递，可以设计为UINT16的值，来传递。
+1、用来做字幕对齐
+2、用来做句子结束的标记
+3、用来做session结束的标记
+4、用来做其他事件的标记
+需要做的验证：
+*/
+// CombineToInt64V6合并字段到int64
+// 位分布：高16位(version) | 4位(sessionid) | 11位(sentenceid) | 1位(isSessionEnd) | 32位(basepts)
+func CombineToInt64V6(version int16, sessionid uint16, sentenceid uint16, isend bool, basepts uint32) int64 {
+	// 参数校验
+	if sessionid > 0xF { // 4位最大值15 (0xF)
+		panic("sessionid exceeds 4 bits")
+	}
+	if sentenceid > 0x7FF { // 11位最大值2047 (0x7FF)
+		panic("sentenceid exceeds 11 bits")
+	}
+	if basepts > 0xFFFFFFFF { // 32位最大值
+		panic("basepts exceeds 32 bits")
+	}
+
+	// 合并字段（注意处理version的符号位）
+	var result int64
+
+	// version (16位，左移48位)
+	// 直接将int16转为uint16保留原始位模式
+	result |= int64(uint16(version)) << 48
+
+	// sessionid (4位，左移44位)
+	result |= int64(sessionid&0xF) << 44
+
+	// sentenceid (11位，左移33位)
+	result |= int64(sentenceid&0x7FF) << 33
+
+	// isend (1位，左移32位)
+	if isend {
+		result |= 1 << 32
+	}
+
+	// basepts (32位，最低位)
+	result |= int64(basepts & 0xFFFFFFFF)
+
+	return result
+}
+
+// ParseInt64V4 从int64解析字段
+func ParseInt64V6(value int64) (version int16, sessionid uint16, sentenceid uint16, isend bool, basepts uint32) {
+	// version (16位，先取uint16再转int16保留原始位模式)
+	version = int16(uint16(value >> 48))
+
+	// sessionid (4位)
+	sessionid = uint16((value >> 44) & 0xF)
+
+	// sentenceid (11位)
+	sentenceid = uint16((value >> 33) & 0x7FF)
+
+	// isend (1位)
+	isend = (value>>32)&0x1 != 0
+
+	// basepts (32位)
+	basepts = uint32(value & 0xFFFFFFFF)
+
+	return
+}
+
 /*
 date:2025-08-14
 author: weihongqin
@@ -190,25 +634,23 @@ param: audioSendEvent: audio send event
 param: interruptEvent: interrupt event
 */
 func chuanyin_test(conn *agoraservice.RtcConnection, done chan bool, audioSendEvent chan struct{}, interruptEvent chan struct{}, file *os.File, samplerate int) {
-	
+
 	// allocate buffer
 	leninsecond := 20
-			
+
 	buffer := make([]byte, samplerate*2*leninsecond) // max to 20s data
 	readLen, _ := file.Read(buffer)
 	bytesinms := samplerate * 2 / 1000
 	readLen = (readLen / bytesinms) * bytesinms
 
-	
 	// 默认session，sentence，chunkid都是从1开始
 	// 模拟场景是： 一个sessio有3个句子； 一个句子分3个chunk来发送
-	// 
+	//
 	sessionid := uint16(1)
 	sentenceid := uint16(1)
 	isSessionEnd := false
 	chunkid := uint16(1)
 	version := int8(4)
-	
 
 	for {
 		select {
@@ -217,15 +659,15 @@ func chuanyin_test(conn *agoraservice.RtcConnection, done chan bool, audioSendEv
 			return
 		case <-audioSendEvent:
 			isSessionEnd = false
-			if (sentenceid ==3 && chunkid == 3) {
-			    isSessionEnd = true
+			if sentenceid == 3 && chunkid == 3 {
+				isSessionEnd = true
 			}
 			masknumber := CombineToInt64(version, sessionid, sentenceid, chunkid, isSessionEnd)
 			ret := conn.PushAudioPcmData(buffer[:readLen], samplerate, 1, masknumber)
 			fmt.Printf("lixiang_test audioSendEvent, ret: %d, sessionid: %d, sentenceid: %d, chunkid: %d, isend: %d, masknumber: %d\n", ret, sessionid, sentenceid, chunkid, isSessionEnd, masknumber)
-		
+
 			chunkid++
-			
+
 			if chunkid > 3 {
 				chunkid = 1
 				sentenceid++
@@ -243,6 +685,147 @@ func chuanyin_test(conn *agoraservice.RtcConnection, done chan bool, audioSendEv
 			time.Sleep(40 * time.Millisecond)
 		}
 	}
+}
+
+func chuanyin_testV4(conn *agoraservice.RtcConnection, done chan bool, audioSendEvent chan struct{}, interruptEvent chan struct{}, file *os.File, samplerate int) {
+
+	// allocate buffer
+	leninsecond := 2
+
+	buffer := make([]byte, samplerate*2*leninsecond) // max to 20s data
+	readLen, _ := file.Read(buffer)
+	bytesinms := samplerate * 2 / 1000
+	readLen = (readLen / bytesinms) * bytesinms
+
+	pa := NewPTSAllocatorV5(samplerate)
+
+	// 默认session，sentence，chunkid都是从1开始
+	// 模拟场景是： 一个sessio有3个句子； 一个句子分3个chunk来发送
+	//
+	sessionid := uint16(1)
+	sentenceid := uint16(1)
+	isSessionEnd := false
+	chunkid := uint16(1)
+	
+
+	for {
+		select {
+		case <-done:
+			fmt.Println("lixiang_test done")
+			return
+		case <-audioSendEvent:
+			for i := 0; i < 2; i++ {
+			isSessionEnd = false
+			curLen := readLen
+			if chunkid == 2  {
+				isSessionEnd = true
+
+				//对结尾的chunk，最多是10个包！
+				curLen = (bytesinms * 10)*7
+			}
+			masknumber := pa.Allocate(curLen, isSessionEnd)
+			ret := conn.PushAudioPcmData(buffer[:curLen], samplerate, 1, masknumber)
+			fmt.Printf("lixiang_test audioSendEvent, ret: %d, sessionid: %d, sentenceid: %d, chunkid: %d, isend: %d, masknumber: %d, curLen: %d\n", ret, sessionid, sentenceid, chunkid, isSessionEnd, masknumber, curLen)
+			//fmt.Printf("lixiang_test audioSendEvent, ret: %d, sessionid: %d, sentenceid: %d, chunkid: %d, isend: %d, masknumber: %d\n", ret, sessionid, sentenceid, chunkid, isSessionEnd, masknumber)
+
+			chunkid++
+
+			
+			if chunkid > 2 {
+				sessionid++
+				sentenceid = 1
+				chunkid = 1
+			}
+			time.Sleep(100 * time.Millisecond)
+		}
+		now := time.Now().UnixMilli()
+		fmt.Printf("lixiang_test Fin, now: %d\n", now)
+		time.Sleep(2000 * time.Millisecond)
+		now = time.Now().UnixMilli()
+		fmt.Printf("lixiang_test Fin unpblish, now: %d\n", now)
+		conn.UnpublishAudio()
+
+		case <-interruptEvent:
+			fmt.Println("lixiang_test interruptEvent")
+			//conn.InterruptAudio()
+		default:
+			time.Sleep(40 * time.Millisecond)
+		}
+	}
+}
+
+func chuanyin_testV6(conn *agoraservice.RtcConnection, done chan bool, audioSendEvent chan struct{}, interruptEvent chan struct{}, file *os.File, samplerate int) {
+
+	// allocate buffer
+	leninsecond := 2
+
+	buffer := make([]byte, samplerate*2*leninsecond) // max to 20s data
+	readLen, _ := file.Read(buffer)
+	bytesinms := samplerate * 2 / 1000
+	readLen = (readLen / bytesinms) * bytesinms
+
+	pa := NewPTSAllocatorV5(samplerate)
+
+	// 默认session，sentence，chunkid都是从1开始
+	// 模拟场景是： 一个sessio有3个句子； 一个句子分3个chunk来发送
+	//
+	sessionid := uint16(1)
+	sentenceid := uint16(1)
+	isSessionEnd := false
+	chunkid := uint16(1)
+	
+
+	for {
+		select {
+		case <-done:
+			fmt.Println("lixiang_test done")
+			return
+		case <-audioSendEvent:
+			for i := 0; i < 2; i++ {
+			isSessionEnd = false
+			curLen := readLen
+			if chunkid == 2  {
+				isSessionEnd = true
+
+				//对结尾的chunk，最多是10个包！
+				curLen = (bytesinms * 10)*7
+			}
+			masknumber := pa.Allocate(curLen, isSessionEnd)
+			masknumber = CombineToInt64V6(0, sessionid, sentenceid, isSessionEnd, 0)
+			ret := conn.PushAudioPcmData(buffer[:curLen/2], samplerate, 1, masknumber)
+			ret = conn.PushAudioPcmData(buffer[curLen/2:], samplerate, 1, masknumber)
+			ret = conn.PushAudioPcmData(buffer[curLen/2:], samplerate, 1, masknumber)
+			fmt.Printf("lixiang_test audioSendEvent, ret: %d, sessionid: %d, sentenceid: %d, chunkid: %d, isend: %d, masknumber: %d, curLen: %d\n", ret, sessionid, sentenceid, chunkid, isSessionEnd, masknumber, curLen)
+			//fmt.Printf("lixiang_test audioSendEvent, ret: %d, sessionid: %d, sentenceid: %d, chunkid: %d, isend: %d, masknumber: %d\n", ret, sessionid, sentenceid, chunkid, isSessionEnd, masknumber)
+
+			chunkid++
+
+			
+			if chunkid > 2 {
+				sessionid++
+				sentenceid = 1
+				chunkid = 1
+			}
+			time.Sleep(100 * time.Millisecond)
+		}
+		now := time.Now().UnixMilli()
+		fmt.Printf("lixiang_test Fin, now: %d\n", now)
+		time.Sleep(2000 * time.Millisecond)
+		now = time.Now().UnixMilli()
+		fmt.Printf("lixiang_test Fin unpblish, now: %d\n", now)
+		conn.UnpublishAudio()
+
+		case <-interruptEvent:
+			fmt.Println("lixiang_test interruptEvent")
+			//conn.InterruptAudio()
+		default:
+			time.Sleep(40 * time.Millisecond)
+		}
+	}
+}
+
+func chuanyin_callback(sessionId uint32, isFirstOrLastFrame bool) {
+	fmt.Printf("---------chuanyin_callback, sessionId: %d, isFirstOrLastFrame: %d\n", sessionId, isFirstOrLastFrame)
 }
 
 func main() {
@@ -348,6 +931,9 @@ func main() {
 	publishConfig.AudioProfile = agoraservice.AudioProfileDefault
 
 	con := agoraservice.NewRtcConnection(conCfg, publishConfig)
+	// todo: chuanyin test
+	parser := NewSessionParser(chuanyin_callback)
+	parser.Start()
 
 	//audioQueue := agoraservice.NewQueue(10)
 
@@ -409,12 +995,26 @@ func main() {
 	is_square_wave_inpeak := false
 	square_wave_count := 0
 
+	bm := NewPcmRawDataManager(16000, 1)
+	fmt.Printf("bm: %v\n", bm)
 	audioObserver := &agoraservice.AudioFrameObserver{
 		OnPlaybackAudioFrameBeforeMixing: func(localUser *agoraservice.LocalUser, channelId string, userId string, frame *agoraservice.AudioFrame, vadResulatState agoraservice.VadState, vadResultFrame *agoraservice.AudioFrame) bool {
 			// do something
 			//fmt.Printf("Playback audio frame before mixing, from userId %s, far :%d,rms:%d, pitch: %d\n", userId, frame.FarFieldFlag, frame.Rms, frame.Pitch)
 			//energy := calculateEnergyFast(frame.Buffer)
 			//fmt.Printf("energy: %d, rms: %d, ravg: %f, framecount: %d\n", energy, frame.Rms,float64(energy)/float64(frame.SamplesPerChannel),framecount)
+			//for test on 2025-08-18,
+
+			/* todo: test parser
+			parser.Parse(frame.PresentTimeMs)
+			bm.Push(frame.Buffer)
+			data := bm.Pop()
+			if data != nil {
+				con.PushAudioPcmData(data, frame.SamplesPerSec, frame.Channels, 0)
+			}
+			*/
+
+			//end
 			now := time.Now().UnixMilli()
 			if mode != 3 {
 				if framecount == 0 {
@@ -427,7 +1027,10 @@ func main() {
 				//fmt.Printf("frame_diff: %d\n", frame_diff)
 				if framecount%100 == 0 { // evry 100 frames
 					frame_diff = now - start_frame_time
-					fmt.Printf("******** frame :%d, duration: %d, avg frame time: %f\n", framecount, frame_diff, float64(frame_diff)/100)
+					if frame_diff > 1000 {
+						fmt.Printf("******** frame :%d, duration: %d, avg frame time: %f\n", framecount, frame_diff, float64(frame_diff)/100)
+					}
+					//fmt.Printf("******** frame :%d, duration: %d, avg frame time: %f\n", framecount, frame_diff, float64(frame_diff)/100)
 					start_frame_time = now
 				}
 				if framecount%4000 == 0 && mode != 3 {
@@ -518,7 +1121,7 @@ func main() {
 				if event_count == 10 {
 					fallackEvent <- struct{}{}
 				} else */if event_count%2 == 0 {
-					//NonblockNotiyEvent(interruptEvent)
+				//NonblockNotiyEvent(interruptEvent)
 
 				interruptEvent <- struct{}{}
 			} else { // simulate to interrupt audio
@@ -613,7 +1216,7 @@ func main() {
 			bytesInMs := samplerate * 2 / 1000
 			frame := &agoraservice.AudioFrame{
 				Buffer:            nil,
-				RenderTimeMs:     0,
+				RenderTimeMs:      0,
 				SamplesPerChannel: samplerate / 100,
 				BytesPerSample:    2,
 				Channels:          1,
@@ -660,9 +1263,9 @@ func main() {
 				}
 			}
 		}()
-	} else  if mode == 4 {
+	} else if mode == 4 {
 		//go SendTTSDataToClient(samplerate, audioConsumer, file, done, audioSendEvent, fallackEvent, localUser, track)
-		go chuanyin_test(con, done, audioSendEvent, interruptEvent, file, samplerate)
+		go chuanyin_testV6(con, done, audioSendEvent, interruptEvent, file, samplerate)
 	}
 
 	//release operation:cancel defer release,try manual release
@@ -686,6 +1289,8 @@ func main() {
 	localUser = nil
 	conHandler = nil
 	con = nil
+
+	parser.End()
 
 	fmt.Printf("Disconnected, cost %d ms\n", time.Now().UnixMilli()-start_disconnect)
 }
