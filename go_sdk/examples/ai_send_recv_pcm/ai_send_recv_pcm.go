@@ -911,7 +911,7 @@ func main() {
 	conSignal := make(chan struct{})
 	OnDisconnectedSign := make(chan struct{})
 
-	agoraservice.GetAgoraParameter().SetParameters("{\"che.audio.frame_dump\":{\"location\":\"all\",\"action\":\"start\",\"max_size_bytes\":\"100000000\",\"uuid\":\"123456789\", \"duration\": \"150000\"}}")
+	
 
 	//NOTE: you can set senario here, and every connection has its own senario, which can diff from the service config
 	// and can diff from each other
@@ -927,6 +927,8 @@ func main() {
 	publishConfig.AudioProfile = agoraservice.AudioProfileDefault
 
 	con := agoraservice.NewRtcConnection(conCfg, publishConfig)
+
+	agoraservice.GetAgoraParameter().SetParameters("{\"che.audio.frame_dump\":{\"location\":\"all\",\"action\":\"start\",\"max_size_bytes\":\"100000000\",\"uuid\":\"123456789\", \"duration\": \"150000\"}}")
 	// todo: chuanyin test
 	parser := NewSessionParser(chuanyin_callback)
 	parser.Start()
