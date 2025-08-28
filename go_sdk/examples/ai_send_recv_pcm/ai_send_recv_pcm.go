@@ -808,16 +808,10 @@ func chuanyin_testV6(conn *agoraservice.RtcConnection, done chan bool, audioSend
 			}
 			time.Sleep(100 * time.Millisecond)
 		}
-		now := time.Now().UnixMilli()
-		fmt.Printf("lixiang_test Fin, now: %d\n", now)
-		time.Sleep(2000 * time.Millisecond)
-		now = time.Now().UnixMilli()
-		fmt.Printf("lixiang_test Fin unpblish, now: %d\n", now)
-		conn.UnpublishAudio()
-
+		
 		case <-interruptEvent:
 			fmt.Println("lixiang_test interruptEvent")
-			//conn.InterruptAudio()
+			conn.InterruptAudio()
 		default:
 			time.Sleep(40 * time.Millisecond)
 		}
@@ -916,6 +910,8 @@ func main() {
 	}
 	conSignal := make(chan struct{})
 	OnDisconnectedSign := make(chan struct{})
+
+	agoraservice.GetAgoraParameter().SetParameters("{\"che.audio.frame_dump\":{\"location\":\"all\",\"action\":\"start\",\"max_size_bytes\":\"100000000\",\"uuid\":\"123456789\", \"duration\": \"150000\"}}")
 
 	//NOTE: you can set senario here, and every connection has its own senario, which can diff from the service config
 	// and can diff from each other
