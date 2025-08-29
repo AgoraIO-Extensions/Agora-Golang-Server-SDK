@@ -104,7 +104,9 @@ import (
   - if you don't use VAD, and your glibc version is between 2.16 and 2.27, you can disable VAD by rename **audio_vad.go** file in go_sdk/agoraserver/ to **audio_vad.go.bak**
 
 # Change log
-
+## 2025.08.29 Release 2.3.3
+-- update: update rtc sdk to 4.4.32.0829, which fix a bug when set parameter to do auduio dump could case audio-dump thread to leak
+-- add: add best practice for audio dump usage: use connection.getparameter to set audio dump parameter
 2025.08.25 Release 2.3.2 - 2025.08.25
 #Merged Version: first merge version of RTC and RTM sdk
 ​​  RTC & RTM Integration​​: The RTC and RTM sdk are now merged into a single release. Developers who do not wish to use RTM can skip executing scripts/rtminstall.sh and  scripts/rtmbuild.sh, ensuring no RTM dependencies are included.
