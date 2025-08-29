@@ -118,6 +118,9 @@ import (
 - [ ] 增加onaudio_volume_indication的支持
 
 # 更新日志
+## 2025.08.29 发布 2.3.3 版本
+-- 更新：update rtc sdk 到44.32.0829版本,fix 一个启动audiodump 会导致audio-dump 线程泄漏的问题
+-- 最佳实现：用connection级别的方式来设置aduiodump！！
 ## 2025.08.25 发布 2.3.2 版本
 -- 融合版本：将rtc 和rtm融合在一起，后续都这样来发布。开发者使用的时候，如果不想使用rtm，就不要去执行scripts/rtminstall.sh和rtmbuild.sh，这样就不会有rtm的依赖。
 -- 更新：update rtc sdk 到44.32.0820版本

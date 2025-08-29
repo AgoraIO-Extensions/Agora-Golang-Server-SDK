@@ -40,6 +40,10 @@ mac_sdk="https://download.agora.io/sdk/release/agora_sdk_mac_v4.4.32_25295_FULL_
 linux_sdk="https://download.agora.io/sdk/release/agora_rtc_sdk-x86_64-linux-gnu-v4.4.32-20250820_100926-846510-aed.zip"
 mac_sdk="https://download.agora.io/sdk/release/agora_sdk_mac_v4.4.32_25321_FULL_20250820_1052_846534-aed.zip"
 
+#date: 20250829 for update sdk with framedump
+linux_sdk="https://download.agora.io/sdk/release/agora_rtc_sdk-x86_64-linux-gnu-v4.4.32-20250829_160340-860733-aed.zip"
+mac_sdk="https://download.agora.io/sdk/release/agora_sdk_mac_v4.4.32_25418_FULL_20250829_1647_860754-aed.zip"
+
 
 if [[ $UNAME_S == Linux ]]; then
     OS=linux
