@@ -133,7 +133,7 @@ func NewAgoraServiceConfig() *AgoraServiceConfig {
 		AudioScenario:        AudioScenarioAiServer,
 		UseStringUid:         false,
 		LogPath:              "",  // format like: "./agora_rtc_log/agorasdk.log"
-		LogSize:              1024 * 1024,
+		LogSize:              5 * 1024, // default to: 5MB
 		LogLevel: 0,
 		DomainLimit: 0, // default to 0
 		ShouldCallbackWhenMuted: 0, // default to 0, no callback when muted
