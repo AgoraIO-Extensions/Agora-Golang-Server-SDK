@@ -16,7 +16,7 @@ type VideoEncoderConfiguration struct {
 	Framerate int
 	// kbps
 	Bitrate int
-	// kbps
+	// kbps,default to -1
 	MinBitrate int
 	// 0: adaptive, 1: fixed landscape, 2: fixed portrait
 	OrientationMode OrientationMode
