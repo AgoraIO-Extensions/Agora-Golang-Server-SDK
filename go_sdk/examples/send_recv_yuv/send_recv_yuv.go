@@ -57,6 +57,9 @@ func main() {
 	// whether sending or receiving video, we need to set EnableVideo to true!!
 	svcCfg.EnableVideo = true
 	svcCfg.AppId = appid
+	svcCfg.LogPath = "./agora_rtc_log/agorasdk.log"
+	svcCfg.ConfigDir = "./agora_rtc_log"
+	svcCfg.DataDir = "./agora_rtc_log"
 
 	agoraservice.Initialize(svcCfg)
 	scenario := agoraservice.AudioScenarioChorus
@@ -146,7 +149,7 @@ func main() {
 
 	// can update in session life cycle
 	con.SetVideoEncoderConfiguration(&agoraservice.VideoEncoderConfiguration{
-		CodecType:         agoraservice.VideoCodecTypeH264,
+		CodecType:         agoraservice.VideoCodecTypeAv1,
 		Width:             320,
 		Height:            240,
 		Framerate:         30,
@@ -232,6 +235,7 @@ func main() {
 		time.Sleep(33 * time.Millisecond)
 	}
 	*/
+	
 
 	//release now
 	
