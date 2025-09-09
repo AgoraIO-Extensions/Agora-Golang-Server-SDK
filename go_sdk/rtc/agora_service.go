@@ -186,6 +186,10 @@ func Initialize(cfg *AgoraServiceConfig) int {
 	if cfg.ShouldCallbackWhenMuted > 0 {
 		agoraParam.SetParameters("{\"rtc.audio.enable_user_silence_packet\": true}")
 	}
+	// date: 2025-09-09 
+	// to disable av1 resolution limitation: for any resolution, 
+	// it will be encoded as av1 if config is av1 or it only work for resolution >= 360p
+	agoraParam.SetParameters("{\"che.video.min_enc_level\": 0}")
 
 	agoraService.mediaFactory = newMediaNodeFactory()
 
