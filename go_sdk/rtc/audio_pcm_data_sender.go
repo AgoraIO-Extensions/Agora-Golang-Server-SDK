@@ -81,7 +81,7 @@ func (sender *AudioPcmDataSender) SendAudioPcmData(frame *AudioFrame) int {
 	cData, pinner := unsafeCBytes(frame.Buffer)
 	defer pinner.Unpin()
 	return int(C.agora_audio_pcm_data_sender_send(sender.cSender, cData,
-		C.uint(frame.RenderTimeMs), C.int64_t(frame.PresentTimeMs),
+		C.uint(frame.RenderTimeMs), C.uint(frame.PresentTimeMs),
 		C.uint(frame.SamplesPerChannel),
 		C.uint(frame.BytesPerSample), C.uint(frame.Channels),
 		C.uint(frame.SamplesPerSec)))

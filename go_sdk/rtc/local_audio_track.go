@@ -126,3 +126,54 @@ func NewDirectCustomAudioTrackPcm(pcmSender *AudioPcmDataSender) *LocalAudioTrac
 		cTrack: cTrack,
 	}
 }
+
+func (track *LocalAudioTrack) EnableAudioFilter(name string, enable bool, position int) int {
+	if track == nil || track.cTrack == nil {
+		return -1
+	}
+	cName := C.CString(name)
+	defer C.free(unsafe.Pointer(cName))
+	cEnable := C.int(0)
+	if enable {
+		cEnable = C.int(1)
+	}
+	cPosition := C.int(position)
+
+	return int(C.agora_audio_track_enable_audio_filter(track.cTrack, cName, cEnable, cPosition))
+}
+
+func (track *LocalAudioTrack) SetFilterProperty(name string, key string, value string, position int) int {
+	if track == nil || track.cTrack == nil {
+		return -1
+	}
+	cName := C.CString(name)
+	defer C.free(unsafe.Pointer(cName))
+	cKey := C.CString(key)
+	defer C.free(unsafe.Pointer(cKey))
+	cValue := C.CString(value)
+	defer C.free(unsafe.Pointer(cValue))
+	cPosition := C.int(position)
+	return int(C.agora_audio_track_set_filter_property(track.cTrack, cName, cKey, cValue, cPosition))
+}
+
+// AddAudioSink 添加音频接收器到 audio track
+func (track *LocalAudioTrack) AddAudioSink(audioSink unsafe.Pointer, sampleRate int, channels int) int {
+	if track == nil || track.cTrack == nil || audioSink == nil {
+		return -1
+	}
+
+	wants := &C.struct__audio_sink_wants{
+		samples_per_sec: C.int(sampleRate),
+		channels:        C.uint32_t(channels),
+	}
+
+	return int(C.agora_audio_track_add_audio_sink(track.cTrack, audioSink, wants))
+}
+
+// RemoveAudioSink 从 audio track 移除音频接收器
+func (track *LocalAudioTrack) RemoveAudioSink(audioSink unsafe.Pointer) int {
+	if track == nil || track.cTrack == nil || audioSink == nil {
+		return -1
+	}
+	return int(C.agora_audio_track_remove_audio_sink(track.cTrack, audioSink))
+}

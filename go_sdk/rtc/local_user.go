@@ -165,6 +165,11 @@ func (localUser *LocalUser) publishAudio(track *LocalAudioTrack) int {
 	
 }
 
+// PublishAudioTrack publishes the audio track (public method)
+func (localUser *LocalUser) PublishAudioTrack(track *LocalAudioTrack) int {
+	return localUser.publishAudio(track)
+}
+
 
 
 func (localUser *LocalUser) unpublishAudio(track *LocalAudioTrack) int {
@@ -181,6 +186,11 @@ func (localUser *LocalUser) unpublishAudio(track *LocalAudioTrack) int {
 		localUser.publishFlag = true
 	}
 	return ret
+}
+
+// UnpublishAudioTrack unpublishes the audio track (public method)
+func (localUser *LocalUser) UnpublishAudioTrack(track *LocalAudioTrack) int {
+	return localUser.unpublishAudio(track)
 }
 
 func (localUser *LocalUser) publishVideo(track *LocalVideoTrack) int {

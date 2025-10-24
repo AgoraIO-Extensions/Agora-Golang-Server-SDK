@@ -1,7 +1,7 @@
 package agoraservice
 
 // #cgo darwin CFLAGS: -I../../agora_sdk/include/c/api2 -I../../agora_sdk/include/c/base
-// #cgo darwin LDFLAGS: -Wl,-rpath,${SRCDIR}/../../agora_sdk_mac -L../../agora_sdk_mac -lAgoraRtcKit -lAgorafdkaac -lAgoraffmpeg
+// #cgo darwin LDFLAGS: -Wl,-rpath,${SRCDIR}/../../agora_sdk_mac -L../../agora_sdk_mac -lAgoraRtcKit -lAgorafdkaac -lAgoraffmpeg -lAgoraAiNoiseSuppressionExtension
 // #cgo linux CFLAGS: -D__linux__=1 -I../../agora_sdk/include/c/api2 -I../../agora_sdk/include/c/base
 // #cgo linux LDFLAGS: -Wl,-rpath,${SRCDIR}/../../agora_sdk -L../../agora_sdk/ -lagora_rtc_sdk -lagora-fdkaac -laosl
 // #include "agora_local_user.h"
@@ -263,6 +263,13 @@ func GetAgoraParameter() *AgoraParameter {
 	return &AgoraParameter{
 		cParameter: C.agora_service_get_agora_parameter(agoraService.service),
 	}
+}
+
+func NewAudioPcmDataSender() *AudioPcmDataSender {
+	if agoraService == nil || agoraService.mediaFactory == nil {
+		return nil
+	}
+	return agoraService.mediaFactory.NewAudioPcmDataSender()
 }
 
 // add cleanup method
