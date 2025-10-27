@@ -85,6 +85,7 @@ func (sender *AudioEncodedFrameSender) SendEncodedAudioFrame(payload []byte, fra
 		samples_per_channel: C.int(frameInfo.SamplesPerChannel),
 		send_even_if_empty:  CIntFromBool(frameInfo.SendEvenIfEmpty),
 		number_of_channels:  C.int(frameInfo.NumberOfChannels),
+		capture_time_ms:     C.int64_t(frameInfo.CaptureTimeMs),
 	}
 
 	return int(C.agora_audio_encoded_frame_sender_send(

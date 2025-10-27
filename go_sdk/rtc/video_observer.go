@@ -67,7 +67,7 @@ func goOnEncodedVideoFrame(observer unsafe.Pointer, uid C.uint32_t, imageBuffer 
 		DecodeTimeMs:    int64(video_encoded_frame_info.decode_time_ms),
 		Uid:             uint32(video_encoded_frame_info.uid),
 		StreamType:      int(video_encoded_frame_info.stream_type),
-		// PresentTimeMs:   int64(video_encoded_frame_info.presentation_ms),
+		PresentTimeMs:   int64(video_encoded_frame_info.presentation_ms),
 	}
 	if con.encodedVideoObserver.OnEncodedVideoFrame(goUid, goImageBuffer, goFrameInfo) {
 		return C.int(1)
