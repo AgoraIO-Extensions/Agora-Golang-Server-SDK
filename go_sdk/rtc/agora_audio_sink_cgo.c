@@ -11,4 +11,9 @@ audio_sink* create_audio_sink_callbacks() {
     return sink;
 }
 
+void destroy_audio_sink_callbacks(audio_sink* sink) {
+    if (sink) {
+        free(sink);
+    }
+}
 

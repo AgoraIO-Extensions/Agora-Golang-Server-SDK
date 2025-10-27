@@ -6,5 +6,6 @@
 #include "agora_media_base.h"
 
 audio_sink* create_audio_sink_callbacks();
+void destroy_audio_sink_callbacks(audio_sink* sink);
 
 

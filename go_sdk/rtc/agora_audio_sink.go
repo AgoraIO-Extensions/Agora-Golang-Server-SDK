@@ -108,7 +108,7 @@ func NewAudioSink(onFrame func(frame *AudioFrame) bool) *AudioSinkContext {
 
 	ctx.cSink = C.agora_audio_sink_create(ctx.cAudioSink)
 	if ctx.cSink == nil {
-		C.free(unsafe.Pointer(ctx.cAudioSink))
+		C.destroy_audio_sink_callbacks(ctx.cAudioSink)
 		return nil
 	}
 
