@@ -44,6 +44,11 @@ mac_sdk="https://download.agora.io/sdk/release/agora_sdk_mac_v4.4.32_25321_FULL_
 linux_sdk="https://download.agora.io/sdk/release/agora_rtc_sdk-x86_64-linux-gnu-v4.4.32-20250829_160340-860733-aed.zip"
 mac_sdk="https://download.agora.io/sdk/release/agora_sdk_mac_v4.4.32_25418_FULL_20250829_1647_860754-aed.zip"
 
+#date: 20251028 update sdk for apm filter only test purpose for mac
+mac_sdk="https://download.agora.io/sdk/release/agora_sdk_mac_v4.4.32_25776_FULL_20251021_1824_939915-aed.zip"
+mac_sdk="https://download.agora.io/sdk/release/agora_sdk_mac_v4.4.30_25869_FULL_20251030_1836_953684-aed.zip"
+linux_sdk="https://download.agora.io/sdk/release/agora_rtc_sdk_x86_64-linux-gnu-v4.4.32.150_26715_SERVER_20251030_1807-aed.zip"
+
 
 if [[ $UNAME_S == Linux ]]; then
     OS=linux
