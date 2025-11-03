@@ -255,11 +255,20 @@ func goOnUserAudioTrackSubscribed(cLocalUser unsafe.Pointer, uid *C.char, cRemot
 	if cLocalUser == nil {
 		return
 	}
+	
 	// get conn from handle
 	con := agoraService.getConFromHandle(cLocalUser, ConTypeCLocalUser)
+	// date: 20251028 for set apm filter properties
+	// if con set to enable 3a, then open apm filter else do nothing! 
+	// Whether the OnUserAudioTrackSubscribed method is registered or not, the following operations should be performed!
+	if con != nil {
+		// open apm filter
+		con.setApmFilterProperties(uid, cRemoteAudioTrack)
+	} 
 	if con == nil || con.localUserObserver == nil || con.localUserObserver.OnUserAudioTrackSubscribed == nil {
 		return
 	}
+
 	// note： best practise is never reelase handler until app is exiting
 	con.localUserObserver.OnUserAudioTrackSubscribed(con.GetLocalUser(), C.GoString(uid), NewRemoteAudioTrack(cRemoteAudioTrack))
 }
