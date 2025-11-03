@@ -1324,6 +1324,7 @@ func main() {
 	svcCfg.LogPath = "./agora_rtc_log/agorasdk.log"
 	svcCfg.ConfigDir = "./agora_rtc_log"
 	svcCfg.DataDir = "./agora_rtc_log"
+	svcCfg.IdleMode = true
 
 	// about AudioScenario: default is AudioScenarioAiServer
 	// if want to use other scenario, pls contact us and make sure the scenario is much apdated for your business
@@ -1390,6 +1391,7 @@ func main() {
 		OnDisconnected: func(con *agoraservice.RtcConnection, info *agoraservice.RtcConnectionInfo, reason int) {
 			// do something
 			fmt.Printf("Disconnected, reason %d\n", reason)
+			time.Sleep(1000 * time.Millisecond)
 			OnDisconnectedSign <- struct{}{}
 		},
 		OnConnecting: func(con *agoraservice.RtcConnection, conInfo *agoraservice.RtcConnectionInfo, reason int) {
@@ -1705,7 +1707,7 @@ func main() {
 
 	con.Release()
 
-	//time.Sleep(5000 * time.Millisecond)
+	time.Sleep(1000 * time.Millisecond)
 
 	agoraservice.Release()
 
