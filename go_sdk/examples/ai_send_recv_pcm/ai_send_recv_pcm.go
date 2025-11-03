@@ -18,6 +18,92 @@ import (
 
 	rtctokenbuilder "github.com/AgoraIO/Tools/DynamicKey/AgoraDynamicKey/go/src/rtctokenbuilder2"
 )
+/*
+date:2025-09-15
+author: weihongqin
+description：aiqos2.0 协议测试, V7
+结果：
+1、会在一个发送的audioframe包的pts基础上，每一个frame做自增10（对应10ms的数据）
+2、前后2个frame的pts，可以无关联，不需要保障连续frame的pts 是也是连续或者自增的。
+比如sendaudiodata（data=1s,pts=1000），那么下一个sendaudiodata（data=1s,pts=1000），是可以的。
+
+分析：考虑到pts在接收端会从pts0 开始自增，为了不掩盖用户的协议，考虑到每一个chunk实际可能大小，设计协议如下：
+低16位留给sdk：每次从0开始，也就是可以支持65536ms，也就是65.536s，足够了。一个chunk不可能这么大
+|2位(agora or customer)|4位（version）｜6位（sessionid）｜12位（sentenceid）｜5位（chunkid）｜1位（isSessionEnd）|18位（reserved）|16位（basepts）
+2位(agora or customer)：00表示agora，01表示customer
+4位（version）：0-15
+6位（sessionid）：0-63
+12位（sentenceid）：0-4095
+5位（chunkid）：0-31
+1位（isSessionEnd）：0表示不结束，1表示结束
+18位（reserved）：0-262143
+16位（basepts）：0-65535
+
+sessonend的时候，带上duration信息，来表示这个session的持续时间，另外的协议来做
+sesson end可以额外的100ms 静音包
+
+
+
+如何标识session结束？
+在结束的时候，发送10个静音包。静音包里面的sessio/seentce/chunk都保持不变，但是isSessionEnd为true
+
+发送3个而不是在协议里面设置chunknum的原因？是因为audioframe会丢失，对一个10%丢包率低网络来说，
+3个包都接收到的概率是72.9%。如果是5个包，概率就会直线下降到：59%
+但如果发送3个静音包，接收到任意一个静音包，就表示已经结束。其成功率为：99.9%
+
+所以采用额外发送静音包的方式。
+
+提议：
+目的：
+为了开始/结束/sentence/chunk的方式
+打断那个sesison是需要放在frame里面的--》通过trackinfo来做，就是trackinfo里面带上最近的一个pts
+需要验证非brust模式的情况？
+
+basepts用getAgoraCurrentMonotonicTimeInMs来做；
+然后每次调用用duration来增加
+
+测试结果：
+如果最高位是1， 接收到的pts都会是0
+丢包率上行/下行设置为60%的时候，avc已经不能工作；但aiqos看起来还没有丢包。
+
+V8:
+面对的问题/目标：
+1、session时间的通知：开始/结束
+2、session的播放时长
+3、chunk好像没有必要？？应该有必要
+比如：https://cloud.tencent.com/document/product/1073/37995
+有TTS的返回中，会带有subtitles，这个subtitles就是chunkid。
+做字幕对齐的时候，可以通过rtm发送{chunkid:subtitles}这样的映射关系和subtitles信息给端侧，端侧则根据这个来做字幕的渲染
+subtitles格式：
+ "Subtitles": [
+            {
+                "BeginIndex": 0,
+                "BeginTime": 250,
+                "EndIndex": 1,
+                "EndTime": 430,
+                "Phoneme": "ni2",
+                "Text": "你"
+            },
+            {
+                "BeginIndex": 1,
+                "BeginTime": 430,
+                "EndIndex": 2,
+                "EndTime": 670,
+                "Phoneme": "hao3",
+                "Text": "好"
+            }
+        ]
+
+|2位(agora or customer)|4位（version）｜1位（isSessionEnd）｜6位（sessionid）｜12位（sentenceid）｜5位（chunkid）|18位（reserved）|16位（basepts）
+
+如果isSessionEnd为true，则表示session结束，协议变更为：
+|2位(agora or customer)|4位（version）｜1位（isSessionEnd）｜23位(session durationinms/10)|18位（reserved）|16位（basepts）
+2位(agora or customer)：00表示agora，01表示customer
+4位（version）：0-15
+
+
+
+*/
 
 func PushFileToConsumer(file *os.File, con *agoraservice.RtcConnection, samplerate int) {
 	buffer := make([]byte, samplerate*2) // 1s data
@@ -107,6 +193,32 @@ func calculateEnergyFast(data []byte) uint64 {
 		energy += uint64(s) * uint64(s)
 	}
 	return energy
+}
+func mixAudio(data1 []byte, data2 []byte) []byte {
+	// check if the length of data1 and data2 is the same
+	if len(data1) != len(data2) {
+		return nil
+	}
+	int16len := len(data1)/2
+	// allocate a new buffer
+	buffer := make([]byte, len(data1))
+	var ret int32 = 0
+	
+	// algorithm: Saturation Normalization
+	sample1 := unsafe.Slice((*int16)(unsafe.Pointer(&data1[0])), int16len)
+	sample2 := unsafe.Slice((*int16)(unsafe.Pointer(&data2[0])), int16len)
+	dst := unsafe.Slice((*int16)(unsafe.Pointer(&buffer[0])), int16len)
+	for i := 0; i < int16len; i++ {
+		ret = int32(sample1[i]) + int32(sample2[i])
+		if ret > 32767 {
+			dst[i] = 32767
+		} else if ret < -32768 {
+			dst[i] = -32768
+		} else {
+			dst[i] = int16(ret)
+		}
+	}
+	return buffer
 }
 func NonblockNotiyEvent(event chan struct{}) int {
 	select {
@@ -625,6 +737,199 @@ func ParseInt64V6(value int64) (version int16, sessionid uint16, sentenceid uint
 }
 
 /*
+date:2025-09-15
+author: weihongqin
+description: V7: 
+for newly V7
+*/
+func CombineToInt64V7(isAgora bool, version int8, sessionid uint16, sentenceid uint16, chunkid uint16, issessionend bool, reserved uint32, basepts uint16) int64 {
+    var packed int64 = 0
+
+    // 1. 设置 isAgora (2位), 放置在最高位 (第63-62位)
+    var agoraVal int64
+    if isAgora {
+        agoraVal = 0x3 // 二进制 11 (2位)
+    } else {
+        agoraVal = 0x0 // 二进制 00 (2位)
+    }
+    packed |= (agoraVal & 0x3) << 62 // 0x3 是2位掩码 (0b11)
+
+    // 2. 设置 version (4位), 放置在第58-61位
+    packed |= (int64(version) & 0x0F) << 58 // 0x0F 是4位掩码 (0b1111)
+
+    // 3. 设置 sessionid (6位), 放置在第52-57位
+    packed |= (int64(sessionid) & 0x3F) << 52 // 0x3F 是6位掩码 (0b111111)
+
+    // 4. 设置 sentenceid (12位), 放置在第40-51位
+    packed |= (int64(sentenceid) & 0x0FFF) << 40 // 0x0FFF 是12位掩码
+
+    // 5. 设置 chunkid (5位), 放置在第35-39位
+    packed |= (int64(chunkid) & 0x1F) << 35 // 0x1F 是5位掩码 (0b11111)
+
+    // 6. 设置 issessionend (1位), 放置在第34位
+    if issessionend {
+        packed |= 1 << 34
+    }
+
+    // 7. 设置 reserved (18位), 放置在第16-33位
+    packed |= (int64(reserved) & 0x3FFFF) << 16 // 0x3FFFF 是18位掩码
+
+    // 8. 设置 basepts (16位), 放置在第0-15位 (最低位)
+    packed |= int64(basepts) & 0xFFFF // 0xFFFF 是16位掩码
+
+    return packed
+}
+func UnpackFromInt64V7(packed int64) (
+    isAgora bool,
+    version int8,
+    sessionid uint16,
+    sentenceid uint16,
+    chunkid uint16,
+    issessionend bool,
+    reserved uint32,
+    basepts uint16,
+) {
+    // 1. 提取 isAgora (2位, 第63-62位)
+    // 右移62位后，与2位掩码0x3进行按位与操作，结果不等于0则为true
+    isAgora = (packed>>62)&0x3 != 0
+
+    // 2. 提取 version (4位, 第58-61位)
+    // 右移58位后，与4位掩码0xF进行按位与操作，然后转换为int8
+    version = int8((packed >> 58) & 0x0F)
+
+    // 3. 提取 sessionid (6位, 第52-57位)
+    // 右移52位后，与6位掩码0x3F进行按位与操作，然后转换为uint16
+    sessionid = uint16((packed >> 52) & 0x3F)
+
+    // 4. 提取 sentenceid (12位, 第40-51位)
+    // 右移40位后，与12位掩码0xFFF进行按位与操作，然后转换为uint16
+    sentenceid = uint16((packed >> 40) & 0x0FFF)
+
+    // 5. 提取 chunkid (5位, 第35-39位)
+    // 右移35位后，与5位掩码0x1F进行按位与操作，然后转换为uint16
+    chunkid = uint16((packed >> 35) & 0x1F)
+
+    // 6. 提取 issessionend (1位, 第34位)
+    // 右移34位后，与1位掩码0x1进行按位与操作，结果不等于0则为true
+    issessionend = (packed>>34)&0x1 != 0
+
+    // 7. 提取 reserved (18位, 第16-33位)
+    // 右移16位后，与18位掩码0x3FFFF进行按位与操作，然后转换为uint32
+    reserved = uint32((packed >> 16) & 0x3FFFF)
+
+    // 8. 提取 basepts (16位, 第0-15位)
+    // 直接与16位掩码0xFFFF进行按位与操作，然后转换为uint16
+    basepts = uint16(packed & 0xFFFF)
+
+    return isAgora, version, sessionid, sentenceid, chunkid, issessionend, reserved, basepts
+}
+
+//v8
+
+
+// CombineToInt64V8 将多个字段按照指定位布局组合成int64
+// 位布局：1位(固定0) | 1位(isAgora) | 4位(version) | 8位(turnId) | 1位(cmdOrDataType) | 12位(sentenceId) | 5位(reserved1) | 16位(reserved2) | 16位(basePts)
+func CombineToInt64V8Data(isAgora bool, version uint8, turnId uint8, isCmdOrData bool, sentenceId uint16, reserved1 uint16, reserved2 uint16, basePts uint16) int64 {
+    var result int64 = 0
+    
+    // 1. 固定0位（最高位），不需要操作，默认为0
+    
+    // 2. isAgora: 第62位（1位）
+    if isAgora {
+        result |= 1 << 62 // 将isAgora放在第62位[6,7](@ref)
+    }
+    
+    // 3. version: 第58-61位（4位）
+    result |= int64(version&0xF) << 58 // 取低4位，左移58位[7,8](@ref)
+    
+    // 4. turnId: 第50-57位（8位）
+    result |= int64(turnId) << 50
+    
+    // 5. cmdOrDataType: 第49位（1位）
+    if isCmdOrData {
+        result |= 1 << 49
+    }
+    
+    // 6. sentenceId: 第37-48位（12位）
+    result |= int64(sentenceId&0xFFF) << 37 // 取低12位[5](@ref)
+    
+    // 7. reserved1: 第32-36位（5位）
+    result |= int64(reserved1&0x1F) << 32 // 取低5位
+    
+    // 8. reserved2: 第16-31位（16位）
+    result |= int64(reserved2) << 16
+    
+    // 9. basePts: 第0-15位（16位）
+    result |= int64(basePts)
+    
+    return result
+}
+// 位布局：1位(固定0) | 1位(isAgora) | 4位(version) | 8位(turnId) | 1位(cmdOrDataType):1 | 5位(cmdType) | 12位(turnDurationInPacks) | 16位(reserved) | 16位(basePts)
+// cmd type：1， current turn is end, follow by the turn duration in packs
+// cmd type：2， current turn is interrupted
+func CombineToInt64V8Cmd(isAgora bool, version uint8, turnId uint8, isCmdOrData bool, cmdType uint8, turnDurationInPacks uint16, reserved uint16, basePts uint16) int64 {
+    var result int64 = 0
+    
+    // 1. 固定0位（最高位），不需要操作，默认为0
+    
+    // 2. isAgora: 第62位（1位）
+    if isAgora {
+        result |= 1 << 62
+    }
+    
+    // 3. version: 第58-61位（4位）
+    result |= int64(version&0xF) << 58 // 取低4位
+    
+    // 4. turnId: 第50-57位（8位）
+    result |= int64(turnId) << 50
+    
+    // 5. cmdOrDataType: 第49位（1位）
+    if isCmdOrData {
+        result |= 1 << 49
+    }
+    
+    // 6. cmdType: 第44-48位（5位）
+    result |= int64(cmdType&0x1F) << 44 // 取低5位
+    
+    // 7. turnDurationInPacks: 第32-43位（12位）
+    result |= int64(turnDurationInPacks&0xFFF) << 32 // 取低12位
+    
+    // 8. reserved: 第16-31位（16位）
+    result |= int64(reserved) << 16
+    
+    // 9. basePts: 第0-15位（16位）
+    result |= int64(basePts)
+    
+    return result
+}
+
+// 反向解析函数，用于验证结果
+func ParseInt64V8(value int64) {
+    fmt.Printf("原始值: %d\n", value)
+    fmt.Printf("二进制: %064b\n", uint64(value))
+    
+    // 提取各个字段
+    isAgora := (value >> 62) & 1
+    version := (value >> 58) & 0xF
+    turnId := (value >> 50) & 0xFF
+    cmdOrDataType := (value >> 49) & 1
+    sentenceId := (value >> 37) & 0xFFF
+    reserved1 := (value >> 32) & 0x1F
+    reserved2 := (value >> 16) & 0xFFFF
+    basePts := value & 0xFFFF
+    
+    fmt.Printf("isAgora: %d\n", isAgora)
+    fmt.Printf("version: %d\n", version)
+    fmt.Printf("turnId: %d\n", turnId)
+    fmt.Printf("cmdOrDataType: %d\n", cmdOrDataType)
+    fmt.Printf("sentenceId: %d\n", sentenceId)
+    fmt.Printf("reserved1: %d\n", reserved1)
+    fmt.Printf("reserved2: %d\n", reserved2)
+    fmt.Printf("basePts: %d\n", basePts)
+}
+
+
+/*
 date:2025-08-14
 author: weihongqin
 description: lixiang_test
@@ -640,7 +945,7 @@ func chuanyin_test(conn *agoraservice.RtcConnection, done chan bool, audioSendEv
 
 	buffer := make([]byte, samplerate*2*leninsecond) // max to 20s data
 	readLen, _ := file.Read(buffer)
-	bytesinms := samplerate * 2 / 1000
+	bytesinms := samplerate * 2 / 100
 	readLen = (readLen / bytesinms) * bytesinms
 
 	// 默认session，sentence，chunkid都是从1开始
@@ -658,15 +963,21 @@ func chuanyin_test(conn *agoraservice.RtcConnection, done chan bool, audioSendEv
 			fmt.Println("lixiang_test done")
 			return
 		case <-audioSendEvent:
+			//date: for loop
+			for i := 0; i < 100; i++ {
 			isSessionEnd = false
-			if sentenceid == 3 && chunkid == 3 {
+			if sentenceid == 3 && chunkid  == 3 {
 				isSessionEnd = true
 			}
-			masknumber := CombineToInt64(version, sessionid, sentenceid, chunkid, isSessionEnd)
+			masknumber := CombineToInt64(version, sessionid*10, sentenceid, chunkid, isSessionEnd)
+			if isSessionEnd {
+				readLen = (bytesinms )*7
+			}
 			ret := conn.PushAudioPcmData(buffer[:readLen], samplerate, 1, masknumber)
-			fmt.Printf("lixiang_test audioSendEvent, ret: %d, sessionid: %d, sentenceid: %d, chunkid: %d, isend: %d, masknumber: %d\n", ret, sessionid, sentenceid, chunkid, isSessionEnd, masknumber)
+			fmt.Printf("lixiang_test audioSendEvent, ret: %d, sessionid: %d, sentenceid: %d, chunkid: %d, isend: %d, masknumber: %d, readLen: %d\n", ret, sessionid, sentenceid, chunkid, isSessionEnd, masknumber, readLen)
 
 			chunkid++
+			
 
 			if chunkid > 3 {
 				chunkid = 1
@@ -677,6 +988,11 @@ func chuanyin_test(conn *agoraservice.RtcConnection, done chan bool, audioSendEv
 				sentenceid = 1
 				chunkid = 1
 			}
+			if isSessionEnd {
+				break
+			}
+		}
+		
 
 		case <-interruptEvent:
 			fmt.Println("lixiang_test interruptEvent")
@@ -760,19 +1076,28 @@ func chuanyin_testV6(conn *agoraservice.RtcConnection, done chan bool, audioSend
 	leninsecond := 2
 
 	buffer := make([]byte, samplerate*2*leninsecond) // max to 20s data
+	
 	readLen, _ := file.Read(buffer)
 	bytesinms := samplerate * 2 / 1000
 	readLen = (readLen / bytesinms) * bytesinms
 
-	pa := NewPTSAllocatorV5(samplerate)
+	mutebuffer := make([]byte, bytesinms*10*6)
+
+	//pa := NewPTSAllocatorV5(samplerate)
 
 	// 默认session，sentence，chunkid都是从1开始
 	// 模拟场景是： 一个sessio有3个句子； 一个句子分3个chunk来发送
 	//
+	version := int8(4)
 	sessionid := uint16(1)
 	sentenceid := uint16(1)
 	isSessionEnd := false
 	chunkid := uint16(1)
+	reserved := uint32(0)
+	basepts := uint16(0)
+	isAgora := false
+	ret := 0
+	
 	
 
 	for {
@@ -781,7 +1106,7 @@ func chuanyin_testV6(conn *agoraservice.RtcConnection, done chan bool, audioSend
 			fmt.Println("lixiang_test done")
 			return
 		case <-audioSendEvent:
-			for i := 0; i < 2; i++ {
+			for i := 1; i < 3; i++ {
 			isSessionEnd = false
 			curLen := readLen
 			if chunkid == 2  {
@@ -790,12 +1115,38 @@ func chuanyin_testV6(conn *agoraservice.RtcConnection, done chan bool, audioSend
 				//对结尾的chunk，最多是10个包！
 				curLen = (bytesinms * 10)*7
 			}
-			masknumber := pa.Allocate(curLen, isSessionEnd)
-			masknumber = CombineToInt64V6(0, sessionid, sentenceid, isSessionEnd, 0)
-			ret := conn.PushAudioPcmData(buffer[:curLen/2], samplerate, 1, masknumber)
-			ret = conn.PushAudioPcmData(buffer[curLen/2:], samplerate, 1, masknumber)
-			ret = conn.PushAudioPcmData(buffer[curLen/2:], samplerate, 1, masknumber)
-			fmt.Printf("lixiang_test audioSendEvent, ret: %d, sessionid: %d, sentenceid: %d, chunkid: %d, isend: %d, masknumber: %d, curLen: %d\n", ret, sessionid, sentenceid, chunkid, isSessionEnd, masknumber, curLen)
+			var masknumber int64 = 0
+
+			masknumber = CombineToInt64V7(isAgora, version, sessionid, sentenceid, chunkid, isSessionEnd, reserved, basepts)
+		
+			if isSessionEnd == false {
+				basepts = uint16(time.Now().UnixMilli())
+				masknumber = CombineToInt64V7(isAgora, version, sessionid, sentenceid, chunkid, isSessionEnd, reserved, basepts)
+
+				ret = conn.PushAudioPcmData(buffer, samplerate, 1, masknumber)
+				fmt.Printf("lixiang_test audioSendEvent file, ret: %d, sessionid: %d, sentenceid: %d, chunkid: %d, isend: %v, masknumber: %d, curLen: %d, basepts: %d\n", ret, sessionid, sentenceid, chunkid, isSessionEnd, masknumber, curLen, basepts)
+
+				/*
+				chunkid++
+				isSessionEnd = true
+				basepts += 2000
+				masknumber = CombineToInt64V7(isAgora, version, sessionid, sentenceid, chunkid, isSessionEnd, reserved, basepts)
+				ret = conn.PushAudioPcmData(mutebuffer, samplerate, 1, masknumber)
+				fmt.Printf("lixiang_test audioSendEvent mut2, ret: %d, sessionid: %d, sentenceid: %d, chunkid: %d, isend: %d, masknumber: %d, curLen: %d, basepts: %d\n", ret, sessionid, sentenceid, chunkid, isSessionEnd, masknumber, curLen, basepts)
+				*/
+
+			} else {
+				curLen = len(mutebuffer)
+				ret = conn.PushAudioPcmData(mutebuffer, samplerate, 1, masknumber)
+				fmt.Printf("lixiang_test audioSendEvent mut, ret: %d, sessionid: %d, sentenceid: %d, chunkid: %d, isend: %d, masknumber: %d, curLen: %d\n", ret, sessionid, sentenceid, chunkid, isSessionEnd, masknumber, curLen)
+
+				//ret = conn.PushAudioPcmData(mutebuffer, samplerate, 1, masknumber)
+				//fmt.Printf("lixiang_test audioSendEvent mut, ret: %d, sessionid: %d, sentenceid: %d, chunkid: %d, isend: %d, masknumber: %d, curLen: %d\n", ret, sessionid, sentenceid, chunkid, isSessionEnd, masknumber, curLen)
+
+
+			}
+			//ret = conn.PushAudioPcmData(buffer[curLen/2:], samplerate, 1, masknumber)
+			//ret = conn.PushAudioPcmData(buffer[curLen/2:], samplerate, 1, masknumber)
 			//fmt.Printf("lixiang_test audioSendEvent, ret: %d, sessionid: %d, sentenceid: %d, chunkid: %d, isend: %d, masknumber: %d\n", ret, sessionid, sentenceid, chunkid, isSessionEnd, masknumber)
 
 			chunkid++
@@ -810,7 +1161,7 @@ func chuanyin_testV6(conn *agoraservice.RtcConnection, done chan bool, audioSend
 		}
 		
 		case <-interruptEvent:
-			fmt.Println("lixiang_test interruptEvent")
+			fmt.Println("??????lixiang_test interruptEvent")
 			conn.InterruptAudio()
 		default:
 			time.Sleep(40 * time.Millisecond)
@@ -820,6 +1171,74 @@ func chuanyin_testV6(conn *agoraservice.RtcConnection, done chan bool, audioSend
 
 func chuanyin_callback(sessionId uint32, isFirstOrLastFrame bool) {
 	fmt.Printf("---------chuanyin_callback, sessionId: %d, isFirstOrLastFrame: %d\n", sessionId, isFirstOrLastFrame)
+}
+
+func chuanyin_testV8(conn *agoraservice.RtcConnection, done chan bool, audioSendEvent chan struct{}, interruptEvent chan struct{}, file *os.File, samplerate int) {
+
+	// allocate buffer
+	leninsecond := 20
+
+	buffer := make([]byte, samplerate*2*leninsecond) // max to 20s data
+	readLen, _ := file.Read(buffer)
+	packsize := int(samplerate * 2 / 1000)*10
+
+	fmt.Printf("lixiang_test, readLen: %d, bytesinms: %d\n", readLen, packsize)
+	readLen = int((readLen / packsize) * packsize)
+	
+
+	fmt.Printf("lixiang_test, After normalize readLen: %d, bytesinms: %d\n", readLen, packsize)
+
+
+	// 默认session，sentence，chunkid都是从1开始
+	// 模拟场景是： 一个sessio有3个句子； 一个句子分3个chunk来发送
+	//
+	
+	sentenceid := uint16(1)
+	
+	chunkid := uint16(1)
+	version := int8(4)
+	turnId := uint8(1)
+	reserved1 := uint16(0)
+	reserved2 := uint16(0)
+	basepts := uint16(0)
+	for {
+		select {
+		case <-done:
+			fmt.Println("lixiang_test done")
+			return
+		case <-audioSendEvent:
+			//date: for loop
+			for i := 0; i < 2; i++ {
+			
+			turnId += 10
+			sendLen := readLen
+			masknumber := CombineToInt64V8Data(true, uint8(version), turnId, false, sentenceid, reserved1, reserved2, basepts)
+			ret := conn.PushAudioPcmData(buffer[:sendLen], samplerate, 1, masknumber)
+			fmt.Printf("lixiang_test, ret: %d, turnId: %d, sentenceid: %d, basepts: %d, masknumber: %d, readLen: %d\n", ret, turnId, sentenceid, basepts,masknumber, sendLen)
+
+			sendLen = (packsize *7)
+			// then follow by the cmd type 1: indicate current turn is end;
+			masknumber = CombineToInt64V8Cmd(true, uint8(version), turnId, true, 1, uint16(readLen/packsize), reserved1, basepts)
+			ret = conn.PushAudioPcmData(buffer[:sendLen], samplerate, 1, masknumber)
+			fmt.Printf("lixiang_test, ret: %d, turnId: %d, sentenceid: %d, basepts: %d, masknumber: %d, readLen: %d\n", ret, turnId, sentenceid, basepts,masknumber, readLen)
+			// then follow by the cmd type 2: indicate current turn is interrupted;
+			masknumber = CombineToInt64V8Cmd(true, uint8(version), turnId, true, 2, uint16(readLen/packsize), reserved1, basepts)
+			ret = conn.PushAudioPcmData(buffer[:sendLen], samplerate, 1, masknumber)
+
+
+			fmt.Printf("lixiang_test, ret: %d, turnId: %d, sentenceid: %d, basepts: %d, masknumber: %d, readLen: %d\n", ret, turnId, sentenceid, basepts,masknumber, readLen)
+
+			chunkid++
+			}
+		
+
+		case <-interruptEvent:
+			fmt.Println("lixiang_test interruptEvent")
+			conn.InterruptAudio()
+		default:
+			time.Sleep(40 * time.Millisecond)
+		}
+	}
 }
 
 func main() {
@@ -838,6 +1257,15 @@ func main() {
 		*bStop = true
 		fmt.Println("Application terminated")
 	}()
+	readLen := 88656
+	bytesinms := 480
+
+	fmt.Printf("lixiang_test, readLen: %d, bytesinms: %d\n", readLen, bytesinms)
+	readLen = int((readLen / bytesinms) * bytesinms)
+	fmt.Printf("lixiang_test, After normalize readLen: %d, bytesinms: %d\n", readLen, bytesinms)
+
+
+
 
 	println("Start to send and receive PCM data\nusage:\n	./send_recv_pcm <appid> <channel_name>\n	press ctrl+c to exit\n")
 
@@ -990,10 +1418,7 @@ func main() {
 			return int(agoraservice.AudioScenarioChorus)
 		},
 	}
-	framecount := 0
-	var frame_diff int64
-	last_frame_time := time.Now().UnixMilli()
-	start_frame_time := time.Now().UnixMilli()
+	
 	audioSendEvent := make(chan struct{})
 	fallackEvent := make(chan struct{})
 	interruptEvent := make(chan struct{})
@@ -1029,30 +1454,8 @@ func main() {
 			*/
 
 			//end
-			now := time.Now().UnixMilli()
-			if mode != 3 {
-				if framecount == 0 {
-					last_frame_time = time.Now().UnixMilli()
-					start_frame_time = last_frame_time
-				}
-				framecount++
-				frame_diff = now - last_frame_time
-				last_frame_time = now
-				//fmt.Printf("frame_diff: %d\n", frame_diff)
-				if framecount%100 == 0 { // evry 100 frames
-					frame_diff = now - start_frame_time
-					if frame_diff > 1000 {
-						fmt.Printf("******** frame :%d, duration: %d, avg frame time: %f\n", framecount, frame_diff, float64(frame_diff)/100)
-					}
-					//fmt.Printf("******** frame :%d, duration: %d, avg frame time: %f\n", framecount, frame_diff, float64(frame_diff)/100)
-					start_frame_time = now
-				}
-				if framecount%4000 == 0 && mode != 3 {
-					//audioSendEvent <- struct{}{}
-				}
 
-				pcm_file.Write(frame.Buffer)
-			}
+		
 
 			if mode == 1 {
 				frame.RenderTimeMs = 0
@@ -1069,7 +1472,7 @@ func main() {
 				if frame.Rms > threshold_value {
 					// from trough to peak​​ now
 					if is_square_wave_inpeak == false {
-						fmt.Printf("????????#####$$$$$$$ square_wave IN peak now: %d, through count: %d\n", now, square_wave_count)
+						fmt.Printf("????????#####$$$$$$$ square_wave IN peak now: %d, through count: %d\n",1, square_wave_count)
 						is_square_wave_inpeak = true
 						// just from trough to peak, should trigger a event
 						con.InterruptAudio()
@@ -1079,7 +1482,7 @@ func main() {
 					square_wave_count++
 				} else {
 					if is_square_wave_inpeak == true {
-						fmt.Printf("????????#####$$$$$$$square_wave OUT  now: %d, peak count: %d\n", now, square_wave_count)
+						fmt.Printf("????????#####$$$$$$$square_wave OUT  now: %d, peak count: %d\n", 1, square_wave_count)
 						is_square_wave_inpeak = false
 						square_wave_count = 0
 					}
@@ -1136,8 +1539,9 @@ func main() {
 					fallackEvent <- struct{}{}
 				} else */if event_count%2 == 0 {
 				//NonblockNotiyEvent(interruptEvent)
+				fmt.Printf("lixiang_test interruptEvent, event_count: %d\n", event_count)
 
-				interruptEvent <- struct{}{}
+				//interruptEvent <- struct{}{}
 			} else { // simulate to interrupt audio
 				audioSendEvent <- struct{}{}
 				//NonblockNotiyEvent(audioSendEvent)
@@ -1221,7 +1625,7 @@ func main() {
 		//go SendTTSDataToClient(samplerate, audioConsumer, file, done, audioSendEvent, fallackEvent, localUser, track)
 		go func() {
 			//consturt a audio frame
-			leninsecond := 20
+			leninsecond := 30
 			if mode == 3 {
 				leninsecond = 5
 			}
@@ -1279,7 +1683,10 @@ func main() {
 		}()
 	} else if mode == 4 {
 		//go SendTTSDataToClient(samplerate, audioConsumer, file, done, audioSendEvent, fallackEvent, localUser, track)
-		go chuanyin_testV6(con, done, audioSendEvent, interruptEvent, file, samplerate)
+		// V2
+		go chuanyin_test(con, done, audioSendEvent, interruptEvent, file, samplerate)
+		// V8
+		//go chuanyin_testV8(con, done, audioSendEvent, interruptEvent, file, samplerate)
 	}
 
 	//release operation:cancel defer release,try manual release
