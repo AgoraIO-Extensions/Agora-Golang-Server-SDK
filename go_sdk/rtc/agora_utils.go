@@ -522,7 +522,7 @@ func (q *Queue) Dequeue() interface{} {
 	size := len(q.items)
 	q.mutex.Unlock()
 
-	fmt.Printf("Dequeue size: %d\n", size)
+	//fmt.Printf("Dequeue size: %d\n", size)
 
 	// if size is 0, wait notify signal or timeout
 	if size == 0 {
