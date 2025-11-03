@@ -1,7 +1,7 @@
 package agoraservice
 
 // #cgo darwin CFLAGS: -I../../agora_sdk/include/c/api2 -I../../agora_sdk/include/c/base
-// #cgo darwin LDFLAGS: -Wl,-rpath,${SRCDIR}/../../agora_sdk_mac -L../../agora_sdk_mac -lAgoraRtcKit -lAgorafdkaac -lAgoraffmpeg
+// #cgo darwin LDFLAGS: -Wl,-rpath,${SRCDIR}/../../agora_sdk_mac -L../../agora_sdk_mac -lAgoraRtcKit -lAgorafdkaac -lAgoraffmpeg -lAgoraAiNoiseSuppressionExtension
 // #cgo linux CFLAGS: -D__linux__=1 -I../../agora_sdk/include/c/api2 -I../../agora_sdk/include/c/base
 // #cgo linux LDFLAGS: -Wl,-rpath,${SRCDIR}/../../agora_sdk -L../../agora_sdk/ -lagora_rtc_sdk -lagora-fdkaac -laosl
 // #include "agora_local_user.h"
@@ -9,6 +9,7 @@ package agoraservice
 // #include "agora_service.h"
 // #include "agora_media_base.h"
 // #include "agora_parameter.h"
+// #include "agora_audio_track.h"
 //
 // #ifndef agora_service_load_extension_provider
 // AGORA_API_C_INT agora_service_load_extension_provider(AGORA_HANDLE agora_svc, const char* path, unsigned int unload_after_use) {
@@ -17,6 +18,7 @@ package agoraservice
 // #endif
 import "C"
 import (
+	"fmt"
 	"sync"
 	"unsafe"
 )
@@ -79,6 +81,11 @@ type AgoraServiceConfig struct {
 	ConfigDir string
 	// version 2.2.9 and later, if not set, use default path
 	DataDir string
+
+	// 20251028 for apm filter related config
+	EnableAPM bool
+	APMConfig *APMConfig
+
 }
 
 // const def for map type
@@ -104,6 +111,7 @@ type AgoraService struct {
 	consByCVideoObserver        sync.Map
 	consByCEncodedVideoObserver sync.Map
 	mediaFactory *MediaNodeFactory
+	apmConfig *APMConfig
 }
 
 // / newAgoraService creates a new instance of AgoraService
@@ -114,6 +122,7 @@ func newAgoraService() *AgoraService {
 		//isSteroEncodeMode: false,
 		//audioScenario: AudioScenarioChorus,
 		mediaFactory: nil,
+		apmConfig: nil,
 	}
 }
 
@@ -140,6 +149,8 @@ func NewAgoraServiceConfig() *AgoraServiceConfig {
 		EnableSteroEncodeMode: 0, // default to 0,i.e default to mono encode mode
 		ConfigDir: "",   // format like: "./agora_rtc_log"
 		DataDir: "",     // format like: "./agora_rtc_log", should ensure the directory exists
+		EnableAPM: false,
+		APMConfig: nil,
 	}
 }
 
@@ -180,8 +191,18 @@ func Initialize(cfg *AgoraServiceConfig) int {
 
 		// enable vad v2 model
 		agoraParam.SetParameters("{\"che.audio.label.enable\": true}")
+
+		// enable apm filter but disable 3a by default
+		EnableExtension("agora.builtin", "audio_processing_remote_playback", "", true)
 	}
 
+	if cfg.EnableAPM {
+		if cfg.APMConfig == nil {
+			agoraService.apmConfig = NewAPMConfig()
+		}else {
+			agoraService.apmConfig = cfg.APMConfig
+		}
+	}
 	// from version 2.2.1
 	if cfg.ShouldCallbackWhenMuted > 0 {
 		agoraParam.SetParameters("{\"rtc.audio.enable_user_silence_packet\": true}")
@@ -366,4 +387,118 @@ func (s *AgoraService) deleteConFromHandle(handle unsafe.Pointer, conType int) b
 		s.consByCEncodedVideoObserver.Delete(handle)
 	}
 	return true
+}
+//date: 20251028 for set apm filter related struct:
+//AiNSConfig: for AiNS , ns,and sf_st_cfg,sf_ext_cfg
+type AiNsConfig struct {
+	NsEnabled bool
+	AiNSEnabled bool
+	AiNSModelPref int
+	NsngAlgRoute int
+	NsngPredefAgg int
+}
+type AiAecConfig struct {
+	Enabled bool
+	SplitSrateFor48k int
+}
+type BghvsCConfig struct {
+	Enabled bool
+	VadThr float32
+}
+type AgcConfig struct {
+	Enabled bool
+}
+
+type APMConfig struct {
+	AiNsConfig *AiNsConfig
+	AiAecConfig *AiAecConfig
+	BghvsCConfig *BghvsCConfig
+	AgcConfig *AgcConfig
+}
+/*
+char apm_config[] = "{\"aec\":{\"split_srate_for_48k\":16000},"\
+        "\"bghvs\":{\"enabled\":true, \"vadThr\":0.8},"\
+        "\"agc\":{\"enabled\":true}, \"ans\":{\"enabled\":true},"\
+        "\"sf_st_cfg\":{\"enabled\":true,\"ainsModelPref\":10},\"sf_ext_cfg\":{\"nsngAlgRoute\":12,\"nsngPredefAgg\":11}}";
+*/
+func NewAPMConfig() *APMConfig {
+	return &APMConfig{
+		AiNsConfig: &AiNsConfig{
+			AiNSEnabled: true,
+			NsEnabled: true,
+			AiNSModelPref: 10,
+			NsngAlgRoute: 12,
+			NsngPredefAgg: 11,
+		},
+		AiAecConfig: &AiAecConfig{
+			Enabled: false,
+			SplitSrateFor48k: 16000,
+		},
+		BghvsCConfig: &BghvsCConfig{
+			Enabled: true,
+			VadThr: 0.8,
+		},
+		AgcConfig: &AgcConfig{
+			Enabled: false,
+		},
+	}
+}
+
+func (cfg *APMConfig) toJson() string {
+	jsonConfigure := fmt.Sprintf("{\"aec\":{\"enabled\":%t,\"split_srate_for_48k\":%d}," +
+		"\"bghvs\":{\"enabled\":%t, \"vadThr\":%f}," +
+		"\"agc\":{\"enabled\":%t}, \"ans\":{\"enabled\":%t}," +
+		"\"sf_st_cfg\":{\"enabled\":%t,\"ainsModelPref\":%d},\"sf_ext_cfg\":{\"nsngAlgRoute\":%d,\"nsngPredefAgg\":%d}}",
+		cfg.AiAecConfig.Enabled, cfg.AiAecConfig.SplitSrateFor48k, cfg.BghvsCConfig.Enabled, cfg.BghvsCConfig.VadThr,
+		 cfg.AgcConfig.Enabled, cfg.AiNsConfig.NsEnabled, cfg.AiNsConfig.AiNSEnabled,
+		 cfg.AiNsConfig.AiNSModelPref, cfg.AiNsConfig.NsngAlgRoute, cfg.AiNsConfig.NsngPredefAgg)
+
+	return jsonConfigure
+}
+
+
+
+//note: for remote audio track,no need to enable it! it is enabled by default in service creation
+func getAudioFilterPosition(isLocalTrack bool) int {
+	if isLocalTrack {
+		return int(3)
+	}
+	return int(2)
+}
+func  enableAudioFilterByTrack(track unsafe.Pointer, name string, enable bool, isLocalTrack bool) int {
+	if track  == nil {
+		return -1000
+	}
+
+	if !isLocalTrack { // for remote track, no need to enable filter
+		return 0
+	}
+	
+	cName := C.CString(name)
+	defer C.free(unsafe.Pointer(cName))
+	cEnable := C.int(0)
+	if enable {
+		cEnable = C.int(1)
+	}
+	Position := getAudioFilterPosition(isLocalTrack)
+
+	ret := int(C.agora_audio_track_enable_audio_filter(track, cName, cEnable, C.int(Position)))
+	return ret
+}
+
+func setFilterPropertyByTrack(track unsafe.Pointer, name string, key string, value string, isLocalTrack bool) int {
+	if track == nil  {
+		return -1000
+	}
+	
+
+	cName := C.CString(name)
+	defer C.free(unsafe.Pointer(cName))
+	cKey := C.CString(key)
+	defer C.free(unsafe.Pointer(cKey))
+	cValue := C.CString(value)
+	defer C.free(unsafe.Pointer(cValue))
+	Position := getAudioFilterPosition(isLocalTrack)
+	ret := int(C.agora_audio_track_set_filter_property(track, cName, cKey, cValue, C.int(Position)))
+	return ret
 }
