@@ -617,7 +617,11 @@ func (conn *RtcConnection) Release() {
 	if conn.cHandler != nil {
 		C.agora_rtc_conn_unregister_observer(conn.cConnection)
 	}
-	C.agora_rtc_conn_destroy(conn.cConnection)
+	if agoraService.idleMode {
+		addIdleItem(conn.cConnection, 2000) // set to delay 2s
+	} else {
+		C.agora_rtc_conn_destroy(conn.cConnection)
+	}
 
 	// clear all receiverInners
 	// conn.remoteVideoRWMutex.Lock()
