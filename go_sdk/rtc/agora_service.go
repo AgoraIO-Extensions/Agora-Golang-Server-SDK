@@ -86,6 +86,8 @@ type AgoraServiceConfig struct {
 	EnableAPM bool
 	APMConfig *APMConfig
 
+	// date: 2025-11-03, idle mode, if true, the connection will be released when idle for a period of time
+	IdleMode bool
 }
 
 // const def for map type
@@ -112,6 +114,11 @@ type AgoraService struct {
 	consByCEncodedVideoObserver sync.Map
 	mediaFactory *MediaNodeFactory
 	apmConfig *APMConfig
+	//timer related
+	timer	*PrecisionTimer
+	idleQueue []*IdleItem
+	idleQueueMutex sync.Mutex
+	idleMode bool
 }
 
 // / newAgoraService creates a new instance of AgoraService
@@ -123,6 +130,10 @@ func newAgoraService() *AgoraService {
 		//audioScenario: AudioScenarioChorus,
 		mediaFactory: nil,
 		apmConfig: nil,
+		timer: nil,
+		idleQueue: make([]*IdleItem, 0),
+		idleQueueMutex: sync.Mutex{},
+		idleMode: false,
 	}
 }
 
@@ -151,6 +162,7 @@ func NewAgoraServiceConfig() *AgoraServiceConfig {
 		DataDir: "",     // format like: "./agora_rtc_log", should ensure the directory exists
 		EnableAPM: false,
 		APMConfig: nil,
+		IdleMode: false, // default to false, not in idle mode
 	}
 }
 
@@ -215,15 +227,74 @@ func Initialize(cfg *AgoraServiceConfig) int {
 	agoraService.mediaFactory = newMediaNodeFactory()
 
 	agoraService.inited = true
+	// and start the timer
+	if cfg.IdleMode {
+		agoraService.idleMode = true
+		agoraService.timer = NewPrecisionTimer(50) // 50ms
+		agoraService.timer.Start(timerTask)
+	}	
 	return 0
 }
+func timerTask() {
+	// check the idle queue
+	//fmt.Printf("timerTask: idle queue size: %d\n", 1)
+	removeIdleItem()
+}
+func addIdleItem(handle unsafe.Pointer, lifeCycleInMs int) {
+	idleItem := newIdleItem(handle, lifeCycleInMs/50) // convert to 50ms interval
+	agoraService.idleQueueMutex.Lock()
+	agoraService.idleQueue = append(agoraService.idleQueue, idleItem)
+	agoraService.idleQueueMutex.Unlock()
+}
+func removeIdleItem() {
+	agoraService.idleQueueMutex.Lock()
+	defer agoraService.idleQueueMutex.Unlock()
 
+	//check size
+	if len(agoraService.idleQueue) == 0 {
+		return
+	}
+
+	for _, item := range agoraService.idleQueue {
+		item.LifeCycle -=1
+		}
+	//check the first one, if the LifeCycle is 0, remove it
+	item := agoraService.idleQueue[0]
+	if item.LifeCycle <= 0 {
+		agoraService.idleQueue = agoraService.idleQueue[1:]
+		// and release it
+		C.agora_rtc_conn_destroy(item.Handle)
+		fmt.Printf("remove idle item: %p\n", item.Handle)
+		// reset 
+		item = nil
+	}
+	
+}
+func releaseAllIdleItems() {
+	agoraService.idleQueueMutex.Lock()
+	defer agoraService.idleQueueMutex.Unlock()
+
+	for _, item := range agoraService.idleQueue {
+		C.agora_rtc_conn_destroy(item.Handle)
+		fmt.Printf("release all idle item: %p\n", item.Handle)
+		item = nil
+	}
+	agoraService.idleQueue = make([]*IdleItem, 0)
+	
+}
 // Release the Agora service.
 // This function must be called once globally.
 // After this function is called, you must not call other agora APIs any more.
 func Release() int {
 	if !agoraService.inited {
 		return 0
+	}
+	// stop timer
+	if agoraService.timer != nil {
+		agoraService.timer.Stop()
+		agoraService.timer = nil
+
+		releaseAllIdleItems()
 	}
 	// cleanup go layer resources
 	agoraService.cleanup()
