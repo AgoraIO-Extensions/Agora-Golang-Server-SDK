@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 	"encoding/binary"
+	"unsafe"
 )
 
 // AudioConsumer provides utility functions for the Agora SDK.
@@ -608,4 +609,43 @@ func GenerateWAVHeader(sampleRate int, channels int, pcmDataSizeInBytes int) []b
 	copy(header[36:40], "data")
 	binary.LittleEndian.PutUint32(header[40:44], uint32(pcmDataSizeInBytes))
 	return header
+}
+
+type PrecisionTimer struct {
+    ticker   *time.Ticker
+    stopChan chan bool
+}
+
+func NewPrecisionTimer(interval int) *PrecisionTimer {
+    return &PrecisionTimer{
+        ticker:   time.NewTicker(time.Duration(interval) * time.Millisecond),
+        stopChan: make(chan bool),
+    }
+}
+func (t *PrecisionTimer) Start(taskFunc func()) {
+    go func() {
+        for {
+            select {
+            case <-t.ticker.C:
+                taskFunc()
+            case <-t.stopChan:
+                t.ticker.Stop()
+                return
+            }
+        }
+    }()
+}
+func (pt *PrecisionTimer) Stop() {
+    pt.ticker.Stop()
+    close(pt.stopChan)
+}
+type IdleItem struct {
+	Handle unsafe.Pointer
+	LifeCycle int // in ms
+}
+func newIdleItem(handle unsafe.Pointer, lifeCycle int) *IdleItem {
+    return &IdleItem{
+        Handle: handle,
+        LifeCycle: lifeCycle,
+    }
 }
