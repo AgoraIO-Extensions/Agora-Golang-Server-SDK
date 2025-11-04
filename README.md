@@ -225,6 +225,10 @@ Observers auto-unregister on Release() (no manual unregister calls)
 ⚠️ **Critical Note**  
 Parameters for `NewcustomAudioTrack`  **must match** the `scenario` in the connection's creation api: NewRTCConnection. i.e, must set same senario paramter for both NewCustomAudioTrack and NewRTCConnection. Otherwise, the audio track's behavior will be unpredictable.
 
+## 2025.11.04 release 2.3.4
+-- update: udpate sdk
+-- add: add amp to include ns algorithm
+-- update: update vad algorithm
 ## 2025.05.26 release 2.2.8
 --  fix: fix a bug in sterom mode, the custome bitrate is not work
 --  update: update mac sdk version to 4.4.32
