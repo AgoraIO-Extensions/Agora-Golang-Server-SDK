@@ -1459,9 +1459,11 @@ func (conn *RtcConnection) setApmFilterProperties(uid *C.char, cRemoteAudioTrack
 	fmt.Println("*****APM config set:%s", configJSON)
 
 	// Enable dump
-	ret = setFilterPropertyByTrack(cRemoteAudioTrack, "audio_processing_remote_playback", "apm_dump", "true", false)
-	if ret != 0 {
-		fmt.Printf("Failed to enable apm_dump, error: %d\n", ret)
+	if agoraService.apmConfig.EnableDump {
+		ret = setFilterPropertyByTrack(cRemoteAudioTrack, "audio_processing_remote_playback", "apm_dump", "true", false)
+		if ret != 0 {
+				fmt.Printf("Failed to enable apm_dump, error: %d\n", ret)
+			}
 	}
 	
 	
