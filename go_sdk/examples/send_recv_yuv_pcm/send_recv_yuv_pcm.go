@@ -189,7 +189,7 @@ func main() {
 
 			// do something: for play a file
 			frameCount++
-			fmt.Printf("dump audio frame, rms: %d, voiceProb: %d, musicProb: %d, pitch: %d\n", frame.Rms,frame.VoiceProb, frame.MusicProb, frame.Pitch)
+			//fmt.Printf("dump audio frame, rms: %d, voiceProb: %d, musicProb: %d, pitch: %d\n", frame.Rms,frame.VoiceProb, frame.MusicProb, frame.Pitch)
 			if frameCount % 5 == 0 && frame.Rms > 0 && frame.VoiceProb == 1{
 				fmt.Printf("dump audio frame, rms: %d, voiceProb: %d, musicProb: %d, pitch: %d\n", frame.Rms,frame.VoiceProb, frame.MusicProb, frame.Pitch)
 			}
@@ -297,14 +297,16 @@ func main() {
 	localUser.SetPlaybackAudioFrameBeforeMixingParameters(1, 16000)
 	vadConfig := &agoraservice.AudioVadConfigV2{
 		PreStartRecognizeCount: 16,
-		StartRecognizeCount:    20,
-		StopRecognizeCount:     30,
+		StartRecognizeCount:    30,
+		StopRecognizeCount:     65,
 		ActivePercent:          0.5,
 		InactivePercent:        0.5,
 		StartVoiceProb:         70,
-		StartRms:               -50,
+		StartRms:               -70,
 		StopVoiceProb:          50,
-		StopRms:                -50,	
+		StopRms:                -70,	
+		EnableAdaptiveRmsThreshold: true,
+		AdaptiveRmsThresholdFactor: 0.67,
 	}
 
 	con.RegisterAudioFrameObserver(audioObserver, 1, vadConfig)
