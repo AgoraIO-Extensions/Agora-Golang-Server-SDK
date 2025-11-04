@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 	"encoding/binary"
+	"unsafe"
 )
 
 // AudioConsumer provides utility functions for the Agora SDK.
@@ -325,6 +326,12 @@ type VadDump struct {
 	labelFile  *os.File
 	isOpen     bool
 	frameCount int
+	// date: 2025-11-03, add voice prob, rms, pitch file for debug
+	voiceProbFile *os.File
+	rmsFile *os.File
+	pitchFile *os.File
+	// data for viceprob, rms, pitch file
+	itemData []byte
 }
 
 func NewVadDump(path string) *VadDump {
@@ -353,6 +360,12 @@ func NewVadDump(path string) *VadDump {
 		labelFile:  nil,
 		isOpen:     false,
 		frameCount: 0, // count of audio frame
+		voiceProbFile: nil,
+		rmsFile: nil,
+		pitchFile: nil,
+		// 960 bytes or 10ms is big enough for voice prob, rms, pitch data, i.e can support up to 48khz
+		itemData: nil,
+
 	}
 	return ret
 }
@@ -399,8 +412,35 @@ func (v *VadDump) Open() int {
 	if err != nil {
 		fmt.Println("Failed to create label file: ", err)
 	}
+	//open voice prob file
+	v.voiceProbFile, err = os.OpenFile(fmt.Sprintf("%s/voice_prob.txt", v.path), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
+	if err != nil {
+		fmt.Println("Failed to create voice prob file: ", err)
+	}
+	//open rms file
+	v.rmsFile, err = os.OpenFile(fmt.Sprintf("%s/rms.txt", v.path), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
+	if err != nil {
+		fmt.Println("Failed to create rms file: ", err)
+	}
+	//open pitch file
+	v.pitchFile, err = os.OpenFile(fmt.Sprintf("%s/pitch.txt", v.path), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
+	if err != nil {
+		fmt.Println("Failed to create pitch file: ", err)
+	}
 
 	return 0
+}
+func (v *VadDump) fillItemData(value int16, leninBytes int) {
+	if v.itemData == nil || len(v.itemData) < leninBytes {
+		v.itemData = make([]byte, leninBytes)
+	}
+	// chang byte to int16 ptr
+	int16Ptr := (*int16)(unsafe.Pointer(&v.itemData[0]))
+	count := leninBytes/2;
+	for i := 0; i < count; i++ {
+		elem := (*int16)(unsafe.Pointer(uintptr(unsafe.Pointer(int16Ptr)) + uintptr(i)*2))
+		*elem = int16(value)
+	}
 }
 func (v *VadDump) Write(frame *AudioFrame, vadFrame *AudioFrame, state VadState) int {
 	//len := len(frame.Buffer)
@@ -410,6 +450,21 @@ func (v *VadDump) Write(frame *AudioFrame, vadFrame *AudioFrame, state VadState)
 		if _, err := v.sourceFile.Write(frame.Buffer); err != nil {
 			fmt.Println("Failed to write dump file: ", err)
 		}
+	}
+	//write voice prob info: date: 2025-11-03, add voice prob info to file
+	if v.voiceProbFile != nil {
+		v.fillItemData(int16(frame.VoiceProb*127*127), len(frame.Buffer))
+		v.voiceProbFile.Write(v.itemData)
+	}
+	//write rms info
+	if v.rmsFile != nil {
+		v.fillItemData(int16(frame.Rms*127), len(frame.Buffer))
+		v.rmsFile.Write(v.itemData)
+	}
+	//write pitch info
+	if v.pitchFile != nil {
+		v.fillItemData(int16(frame.Pitch), len(frame.Buffer))
+		v.pitchFile.Write(v.itemData)
 	}
 
 	// write label info
@@ -458,12 +513,24 @@ func (v *VadDump) Close() int {
 		v.labelFile.Close()
 
 	}
+	if v.voiceProbFile != nil {
+		v.voiceProbFile.Close()
+	}
+	if v.rmsFile != nil {
+		v.rmsFile.Close()
+	}
+	if v.pitchFile != nil {
+		v.pitchFile.Close()
+	}
 
 	//assign to nil
 	v.sourceFile = nil
 	v.vadFile = nil
 	v.labelFile = nil
-
+	v.voiceProbFile = nil
+	v.rmsFile = nil
+	v.pitchFile = nil
+	v.itemData = nil
 	v.isOpen = false
 	v.frameCount = 0
 	v.count = 0
