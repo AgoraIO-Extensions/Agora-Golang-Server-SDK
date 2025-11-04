@@ -1,7 +1,7 @@
 package agoraservice
 
 // #cgo darwin CFLAGS: -I../../agora_sdk/include/c/api2 -I../../agora_sdk/include/c/base
-// #cgo darwin LDFLAGS: -Wl,-rpath,${SRCDIR}/../../agora_sdk_mac -L../../agora_sdk_mac -lAgoraRtcKit -lAgorafdkaac -lAgoraffmpeg
+// #cgo darwin LDFLAGS: -Wl,-rpath,${SRCDIR}/../../agora_sdk_mac -L../../agora_sdk_mac -lAgoraRtcKit -lAgorafdkaac -lAgoraffmpeg -lAgoraAiNoiseSuppressionExtension
 // #cgo linux CFLAGS: -D__linux__=1 -I../../agora_sdk/include/c/api2 -I../../agora_sdk/include/c/base
 // #cgo linux LDFLAGS: -Wl,-rpath,${SRCDIR}/../../agora_sdk -L../../agora_sdk/ -lagora_rtc_sdk -lagora-fdkaac -laosl
 // #include "agora_local_user.h"
@@ -9,6 +9,7 @@ package agoraservice
 // #include "agora_service.h"
 // #include "agora_media_base.h"
 // #include "agora_parameter.h"
+// #include "agora_audio_track.h"
 //
 // #ifndef agora_service_load_extension_provider
 // AGORA_API_C_INT agora_service_load_extension_provider(AGORA_HANDLE agora_svc, const char* path, unsigned int unload_after_use) {
@@ -17,6 +18,7 @@ package agoraservice
 // #endif
 import "C"
 import (
+	"fmt"
 	"sync"
 	"unsafe"
 )
@@ -79,6 +81,13 @@ type AgoraServiceConfig struct {
 	ConfigDir string
 	// version 2.2.9 and later, if not set, use default path
 	DataDir string
+
+	// 20251028 for apm filter related config
+	EnableAPM bool
+	APMConfig *APMConfig
+
+	// date: 2025-11-03, idle mode, if true, the connection will be released when idle for a period of time
+	IdleMode bool
 }
 
 // const def for map type
@@ -104,6 +113,12 @@ type AgoraService struct {
 	consByCVideoObserver        sync.Map
 	consByCEncodedVideoObserver sync.Map
 	mediaFactory *MediaNodeFactory
+	apmConfig *APMConfig
+	//timer related
+	timer	*PrecisionTimer
+	idleQueue []*IdleItem
+	idleQueueMutex sync.Mutex
+	idleMode bool
 }
 
 // / newAgoraService creates a new instance of AgoraService
@@ -114,6 +129,11 @@ func newAgoraService() *AgoraService {
 		//isSteroEncodeMode: false,
 		//audioScenario: AudioScenarioChorus,
 		mediaFactory: nil,
+		apmConfig: nil,
+		timer: nil,
+		idleQueue: make([]*IdleItem, 0),
+		idleQueueMutex: sync.Mutex{},
+		idleMode: false,
 	}
 }
 
@@ -133,13 +153,16 @@ func NewAgoraServiceConfig() *AgoraServiceConfig {
 		AudioScenario:        AudioScenarioAiServer,
 		UseStringUid:         false,
 		LogPath:              "",  // format like: "./agora_rtc_log/agorasdk.log"
-		LogSize:              1024 * 1024,
+		LogSize:              5 * 1024, // default to: 5MB
 		LogLevel: 0,
 		DomainLimit: 0, // default to 0
 		ShouldCallbackWhenMuted: 0, // default to 0, no callback when muted
 		EnableSteroEncodeMode: 0, // default to 0,i.e default to mono encode mode
 		ConfigDir: "",   // format like: "./agora_rtc_log"
 		DataDir: "",     // format like: "./agora_rtc_log", should ensure the directory exists
+		EnableAPM: false,
+		APMConfig: nil,
+		IdleMode: false, // default to false, not in idle mode
 	}
 }
 
@@ -180,25 +203,98 @@ func Initialize(cfg *AgoraServiceConfig) int {
 
 		// enable vad v2 model
 		agoraParam.SetParameters("{\"che.audio.label.enable\": true}")
+
+		// enable apm filter but disable 3a by default
+		EnableExtension("agora.builtin", "audio_processing_remote_playback", "", true)
 	}
 
+	if cfg.EnableAPM {
+		if cfg.APMConfig == nil {
+			agoraService.apmConfig = NewAPMConfig()
+		}else {
+			agoraService.apmConfig = cfg.APMConfig
+		}
+	}
 	// from version 2.2.1
 	if cfg.ShouldCallbackWhenMuted > 0 {
 		agoraParam.SetParameters("{\"rtc.audio.enable_user_silence_packet\": true}")
 	}
+	// date: 2025-09-09 
+	// to disable av1 resolution limitation: for any resolution, 
+	// it will be encoded as av1 if config is av1 or it only work for resolution >= 360p
+	agoraParam.SetParameters("{\"che.video.min_enc_level\": 0}")
 
 	agoraService.mediaFactory = newMediaNodeFactory()
 
 	agoraService.inited = true
+	// and start the timer
+	if cfg.IdleMode {
+		agoraService.idleMode = true
+		agoraService.timer = NewPrecisionTimer(50) // 50ms
+		agoraService.timer.Start(timerTask)
+	}	
 	return 0
 }
+func timerTask() {
+	// check the idle queue
+	//fmt.Printf("timerTask: idle queue size: %d\n", 1)
+	removeIdleItem()
+}
+func addIdleItem(handle unsafe.Pointer, lifeCycleInMs int) {
+	idleItem := newIdleItem(handle, lifeCycleInMs/50) // convert to 50ms interval
+	agoraService.idleQueueMutex.Lock()
+	agoraService.idleQueue = append(agoraService.idleQueue, idleItem)
+	agoraService.idleQueueMutex.Unlock()
+}
+func removeIdleItem() {
+	agoraService.idleQueueMutex.Lock()
+	defer agoraService.idleQueueMutex.Unlock()
 
+	//check size
+	if len(agoraService.idleQueue) == 0 {
+		return
+	}
+
+	for _, item := range agoraService.idleQueue {
+		item.LifeCycle -=1
+		}
+	//check the first one, if the LifeCycle is 0, remove it
+	item := agoraService.idleQueue[0]
+	if item.LifeCycle <= 0 {
+		agoraService.idleQueue = agoraService.idleQueue[1:]
+		// and release it
+		C.agora_rtc_conn_destroy(item.Handle)
+		fmt.Printf("remove idle item: %p\n", item.Handle)
+		// reset 
+		item = nil
+	}
+	
+}
+func releaseAllIdleItems() {
+	agoraService.idleQueueMutex.Lock()
+	defer agoraService.idleQueueMutex.Unlock()
+
+	for _, item := range agoraService.idleQueue {
+		C.agora_rtc_conn_destroy(item.Handle)
+		fmt.Printf("release all idle item: %p\n", item.Handle)
+		item = nil
+	}
+	agoraService.idleQueue = make([]*IdleItem, 0)
+	
+}
 // Release the Agora service.
 // This function must be called once globally.
 // After this function is called, you must not call other agora APIs any more.
 func Release() int {
 	if !agoraService.inited {
 		return 0
+	}
+	// stop timer
+	if agoraService.timer != nil {
+		agoraService.timer.Stop()
+		agoraService.timer = nil
+
+		releaseAllIdleItems()
 	}
 	// cleanup go layer resources
 	agoraService.cleanup()
@@ -362,4 +458,120 @@ func (s *AgoraService) deleteConFromHandle(handle unsafe.Pointer, conType int) b
 		s.consByCEncodedVideoObserver.Delete(handle)
 	}
 	return true
+}
+//date: 20251028 for set apm filter related struct:
+//AiNSConfig: for AiNS , ns,and sf_st_cfg,sf_ext_cfg
+type AiNsConfig struct {
+	NsEnabled bool
+	AiNSEnabled bool
+	AiNSModelPref int
+	NsngAlgRoute int
+	NsngPredefAgg int
+}
+type AiAecConfig struct {
+	Enabled bool
+	SplitSrateFor48k int
+}
+type BghvsCConfig struct {
+	Enabled bool
+	VadThr float32
+}
+type AgcConfig struct {
+	Enabled bool
+}
+
+type APMConfig struct {
+	AiNsConfig *AiNsConfig
+	AiAecConfig *AiAecConfig
+	BghvsCConfig *BghvsCConfig
+	AgcConfig *AgcConfig
+	EnableDump bool
+}
+/*
+char apm_config[] = "{\"aec\":{\"split_srate_for_48k\":16000},"\
+        "\"bghvs\":{\"enabled\":true, \"vadThr\":0.8},"\
+        "\"agc\":{\"enabled\":true}, \"ans\":{\"enabled\":true},"\
+        "\"sf_st_cfg\":{\"enabled\":true,\"ainsModelPref\":10},\"sf_ext_cfg\":{\"nsngAlgRoute\":12,\"nsngPredefAgg\":11}}";
+*/
+func NewAPMConfig() *APMConfig {
+	return &APMConfig{
+		AiNsConfig: &AiNsConfig{
+			AiNSEnabled: true,
+			NsEnabled: true,
+			AiNSModelPref: 10,
+			NsngAlgRoute: 12,
+			NsngPredefAgg: 11,
+		},
+		AiAecConfig: &AiAecConfig{
+			Enabled: false,
+			SplitSrateFor48k: 16000,
+		},
+		BghvsCConfig: &BghvsCConfig{
+			Enabled: true,
+			VadThr: 0.8,
+		},
+		AgcConfig: &AgcConfig{
+			Enabled: false,
+		},
+		EnableDump: false,
+	}
+}
+
+func (cfg *APMConfig) toJson() string {
+	jsonConfigure := fmt.Sprintf("{\"aec\":{\"enabled\":%t,\"split_srate_for_48k\":%d}," +
+		"\"bghvs\":{\"enabled\":%t, \"vadThr\":%f}," +
+		"\"agc\":{\"enabled\":%t}, \"ans\":{\"enabled\":%t}," +
+		"\"sf_st_cfg\":{\"enabled\":%t,\"ainsModelPref\":%d},\"sf_ext_cfg\":{\"nsngAlgRoute\":%d,\"nsngPredefAgg\":%d}}",
+		cfg.AiAecConfig.Enabled, cfg.AiAecConfig.SplitSrateFor48k, cfg.BghvsCConfig.Enabled, cfg.BghvsCConfig.VadThr,
+		 cfg.AgcConfig.Enabled, cfg.AiNsConfig.NsEnabled, cfg.AiNsConfig.AiNSEnabled,
+		 cfg.AiNsConfig.AiNSModelPref, cfg.AiNsConfig.NsngAlgRoute, cfg.AiNsConfig.NsngPredefAgg)
+
+	return jsonConfigure
+}
+
+
+
+//note: for remote audio track,no need to enable it! it is enabled by default in service creation
+func getAudioFilterPosition(isLocalTrack bool) int {
+	if isLocalTrack {
+		return int(3)
+	}
+	return int(2)
+}
+func  enableAudioFilterByTrack(track unsafe.Pointer, name string, enable bool, isLocalTrack bool) int {
+	if track  == nil {
+		return -1000
+	}
+
+	if !isLocalTrack { // for remote track, no need to enable filter
+		return 0
+	}
+	
+	cName := C.CString(name)
+	defer C.free(unsafe.Pointer(cName))
+	cEnable := C.int(0)
+	if enable {
+		cEnable = C.int(1)
+	}
+	Position := getAudioFilterPosition(isLocalTrack)
+
+	ret := int(C.agora_audio_track_enable_audio_filter(track, cName, cEnable, C.int(Position)))
+	return ret
+}
+
+func setFilterPropertyByTrack(track unsafe.Pointer, name string, key string, value string, isLocalTrack bool) int {
+	if track == nil  {
+		return -1000
+	}
+	
+
+	cName := C.CString(name)
+	defer C.free(unsafe.Pointer(cName))
+	cKey := C.CString(key)
+	defer C.free(unsafe.Pointer(cKey))
+	cValue := C.CString(value)
+	defer C.free(unsafe.Pointer(cValue))
+	Position := getAudioFilterPosition(isLocalTrack)
+	ret := int(C.agora_audio_track_set_filter_property(track, cName, cKey, cValue, C.int(Position)))
+	return ret
 }

@@ -113,6 +113,8 @@ func main() {
 	svcCfg.EnableVideo = true
 	svcCfg.AppId = appid
 	svcCfg.LogPath = "./agora_rtc_log/agrasdk.log"
+	svcCfg.LogSize = 2 * 1024
+	svcCfg.EnableAPM = true
 
 	agoraservice.Initialize(svcCfg)
 
@@ -177,10 +179,29 @@ func main() {
 	}
 
 	var err error
+	var frameCount int = 0
+	var vadSectionIndex int = 0
+	vadDump := agoraservice.NewVadDump("./agora_rtc_log/")
+	vadDump.Open()
+	defer vadDump.Close()
 	audioObserver := &agoraservice.AudioFrameObserver{
 		OnPlaybackAudioFrameBeforeMixing: func(localUser *agoraservice.LocalUser, channelId string, userId string, frame *agoraservice.AudioFrame, vadResulatState agoraservice.VadState, vadResultFrame *agoraservice.AudioFrame) bool {
-			// do something: for play a file
 
+			// do something: for play a file
+			frameCount++
+			//fmt.Printf("dump audio frame, rms: %d, voiceProb: %d, musicProb: %d, pitch: %d\n", frame.Rms,frame.VoiceProb, frame.MusicProb, frame.Pitch)
+			if frameCount % 5 == 0 && frame.Rms > 0 && frame.VoiceProb == 1{
+				fmt.Printf("dump audio frame, rms: %d, voiceProb: %d, musicProb: %d, pitch: %d\n", frame.Rms,frame.VoiceProb, frame.MusicProb, frame.Pitch)
+			}
+			vadDump.Write(frame, vadResultFrame, vadResulatState)
+			if vadResulatState == agoraservice.VadStateStartSpeeking {
+				fmt.Printf("************vad start speaking, count: %d\n", vadSectionIndex)
+			}
+			if vadResulatState == agoraservice.VadStateStopSpeeking {
+				fmt.Printf("************vad stop speaking, count: %d\n", vadSectionIndex)
+				vadSectionIndex++
+			}
+			
 			pcmQueue.Enqueue(frame)
 			//fmt.Printf("Playback audio frame before mixing, from userId %s, far :%d,rms:%d, pitch: %d\n", userId, frame.FarFieldFlag, frame.Rms, frame.Pitch)
 			return true
@@ -188,16 +209,16 @@ func main() {
 	}
 	localUserObserver := &agoraservice.LocalUserObserver{
 		OnLocalAudioTrackStatistics: func(localUser *agoraservice.LocalUser, stats *agoraservice.LocalAudioTrackStats) {
-			fmt.Printf("OnLocalAudioTrackStatistics, stats: %v\n", stats)
+			//fmt.Printf("OnLocalAudioTrackStatistics, stats: %v\n", stats)
 		},
 		OnRemoteAudioTrackStatistics: func(localUser *agoraservice.LocalUser, uid string, stats *agoraservice.RemoteAudioTrackStats) {
-			fmt.Printf("OnRemoteAudioTrackStatistics, stats: %v\n", stats)
+			//fmt.Printf("OnRemoteAudioTrackStatistics, stats: %v\n", stats)
 		},
 		OnLocalVideoTrackStatistics: func(localUser *agoraservice.LocalUser, stats *agoraservice.LocalVideoTrackStats) {
-			fmt.Printf("OnLocalVideoTrackStatistics, stats: %v\n", stats)
+			//fmt.Printf("OnLocalVideoTrackStatistics, stats: %v\n", stats)
 		},
 		OnRemoteVideoTrackStatistics: func(localUser *agoraservice.LocalUser, uid string, stats *agoraservice.RemoteVideoTrackStats) {
-			fmt.Printf("OnRemoteVideoTrackStatistics, stats: %v\n", stats)
+			//fmt.Printf("OnRemoteVideoTrackStatistics, stats: %v\n", stats)
 		},
 		OnUserAudioTrackStateChanged: func(localUser *agoraservice.LocalUser, uid string, remoteAudioTrack *agoraservice.RemoteAudioTrack, state int, reason int, elapsed int) {
 			fmt.Printf("OnUserAudioTrackStateChanged, uid: %s, state: %d, reason: %d, elapsed: %d\n", uid, state, reason, elapsed)
@@ -274,8 +295,21 @@ func main() {
 
 	// step2: register audio frame observer and audio track
 	localUser.SetPlaybackAudioFrameBeforeMixingParameters(1, 16000)
+	vadConfig := &agoraservice.AudioVadConfigV2{
+		PreStartRecognizeCount: 16,
+		StartRecognizeCount:    30,
+		StopRecognizeCount:     65,
+		ActivePercent:          0.5,
+		InactivePercent:        0.5,
+		StartVoiceProb:         70,
+		StartRms:               -70,
+		StopVoiceProb:          50,
+		StopRms:                -70,	
+		EnableAdaptiveRmsThreshold: true,
+		AdaptiveRmsThresholdFactor: 0.67,
+	}
 
-	con.RegisterAudioFrameObserver(audioObserver, 1, nil)
+	con.RegisterAudioFrameObserver(audioObserver, 1, vadConfig)
 
 	//localuserobserver
 	con.RegisterLocalUserObserver(localUserObserver)
@@ -284,9 +318,9 @@ func main() {
 	<-conSignal
 
 	con.SetVideoEncoderConfiguration(&agoraservice.VideoEncoderConfiguration{
-		CodecType:         agoraservice.VideoCodecTypeH264,
-		Width:             320,
-		Height:            240,
+		CodecType:         agoraservice.VideoCodecTypeAv1,
+		Width:             640,
+		Height:            480,
 		Framerate:         30,
 		Bitrate:           1500,
 		MinBitrate:        300,

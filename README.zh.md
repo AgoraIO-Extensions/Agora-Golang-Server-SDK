@@ -98,10 +98,16 @@ import (
 3、用script/rtmbuild.sh 构建rtm demo
 4、参考cmd/example demo 来使用rtm
 
-##  ❗ ❗逻辑关系
-在一个进程中，只能有一个agoraservice实例.
-该实例可以创建多个connection实例.
-因此：只能创建/初始化一次agoraservice实例，但可以创建多个connection实例.
+##  ❗ ❗逻辑关系，非常重要 ❗ ❗
+- 一个进程只能有一个service instance；在进程开始的时候，创建service；在进程结束的时候，销毁service。
+- 一个实例，可以有多个connection，connection可以根据业务需要，随时建立和销毁
+- 所有的observer或者是回调中，都不能在调用sdk自身的api，也不能在回调中做cpu耗时的工作，数据拷贝是可以的。
+- video codec支持情况：
+  - H264： 编码/解码都支持
+  - H265： 解码支持，编码不支持
+  - AV1： 编码/解码都支持，但编码分辨率必须大于360p，否则会回退到H264
+  - VP8： 编码/解码都支持
+  - VP9： 编码/解码都支持
 
 # 常见问题
 ## 编译错误
@@ -118,6 +124,15 @@ import (
 - [ ] 增加onaudio_volume_indication的支持
 
 # 更新日志
+ains 成功的标记是：
+get ai-ns control extension success
+[10/28/25 21:08:54:974][5635][W]:load ai-ns weight resource success
+
+## 2025.11.04 发布 2.3.4 版本
+-- 更新：update rtc sdk 版本
+-- 增加：增加apm 模块，支持下行链路的ns等处理
+-- 更新：更新vad 算法模块
+-- 增加：增加idleMode 可以做到delay 释放conneciton的c handle
 ## 2025.08.29 发布 2.3.3 版本
 -- 更新：update rtc sdk 到44.32.0829版本,fix 一个启动audiodump 会导致audio-dump 线程泄漏的问题
 -- 最佳实现：用connection级别的方式来设置aduiodump！！

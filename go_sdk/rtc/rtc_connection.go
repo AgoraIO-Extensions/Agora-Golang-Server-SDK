@@ -617,7 +617,11 @@ func (conn *RtcConnection) Release() {
 	if conn.cHandler != nil {
 		C.agora_rtc_conn_unregister_observer(conn.cConnection)
 	}
-	C.agora_rtc_conn_destroy(conn.cConnection)
+	if agoraService.idleMode {
+		addIdleItem(conn.cConnection, 2000) // set to delay 2s
+	} else {
+		C.agora_rtc_conn_destroy(conn.cConnection)
+	}
 
 	// clear all receiverInners
 	// conn.remoteVideoRWMutex.Lock()
@@ -1418,4 +1422,54 @@ func (conn *RtcConnection) SendAudioMetaData(metaData []byte) int {
 		return -2000
 	}
 	return conn.localUser.sendAudioMetaData(metaData)
+}
+// apm related: date 20251028
+// at present, only support service-level apm filter related config, not support connection-level apm filter related config
+// later, we will support connection-level apm filter related config,i.e, add a new connection-level api like:
+// conneciton::SetApmConfigure(apmconfigure *ApmConf) which can set the apm filter related config for the connection
+// but should call before connection.connect
+func (conn *RtcConnection) isEnable3A() bool {
+	if conn == nil || conn.cConnection == nil || conn.localUser == nil || conn.localUser.cLocalUser == nil {
+		return false
+	}
+	if agoraService.apmConfig == nil {
+		return false
+	}
+	return true
+}
+func (conn *RtcConnection) setApmFilterProperties(uid *C.char, cRemoteAudioTrack unsafe.Pointer) int {
+	if conn == nil || conn.cConnection == nil || conn.localUser == nil || conn.localUser.cLocalUser == nil {
+		return -2000
+	}
+	apmEnabled := conn.isEnable3A()
+	fmt.Printf("------setApmFilterProperties, uid: %s, apmEnabled: %t\n", C.GoString(uid), apmEnabled)
+	if !apmEnabled {
+		return 0
+	}
+	
+	// Load AINS resource
+	ret := setFilterPropertyByTrack(cRemoteAudioTrack, "audio_processing_remote_playback", "apm_load_resource", "ains", false)
+	if ret != 0 {
+		fmt.Printf("Failed to set apm_load_resource, error: %d\n", ret)
+	}
+
+	// Set APM configuration
+	configJSON := agoraService.apmConfig.toJson()
+	ret = setFilterPropertyByTrack(cRemoteAudioTrack, "audio_processing_remote_playback", "apm_config", configJSON, false)
+	if ret != 0 {
+		fmt.Printf("Failed to set apm_config, error: %d\n", ret)
+		return -1
+	}
+	fmt.Println("*****APM config set:%s", configJSON)
+
+	// Enable dump
+	if agoraService.apmConfig.EnableDump {
+		ret = setFilterPropertyByTrack(cRemoteAudioTrack, "audio_processing_remote_playback", "apm_dump", "true", false)
+		if ret != 0 {
+				fmt.Printf("Failed to enable apm_dump, error: %d\n", ret)
+			}
+	}
+	
+	
+	return 0
 }
