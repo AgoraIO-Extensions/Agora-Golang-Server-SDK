@@ -10,6 +10,178 @@ import (
 	agoraservice "github.com/AgoraIO-Extensions/Agora-Golang-Server-SDK/v2/go_sdk/rtc"
 )
 
+// AudioLabelWriter is used to save audio_label data to files
+type AudioLabelWriter struct {
+	rmsFile        *os.File
+	voiceProbFile  *os.File
+	musicProbFile  *os.File
+	pitchFile      *os.File
+	outputPcmFile  *os.File  // Save processed PCM audio for comparison
+	saveAudioLabel bool
+	savePcm        bool
+	totalPcmBytes  int64
+	totalLabelBytes int64
+	mu             sync.Mutex
+}
+
+// NewAudioLabelWriter creates a new audio label writer
+func NewAudioLabelWriter() *AudioLabelWriter {
+	return &AudioLabelWriter{
+		saveAudioLabel: false,
+	}
+}
+
+// EnableSaveAudioLabel enables to save the audio label data to files
+func (writer *AudioLabelWriter) EnableSaveAudioLabel(basePath string, outputPcmPath string) error {
+	writer.mu.Lock()
+	defer writer.mu.Unlock()
+
+	writer.Close()
+
+	// Create audio_label files for each indicator
+	rmsPath := basePath + "rms.pcm"
+	voiceProbPath := basePath + "voice_prob.pcm"
+	musicProbPath := basePath + "music_prob.pcm"
+	pitchPath := basePath + "pitch.pcm"
+
+	var err error
+	writer.rmsFile, err = os.Create(rmsPath)
+	if err != nil {
+		fmt.Printf("Failed to create RMS file: %v\n", err)
+		return err
+	}
+
+	writer.voiceProbFile, _ = os.Create(voiceProbPath)
+	writer.musicProbFile, _ = os.Create(musicProbPath)
+	writer.pitchFile, _ = os.Create(pitchPath)
+
+	// Create output PCM file for comparison
+	writer.outputPcmFile, err = os.Create(outputPcmPath)
+	if err != nil {
+		fmt.Printf("Failed to create output PCM file: %v\n", err)
+		return err
+	}
+
+	writer.saveAudioLabel = true
+	writer.savePcm = true
+	writer.totalPcmBytes = 0
+	writer.totalLabelBytes = 0
+
+	fmt.Printf("Start saving audio label data to:\n")
+	fmt.Printf("  %s\n", rmsPath)
+	fmt.Printf("  %s\n", voiceProbPath)
+	fmt.Printf("  %s\n", musicProbPath)
+	fmt.Printf("  %s\n", pitchPath)
+	fmt.Printf("Start saving processed PCM audio to:\n")
+	fmt.Printf("  %s\n", outputPcmPath)
+
+	return nil
+}
+
+// WriteAudioLabel writes audio label data for a frame
+func (writer *AudioLabelWriter) WriteAudioLabel(frame *agoraservice.AudioFrame) {
+	writer.mu.Lock()
+	defer writer.mu.Unlock()
+
+	if len(frame.Buffer) == 0 {
+		return
+	}
+
+	// Save PCM audio data
+	if writer.savePcm && writer.outputPcmFile != nil {
+		n, err := writer.outputPcmFile.Write(frame.Buffer)
+		if err != nil {
+			fmt.Printf("Failed to write PCM data: %v\n", err)
+		} else {
+			writer.totalPcmBytes += int64(n)
+		}
+	}
+
+	// Save audio label data
+	if !writer.saveAudioLabel {
+		return
+	}
+
+	numSamples := frame.SamplesPerChannel * frame.Channels
+
+	// RMS: 0-127
+	rmsValue := uint8(frame.Rms)
+	// voiceProb: 0 or 1
+	voiceProbValue := uint8(0)
+	if frame.VoiceProb > 0 {
+		voiceProbValue = 0x7f
+	}
+	// musicProb: 0-255
+	musicProbValue := uint8(frame.MusicProb)
+	// pitch: int16
+	pitchValue := int16(frame.Pitch)
+
+	// Write the same value to each sample point
+	labelBytesThisFrame := int64(0)
+	for i := 0; i < numSamples; i++ {
+		if writer.rmsFile != nil {
+			writer.rmsFile.Write([]byte{rmsValue})
+			labelBytesThisFrame += 1
+		}
+		if writer.voiceProbFile != nil {
+			writer.voiceProbFile.Write([]byte{voiceProbValue})
+		}
+		if writer.musicProbFile != nil {
+			writer.musicProbFile.Write([]byte{musicProbValue})
+		}
+		if writer.pitchFile != nil {
+			// Write int16 (2 bytes)
+			pitchBytes := []byte{byte(pitchValue), byte(pitchValue >> 8)}
+			writer.pitchFile.Write(pitchBytes)
+		}
+	}
+	writer.totalLabelBytes += labelBytesThisFrame
+}
+
+// Close closes all audio label files
+func (writer *AudioLabelWriter) Close() {
+	hadFiles := (writer.rmsFile != nil || writer.voiceProbFile != nil ||
+		writer.musicProbFile != nil || writer.pitchFile != nil)
+
+	if writer.rmsFile != nil {
+		writer.rmsFile.Sync()
+		writer.rmsFile.Close()
+		writer.rmsFile = nil
+	}
+	if writer.voiceProbFile != nil {
+		writer.voiceProbFile.Sync()
+		writer.voiceProbFile.Close()
+		writer.voiceProbFile = nil
+	}
+	if writer.musicProbFile != nil {
+		writer.musicProbFile.Sync()
+		writer.musicProbFile.Close()
+		writer.musicProbFile = nil
+	}
+	if writer.pitchFile != nil {
+		writer.pitchFile.Sync()
+		writer.pitchFile.Close()
+		writer.pitchFile = nil
+	}
+
+	if writer.outputPcmFile != nil {
+		writer.outputPcmFile.Sync()
+		writer.outputPcmFile.Close()
+		writer.outputPcmFile = nil
+	}
+
+	writer.saveAudioLabel = false
+	writer.savePcm = false
+
+	if hadFiles {
+		fmt.Println("\n✓ Audio label files saved completed")
+		fmt.Printf("  Total PCM bytes written: %d\n", writer.totalPcmBytes)
+		fmt.Printf("  Total label bytes written (RMS): %d\n", writer.totalLabelBytes)
+		fmt.Printf("  Ratio (PCM:Label): %.2f:1 (expected 2:1 for int16 PCM vs uint8 label)\n", 
+			float64(writer.totalPcmBytes)/float64(writer.totalLabelBytes))
+	}
+}
+
 // RemoteAudioFilterProcessorWrapper manages remote audio filtering (using RemoteAudioProcessor wrapper)
 type RemoteAudioFilterProcessorWrapper struct {
 	// Sender connection (to publish audio)
@@ -30,12 +202,18 @@ type RemoteAudioFilterProcessorWrapper struct {
 	
 	isRunning         bool
 	mu                sync.Mutex
+	
+	// Audio label writer
+	audioLabelWriter  *AudioLabelWriter
+	receivedFrames    int
 }
 
 // NewRemoteAudioFilterProcessor creates a new remote audio filter processor
 func NewRemoteAudioFilterProcessorWrapper() *RemoteAudioFilterProcessorWrapper {
 	return &RemoteAudioFilterProcessorWrapper{
-		isRunning: true,
+		isRunning:        true,
+		audioLabelWriter: NewAudioLabelWriter(),
+		receivedFrames:   0,
 	}
 }
 
@@ -195,11 +373,15 @@ func (p *RemoteAudioFilterProcessorWrapper) createReceiverConnection() error {
 	// Set up observer for receiver
 	p.setupReceiverObserver()
 
-	// Set audio frame parameters
-	ret := p.localUserRecv.SetPlaybackAudioFrameBeforeMixingParameters(1, 48000)
+	// Set audio frame parameters (16kHz to match dump output)
+	ret := p.localUserRecv.SetPlaybackAudioFrameBeforeMixingParameters(1, 16000)
 	if ret != 0 {
 		fmt.Printf("⚠️  Failed to set audio frame parameters, error: %d\n", ret)
 	}
+	fmt.Println("✓ Audio frame parameters set: 1 channel, 16000 Hz")
+
+	// Register audio frame observer to receive audio frames
+	p.setupAudioFrameObserver()
 
 	// Connect to channel (first parameter is token, use "" for no token)
 	fmt.Printf("Connecting receiver to channel: %s, uid: %s\n", p.channelId, p.receiverUid)
@@ -255,6 +437,68 @@ func (p *RemoteAudioFilterProcessorWrapper) setupReceiverObserver() {
 
 	p.connRecv.RegisterLocalUserObserver(observer)
 	fmt.Println("✓ Receiver observer registered")
+}
+
+// setupAudioFrameObserver sets up the audio frame observer to receive audio frames
+func (p *RemoteAudioFilterProcessorWrapper) setupAudioFrameObserver() {
+	// Create output directory for audio label
+	outputDir := "/Volumes/ZR/Agora/SERVER/SDK/Agora-Golang-Server-SDK/go_sdk/examples/apm_filter_remote_wrapper/output"
+	audioLabelDir := outputDir + "/audio_label/"
+	err := os.MkdirAll(audioLabelDir, 0755)
+	if err != nil {
+		fmt.Printf("⚠️  Failed to create audio label directory: %v\n", err)
+		return
+	}
+
+	// Output PCM path for comparison
+	outputPcmPath := outputDir + "/received_processed.pcm"
+
+	// Enable audio label saving
+	err = p.audioLabelWriter.EnableSaveAudioLabel(audioLabelDir, outputPcmPath)
+	if err != nil {
+		fmt.Printf("⚠️  Failed to enable audio label saving: %v\n", err)
+		return
+	}
+
+	fmt.Println("\n✅ Audio label and PCM saving enabled:")
+	fmt.Println("   - rms.pcm: uint8 (1 byte), range 0-127")
+	fmt.Println("   - voice_prob.pcm: uint8 (1 byte), 0 or 1")
+	fmt.Println("   - music_prob.pcm: uint8 (1 byte), range 0-255")
+	fmt.Println("   - pitch.pcm: int16 (2 bytes), original value")
+	fmt.Printf("   - received_processed.pcm: processed audio (16kHz, 1 channel, int16)\n")
+
+	// Register audio frame observer
+	audioFrameObserver := &agoraservice.AudioFrameObserver{
+		OnPlaybackAudioFrameBeforeMixing: func(localUser *agoraservice.LocalUser, channelId string, uid string, frame *agoraservice.AudioFrame, vadResultStat agoraservice.VadState, vadResultFrame *agoraservice.AudioFrame) bool {
+			p.mu.Lock()
+			p.receivedFrames++
+			frameCount := p.receivedFrames
+			p.mu.Unlock()
+
+			// Print frame info periodically (including buffer size for debugging alignment)
+			if frameCount <= 10 || frameCount%100 == 0 {
+				bufferSize := len(frame.Buffer)
+				expectedSize := frame.SamplesPerChannel * frame.Channels * frame.BytesPerSample
+				fmt.Printf("Received frame %d: samples=%d, channels=%d, sampleRate=%d, bytesPerSample=%d, bufferSize=%d (expected=%d), RMS=%d, VoiceProb=%d, MusicProb=%d, Pitch=%d\n",
+					frameCount, frame.SamplesPerChannel, frame.Channels, frame.SamplesPerSec, frame.BytesPerSample,
+					bufferSize, expectedSize,
+					frame.Rms, frame.VoiceProb, frame.MusicProb, frame.Pitch)
+			}
+
+			// Write audio label data
+			p.audioLabelWriter.WriteAudioLabel(frame)
+
+			return true
+		},
+	}
+
+	ret := p.connRecv.RegisterAudioFrameObserver(audioFrameObserver, 0, nil)
+	if ret != 0 {
+		fmt.Printf("⚠️  Failed to register audio frame observer, error: %d\n", ret)
+		return
+	}
+
+	fmt.Println("✓ Audio frame observer registered")
 }
 
 // SendAudioData sends audio data from PCM file
@@ -354,6 +598,12 @@ func (p *RemoteAudioFilterProcessorWrapper) Cleanup() {
 	fmt.Println("\n=== Cleanup resources ===")
 
 	p.isRunning = false
+
+	// Close audio label writer
+	if p.audioLabelWriter != nil {
+		p.audioLabelWriter.Close()
+		fmt.Printf("Total audio frames received: %d\n", p.receivedFrames)
+	}
 
 	// Cleanup receiver connection
 	if p.connRecv != nil {
