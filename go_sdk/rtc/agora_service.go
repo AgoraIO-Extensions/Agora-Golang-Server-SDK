@@ -414,6 +414,7 @@ type APMConfig struct {
 	AiAecConfig *AiAecConfig
 	BghvsCConfig *BghvsCConfig
 	AgcConfig *AgcConfig
+	EnableDump bool
 }
 /*
 char apm_config[] = "{\"aec\":{\"split_srate_for_48k\":16000},"\
@@ -441,6 +442,7 @@ func NewAPMConfig() *APMConfig {
 		AgcConfig: &AgcConfig{
 			Enabled: false,
 		},
+		EnableDump: false,
 	}
 }
 
