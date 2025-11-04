@@ -229,6 +229,7 @@ Parameters for `NewcustomAudioTrack`  **must match** the `scenario` in the conne
 -- update: udpate sdk
 -- add: add amp to include ns algorithm
 -- update: update vad algorithm
+-- add: added idlemode, which can release connection's c handle when timedout
 ## 2025.05.26 release 2.2.8
 --  fix: fix a bug in sterom mode, the custome bitrate is not work
 --  update: update mac sdk version to 4.4.32

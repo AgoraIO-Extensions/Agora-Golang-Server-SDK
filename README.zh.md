@@ -132,6 +132,7 @@ get ai-ns control extension success
 -- 更新：update rtc sdk 版本
 -- 增加：增加apm 模块，支持下行链路的ns等处理
 -- 更新：更新vad 算法模块
+-- 增加：增加idleMode 可以做到delay 释放conneciton的c handle
 ## 2025.08.29 发布 2.3.3 版本
 -- 更新：update rtc sdk 到44.32.0829版本,fix 一个启动audiodump 会导致audio-dump 线程泄漏的问题
 -- 最佳实现：用connection级别的方式来设置aduiodump！！
