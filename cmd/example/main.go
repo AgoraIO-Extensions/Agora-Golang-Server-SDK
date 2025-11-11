@@ -9,8 +9,9 @@ import (
 	"syscall"
 	"time"
 
-	agrtm "github.com/AgoraIO-Extensions/Agora-RTM-Server-SDK-Go/go_sdk/rtm"
+	agrtm "github.com/AgoraIO-Extensions/Agora-Golang-Server-SDK/v2/go_sdk/rtm"
 )
+
 /*
 1. 不在需要MyRtmEventHandler，直接使用agrtm.RtmEventHandler
 2. event_handler_adapter.go 不在需要！
@@ -56,7 +57,6 @@ func main() {
 	ret := int(0)
 	var requestId uint64
 
-
 	sign := make(chan struct{})
 	msgChan := make(chan struct{})
 	var data []byte = make([]byte, 0)
@@ -79,7 +79,6 @@ func main() {
 			data = event.Message
 			logWithTime("send channel message recved: %s", string(data))
 			msgChan <- struct{}{}
-			
 
 		},
 		OnLinkStateEvent: func(event *agrtm.LinkStateEvent) {
@@ -105,7 +104,6 @@ func main() {
 	logWithTime("CreateAgoraRtmClient: %p\n", rtmClient) //DEBUG
 
 	// set user channel info to event handler
-	
 
 	logWithTime("Login Start: %d\n", ret)
 	if token == "" {
@@ -159,9 +157,9 @@ waitSignal:
 				logWithTime("exit signal: %v", signal)
 				break waitSignal
 			}
-			case <-msgChan:
-				rtmClient.SendChannelMessage(channelName, data)
-				logWithTime("send channel message send: %s", string(data))
+		case <-msgChan:
+			rtmClient.SendChannelMessage(channelName, data)
+			logWithTime("send channel message send: %s", string(data))
 		}
 	}
 
@@ -176,6 +174,6 @@ waitSignal:
 	rtmClient = nil
 
 	// release myEventHandler
-	
+
 	rtmConfig = nil
 }

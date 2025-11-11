@@ -10,7 +10,6 @@ package agorartm
 */
 import "C"
 import (
-	"fmt"
 	"unsafe"
 )
 
@@ -20,7 +19,10 @@ import (
 /**
  * Metadata options.
  */
-type MetadataOptions C.struct_C_MetadataOptions
+type MetadataOptions struct {
+	RecordTs     bool
+	RecordUserId bool
+}
 
 // #region MetadataOptions
 
@@ -28,40 +30,48 @@ type MetadataOptions C.struct_C_MetadataOptions
  * Indicates whether or not to notify server update the modify timestamp of metadata
  */
 func (this_ *MetadataOptions) GetRecordTs() bool {
-	return bool(this_.recordTs)
+	return this_.RecordTs
 }
 
 /**
  * Indicates whether or not to notify server update the modify timestamp of metadata
  */
 func (this_ *MetadataOptions) SetRecordTs(recordTs bool) {
-	this_.recordTs = C.bool(recordTs)
+	this_.RecordTs = recordTs
 }
 
 /**
  * Indicates whether or not to notify server update the modify user id of metadata
  */
 func (this_ *MetadataOptions) GetRecordUserId() bool {
-	return bool(this_.recordUserId)
+	return this_.RecordUserId
 }
 
 /**
  * Indicates whether or not to notify server update the modify user id of metadata
  */
 func (this_ *MetadataOptions) SetRecordUserId(recordUserId bool) {
-	this_.recordUserId = C.bool(recordUserId)
+	this_.RecordUserId = recordUserId
 }
 
 func NewMetadataOptions() *MetadataOptions {
-	return (*MetadataOptions)(C.C_MetadataOptions_New())
-}
-func (this_ *MetadataOptions) Delete() {
-	C.C_MetadataOptions_Delete((*C.struct_C_MetadataOptions)(this_))
+	options := &MetadataOptions{
+		RecordTs:     true,
+		RecordUserId: true,
+	}
+
+	return options
 }
 
 // #endregion MetadataOptions
 
-type MetadataItem C.struct_C_MetadataItem
+type MetadataItem struct {
+	Key          string
+	Value        string
+	AuthorUserId string
+	Revision     uint64
+	UpdateTs     uint64
+}
 
 // #region MetadataItem
 
@@ -69,83 +79,92 @@ type MetadataItem C.struct_C_MetadataItem
  * The key of the metadata item.
  */
 func (this_ *MetadataItem) GetKey() string {
-	return C.GoString(this_.key)
+	return this_.Key
 }
 
 /**
  * The key of the metadata item.
  */
 func (this_ *MetadataItem) SetKey(key string) {
-	this_.key = C.CString(key)
+	this_.Key = key
 }
 
 /**
  * The value of the metadata item.
  */
 func (this_ *MetadataItem) GetValue() string {
-	return C.GoString(this_.value)
+	return this_.Value
 }
 
 /**
  * The value of the metadata item.
  */
 func (this_ *MetadataItem) SetValue(value string) {
-	this_.value = C.CString(value)
+	this_.Value = value
 }
 
 /**
  * The User ID of the user who makes the latest update to the metadata item.
  */
 func (this_ *MetadataItem) GetAquthorUserId() string {
-	return C.GoString(this_.authorUserId)
+	return this_.AuthorUserId
 }
 
 /**
  * The User ID of the user who makes the latest update to the metadata item.
  */
 func (this_ *MetadataItem) SetAuthorUserId(authorUserId string) {
-	this_.authorUserId = C.CString(authorUserId)
+	this_.AuthorUserId = authorUserId
 }
 
 /**
  * The revision of the metadata item.
  */
 func (this_ *MetadataItem) GetRevision() int64 {
-	return int64(this_.revision)
+	return int64(this_.Revision)
 }
 
 /**
  * The revision of the metadata item.
  */
 func (this_ *MetadataItem) SetRevision(revision int64) {
-	this_.revision = C.int64_t(revision)
+	this_.Revision = uint64(revision)
 }
 
 /**
  * The Timestamp when the metadata item was last updated.
  */
 func (this_ *MetadataItem) GetUpdateTs() int64 {
-	return int64(this_.updateTs)
+	return int64(this_.UpdateTs)
 }
 
 /**
  * The Timestamp when the metadata item was last updated.
  */
 func (this_ *MetadataItem) SetUpdateTs(updateTs int64) {
-	this_.updateTs = C.int64_t(updateTs)
+	this_.UpdateTs = uint64(updateTs)
 }
 
 func NewMetadataItem() *MetadataItem {
-	return (*MetadataItem)(C.C_MetadataItem_New())
-}
-func (this_ *MetadataItem) Delete() {
-	C.C_MetadataItem_Delete((*C.struct_C_MetadataItem)(this_))
+	item := &MetadataItem{
+		Key:          "",
+		Value:        "",
+		AuthorUserId: "",
+		Revision:     0,
+		UpdateTs:     0,
+	}
+
+	return item
 }
 
 // #endregion MetadataItem
 
-// added by wei only 向后兼容到0.0.1
-type IMetadata C.struct_C_Metadata
+// added by wei only for backward compatibility to 0.0.1 version
+type IMetadata struct {
+	majorRevision int64
+	items         []MetadataItem
+	itemCount     uint
+}
 
 // #region IMetadata
 
@@ -155,7 +174,7 @@ type IMetadata C.struct_C_Metadata
  * @param [in] revision The major revision of the metadata.
  */
 func (this_ *IMetadata) SetMajorRevision(revision int64) {
-	this_.majorRevision = C.int64_t(revision)
+	this_.majorRevision = revision
 }
 
 /**
@@ -164,14 +183,17 @@ func (this_ *IMetadata) SetMajorRevision(revision int64) {
  * @return the major revision of metadata.
  */
 func (this_ *IMetadata) GetMajorRevision() int64 {
-	return int64(this_.majorRevision)
+	return this_.majorRevision
 }
 
 /**
  * Add or revise a metadataItem to current metadata.
  */
 func (this_ *IMetadata) SetMetadataItem(item *MetadataItem) {
-	this_.items = (*C.struct_C_MetadataItem)(item)
+	if item != nil {
+		this_.items = append(this_.items, *item)
+		this_.itemCount = uint(len(this_.items))
+	}
 }
 
 /**
@@ -181,23 +203,10 @@ func (this_ *IMetadata) SetMetadataItem(item *MetadataItem) {
  * @param [out] size The size the metadataItem array.
  */
 func (this_ *IMetadata) GetMetadataItems(item **MetadataItem, size *uint) {
-	//do nothing, can access directly
-	*size = uint(this_.itemCount)
-}
-
-/**
- * Clear the metadataItem array & reset major revision
- */
-func (this_ *IMetadata) ClearMetadata() {
-	//do nothing, can access directly
-}
-
-/**
- * Release the metadata instance.
- */
-func (this_ *IMetadata) Release() {
-	//C.C_IMetadata_release(unsafe.Pointer(this_))
-	fmt.Println("Release： NOT IMPLEMENTED")
+	if len(this_.items) > 0 {
+		*item = &this_.items[0]
+	}
+	*size = this_.itemCount
 }
 
 // #endregion IMetadata
@@ -207,7 +216,7 @@ type VoidPtr unsafe.Pointer
 
 // IRtmStorage wraps a C void* pointer for the RTM storage interface
 type IRtmStorage struct {
-	ptr VoidPtr
+	rtmStorage unsafe.Pointer
 }
 
 // #region IRtmStorage
@@ -216,20 +225,20 @@ type IRtmStorage struct {
  * @return Pointer of the metadata object.
  */
 func (this_ *IRtmStorage) CreateMetadata() *IMetadata {
-	// 通过c的方式来申请一个内存快
-	size := C.size_t(unsafe.Sizeof(C.struct_C_Metadata{}))
-	metadata := C.malloc(size)
-	//metadata = C.malloc(C.sizeof__C.struct_C_Metadata)
-	// memset to 0
-	C.memset(unsafe.Pointer(metadata), 0, size)
-	return (*IMetadata)(metadata)
+	metadata := &IMetadata{
+		majorRevision: 0,
+		items:         make([]MetadataItem, 0),
+		itemCount:     0,
+	}
+
+	return metadata
 }
 
 /**
  * Set the metadata of a specified channel.
  *
  * @param [in] channelName The name of the channel.
- * @param [in] channelType Which channel type, RTM_CHANNEL_TYPE_STREAM or RTM_CHANNEL_TYPE_MESSAGE.
+ * @param [in] channelType Which channel type, RTM_CHANNEL_TYPE_STREAM or RtmChannelTypeMESSAGE.
  * @param [in] data Metadata data.
  * @param [in] options The options of operate metadata.
  * @param [in] lock lock for operate channel metadata.
@@ -239,19 +248,52 @@ func (this_ *IRtmStorage) CreateMetadata() *IMetadata {
  * - 0: Success.
  * - < 0: Failure.
  */
-func (this_ *IRtmStorage) SetChannelMetadata(channelName string, channelType RTM_CHANNEL_TYPE, data *IMetadata, options *MetadataOptions, lockName string, requestId *uint64) int {
+func (this_ *IRtmStorage) SetChannelMetadata(channelName string, channelType RtmChannelType, data *IMetadata, options *MetadataOptions, lockName string, requestId *uint64) int {
 	cChannelName := C.CString(channelName)
+	defer C.free(unsafe.Pointer(cChannelName))
 	cLockName := C.CString(lockName)
-	C.agora_rtm_storage_set_channel_metadata(unsafe.Pointer(this_.ptr),
+	defer C.free(unsafe.Pointer(cLockName))
+
+	var cOptions *C.struct_C_MetadataOptions
+	if options != nil {
+		cOptions = C.C_MetadataOptions_New()
+		defer C.C_MetadataOptions_Delete(cOptions)
+		cOptions.recordTs = C.bool(options.RecordTs)
+		cOptions.recordUserId = C.bool(options.RecordUserId)
+	}
+
+	var cData *C.struct_C_Metadata
+	if data != nil {
+		cData = C.C_Metadata_New()
+		defer C.C_Metadata_Delete(cData)
+		cData.majorRevision = C.int64_t(data.majorRevision)
+		cData.itemCount = C.size_t(data.itemCount)
+		cItems := make([]*C.struct_C_MetadataItem, data.itemCount)
+		for i := 0; i < int(data.itemCount); i++ {
+			cItems[i] = C.C_MetadataItem_New()
+			defer C.C_MetadataItem_Delete(cItems[i])
+			cItems[i].key = C.CString(data.items[i].Key)
+			defer C.free(unsafe.Pointer(cItems[i].key))
+			cItems[i].value = C.CString(data.items[i].Value)
+			defer C.free(unsafe.Pointer(cItems[i].value))
+			cItems[i].authorUserId = C.CString(data.items[i].AuthorUserId)
+			defer C.free(unsafe.Pointer(cItems[i].authorUserId))
+			cItems[i].revision = C.int64_t(data.items[i].Revision)
+			cItems[i].updateTs = C.int64_t(data.items[i].UpdateTs)
+		}
+		if len(cItems) > 0 {
+			cData.items = cItems[0]
+		}
+	}
+
+	C.agora_rtm_storage_set_channel_metadata(this_.rtmStorage,
 		cChannelName,
 		C.enum_C_RTM_CHANNEL_TYPE(channelType),
-		(*C.struct_C_Metadata)(unsafe.Pointer(data)),
-		(*C.struct_C_MetadataOptions)(options),
+		cData,
+		cOptions,
 		cLockName,
 		(*C.uint64_t)(requestId),
 	)
-	C.free(unsafe.Pointer(cChannelName))
-	C.free(unsafe.Pointer(cLockName))
 	return 0
 }
 
@@ -259,7 +301,7 @@ func (this_ *IRtmStorage) SetChannelMetadata(channelName string, channelType RTM
  * Update the metadata of a specified channel.
  *
  * @param [in] channelName The channel Name of the specified channel.
- * @param [in] channelType Which channel type, RTM_CHANNEL_TYPE_STREAM or RTM_CHANNEL_TYPE_MESSAGE.
+ * @param [in] channelType Which channel type, RTM_CHANNEL_TYPE_STREAM or RtmChannelTypeMESSAGE.
  * @param [in] data Metadata data.
  * @param [in] options The options of operate metadata.
  * @param [in] lock lock for operate channel metadata.
@@ -269,26 +311,59 @@ func (this_ *IRtmStorage) SetChannelMetadata(channelName string, channelType RTM
  * - 0: Success.
  * - < 0: Failure.
  */
-func (this_ *IRtmStorage) UpdateChannelMetadata(channelName string, channelType RTM_CHANNEL_TYPE, data *IMetadata, options *MetadataOptions, lockName string, requestId *uint64) {
+func (this_ *IRtmStorage) UpdateChannelMetadata(channelName string, channelType RtmChannelType, data *IMetadata, options *MetadataOptions, lockName string, requestId *uint64) {
 	cChannelName := C.CString(channelName)
+	defer C.free(unsafe.Pointer(cChannelName))
 	cLockName := C.CString(lockName)
-	C.agora_rtm_storage_update_channel_metadata(unsafe.Pointer(this_.ptr),
+	defer C.free(unsafe.Pointer(cLockName))
+
+	var cOptions *C.struct_C_MetadataOptions
+	if options != nil {
+		cOptions = C.C_MetadataOptions_New()
+		defer C.C_MetadataOptions_Delete(cOptions)
+		cOptions.recordTs = C.bool(options.RecordTs)
+		cOptions.recordUserId = C.bool(options.RecordUserId)
+	}
+
+	var cData *C.struct_C_Metadata
+	if data != nil {
+		cData = C.C_Metadata_New()
+		defer C.C_Metadata_Delete(cData)
+		cData.majorRevision = C.int64_t(data.majorRevision)
+		cData.itemCount = C.size_t(data.itemCount)
+		cItems := make([]*C.struct_C_MetadataItem, data.itemCount)
+		for i := 0; i < int(data.itemCount); i++ {
+			cItems[i] = C.C_MetadataItem_New()
+			defer C.C_MetadataItem_Delete(cItems[i])
+			cItems[i].key = C.CString(data.items[i].Key)
+			defer C.free(unsafe.Pointer(cItems[i].key))
+			cItems[i].value = C.CString(data.items[i].Value)
+			defer C.free(unsafe.Pointer(cItems[i].value))
+			cItems[i].authorUserId = C.CString(data.items[i].AuthorUserId)
+			defer C.free(unsafe.Pointer(cItems[i].authorUserId))
+			cItems[i].revision = C.int64_t(data.items[i].Revision)
+			cItems[i].updateTs = C.int64_t(data.items[i].UpdateTs)
+		}
+		if len(cItems) > 0 {
+			cData.items = cItems[0]
+		}
+	}
+
+	C.agora_rtm_storage_update_channel_metadata(this_.rtmStorage,
 		cChannelName,
 		C.enum_C_RTM_CHANNEL_TYPE(channelType),
-		(*C.struct_C_Metadata)(unsafe.Pointer(data)),
-		(*C.struct_C_MetadataOptions)(options),
+		cData,
+		cOptions,
 		cLockName,
 		(*C.uint64_t)(requestId),
 	)
-	C.free(unsafe.Pointer(cChannelName))
-	C.free(unsafe.Pointer(cLockName))
 }
 
 /**
  * Remove the metadata of a specified channel.
  *
  * @param [in] channelName The channel Name of the specified channel.
- * @param [in] channelType Which channel type, RTM_CHANNEL_TYPE_STREAM or RTM_CHANNEL_TYPE_MESSAGE.
+ * @param [in] channelType Which channel type, RTM_CHANNEL_TYPE_STREAM or RtmChannelTypeMESSAGE.
  * @param [in] data Metadata data.
  * @param [in] options The options of operate metadata.
  * @param [in] lock lock for operate channel metadata.
@@ -298,40 +373,74 @@ func (this_ *IRtmStorage) UpdateChannelMetadata(channelName string, channelType 
  * - 0: Success.
  * - < 0: Failure.
  */
-func (this_ *IRtmStorage) RemoveChannelMetadata(channelName string, channelType RTM_CHANNEL_TYPE, data *IMetadata, options *MetadataOptions, lockName string, requestId *uint64) {
+func (this_ *IRtmStorage) RemoveChannelMetadata(channelName string, channelType RtmChannelType, data *IMetadata, options *MetadataOptions, lockName string, requestId *uint64) {
 	cChannelName := C.CString(channelName)
+	defer C.free(unsafe.Pointer(cChannelName))
 	cLockName := C.CString(lockName)
-	C.agora_rtm_storage_remove_channel_metadata(unsafe.Pointer(this_.ptr),
+	defer C.free(unsafe.Pointer(cLockName))
+
+	var cOptions *C.struct_C_MetadataOptions
+	if options != nil {
+		cOptions = C.C_MetadataOptions_New()
+		defer C.C_MetadataOptions_Delete(cOptions)
+		cOptions.recordTs = C.bool(options.RecordTs)
+		cOptions.recordUserId = C.bool(options.RecordUserId)
+	}
+
+	var cData *C.struct_C_Metadata
+	if data != nil {
+		cData = C.C_Metadata_New()
+		defer C.C_Metadata_Delete(cData)
+		cData.majorRevision = C.int64_t(data.majorRevision)
+		cData.itemCount = C.size_t(data.itemCount)
+		cItems := make([]*C.struct_C_MetadataItem, data.itemCount)
+		for i := 0; i < int(data.itemCount); i++ {
+			cItems[i] = C.C_MetadataItem_New()
+			defer C.C_MetadataItem_Delete(cItems[i])
+			cItems[i].key = C.CString(data.items[i].Key)
+			defer C.free(unsafe.Pointer(cItems[i].key))
+			cItems[i].value = C.CString(data.items[i].Value)
+			defer C.free(unsafe.Pointer(cItems[i].value))
+			cItems[i].authorUserId = C.CString(data.items[i].AuthorUserId)
+			defer C.free(unsafe.Pointer(cItems[i].authorUserId))
+			cItems[i].revision = C.int64_t(data.items[i].Revision)
+			cItems[i].updateTs = C.int64_t(data.items[i].UpdateTs)
+		}
+		if len(cItems) > 0 {
+			cData.items = cItems[0]
+		}
+	}
+
+	C.agora_rtm_storage_remove_channel_metadata(this_.rtmStorage,
 		cChannelName,
 		C.enum_C_RTM_CHANNEL_TYPE(channelType),
-		(*C.struct_C_Metadata)(unsafe.Pointer(data)),
-		(*C.struct_C_MetadataOptions)(options),
+		cData,
+		cOptions,
 		cLockName,
 		(*C.uint64_t)(requestId),
 	)
-	C.free(unsafe.Pointer(cChannelName))
-	C.free(unsafe.Pointer(cLockName))
 }
 
 /**
  * Get the metadata of a specified channel.
  *
  * @param [in] channelName The channel Name of the specified channel.
- * @param [in] channelType Which channel type, RTM_CHANNEL_TYPE_STREAM or RTM_CHANNEL_TYPE_MESSAGE.
+ * @param [in] channelType Which channel type, RTM_CHANNEL_TYPE_STREAM or RtmChannelTypeMESSAGE.
  * @param requestId The unique ID of this request.
  *
  * @return
  * - 0: Success.
  * - < 0: Failure.
  */
-func (this_ *IRtmStorage) GetChannelMetadata(channelName string, channelType RTM_CHANNEL_TYPE, requestId *uint64) {
+func (this_ *IRtmStorage) GetChannelMetadata(channelName string, channelType RtmChannelType, requestId *uint64) {
 	cChannelName := C.CString(channelName)
-	C.agora_rtm_storage_get_channel_metadata(unsafe.Pointer(this_.ptr),
+	defer C.free(unsafe.Pointer(cChannelName))
+
+	C.agora_rtm_storage_get_channel_metadata(this_.rtmStorage,
 		cChannelName,
 		C.enum_C_RTM_CHANNEL_TYPE(channelType),
 		(*C.uint64_t)(requestId),
 	)
-	C.free(unsafe.Pointer(cChannelName))
 }
 
 /**
@@ -348,13 +457,46 @@ func (this_ *IRtmStorage) GetChannelMetadata(channelName string, channelType RTM
  */
 func (this_ *IRtmStorage) SetUserMetadata(userId string, data *IMetadata, options *MetadataOptions, requestId *uint64) {
 	cUserId := C.CString(userId)
-	C.agora_rtm_storage_set_user_metadata(unsafe.Pointer(this_.ptr),
+	defer C.free(unsafe.Pointer(cUserId))
+
+	var cOptions *C.struct_C_MetadataOptions
+	if options != nil {
+		cOptions = C.C_MetadataOptions_New()
+		defer C.C_MetadataOptions_Delete(cOptions)
+		cOptions.recordTs = C.bool(options.RecordTs)
+		cOptions.recordUserId = C.bool(options.RecordUserId)
+	}
+
+	var cData *C.struct_C_Metadata
+	if data != nil {
+		cData = C.C_Metadata_New()
+		defer C.C_Metadata_Delete(cData)
+		cData.majorRevision = C.int64_t(data.majorRevision)
+		cData.itemCount = C.size_t(data.itemCount)
+		cItems := make([]*C.struct_C_MetadataItem, data.itemCount)
+		for i := 0; i < int(data.itemCount); i++ {
+			cItems[i] = C.C_MetadataItem_New()
+			defer C.C_MetadataItem_Delete(cItems[i])
+			cItems[i].key = C.CString(data.items[i].Key)
+			defer C.free(unsafe.Pointer(cItems[i].key))
+			cItems[i].value = C.CString(data.items[i].Value)
+			defer C.free(unsafe.Pointer(cItems[i].value))
+			cItems[i].authorUserId = C.CString(data.items[i].AuthorUserId)
+			defer C.free(unsafe.Pointer(cItems[i].authorUserId))
+			cItems[i].revision = C.int64_t(data.items[i].Revision)
+			cItems[i].updateTs = C.int64_t(data.items[i].UpdateTs)
+		}
+		if len(cItems) > 0 {
+			cData.items = cItems[0]
+		}
+	}
+
+	C.agora_rtm_storage_set_user_metadata(this_.rtmStorage,
 		cUserId,
-		(*C.struct_C_Metadata)(unsafe.Pointer(data)),
-		(*C.struct_C_MetadataOptions)(options),
+		cData,
+		cOptions,
 		(*C.uint64_t)(requestId),
 	)
-	C.free(unsafe.Pointer(cUserId))
 }
 
 /**
@@ -371,13 +513,46 @@ func (this_ *IRtmStorage) SetUserMetadata(userId string, data *IMetadata, option
  */
 func (this_ *IRtmStorage) UpdateUserMetadata(userId string, data *IMetadata, options *MetadataOptions, requestId *uint64) {
 	cUserId := C.CString(userId)
-	C.agora_rtm_storage_update_user_metadata(unsafe.Pointer(this_.ptr),
+	defer C.free(unsafe.Pointer(cUserId))
+
+	var cOptions *C.struct_C_MetadataOptions
+	if options != nil {
+		cOptions = C.C_MetadataOptions_New()
+		defer C.C_MetadataOptions_Delete(cOptions)
+		cOptions.recordTs = C.bool(options.RecordTs)
+		cOptions.recordUserId = C.bool(options.RecordUserId)
+	}
+
+	var cData *C.struct_C_Metadata
+	if data != nil {
+		cData = C.C_Metadata_New()
+		defer C.C_Metadata_Delete(cData)
+		cData.majorRevision = C.int64_t(data.majorRevision)
+		cData.itemCount = C.size_t(data.itemCount)
+		cItems := make([]*C.struct_C_MetadataItem, data.itemCount)
+		for i := 0; i < int(data.itemCount); i++ {
+			cItems[i] = C.C_MetadataItem_New()
+			defer C.C_MetadataItem_Delete(cItems[i])
+			cItems[i].key = C.CString(data.items[i].Key)
+			defer C.free(unsafe.Pointer(cItems[i].key))
+			cItems[i].value = C.CString(data.items[i].Value)
+			defer C.free(unsafe.Pointer(cItems[i].value))
+			cItems[i].authorUserId = C.CString(data.items[i].AuthorUserId)
+			defer C.free(unsafe.Pointer(cItems[i].authorUserId))
+			cItems[i].revision = C.int64_t(data.items[i].Revision)
+			cItems[i].updateTs = C.int64_t(data.items[i].UpdateTs)
+		}
+		if len(cItems) > 0 {
+			cData.items = cItems[0]
+		}
+	}
+
+	C.agora_rtm_storage_update_user_metadata(this_.rtmStorage,
 		cUserId,
-		(*C.struct_C_Metadata)(unsafe.Pointer(data)),
-		(*C.struct_C_MetadataOptions)(options),
+		cData,
+		cOptions,
 		(*C.uint64_t)(requestId),
 	)
-	C.free(unsafe.Pointer(cUserId))
 }
 
 /**
@@ -394,13 +569,46 @@ func (this_ *IRtmStorage) UpdateUserMetadata(userId string, data *IMetadata, opt
  */
 func (this_ *IRtmStorage) RemoveUserMetadata(userId string, data *IMetadata, options *MetadataOptions, requestId *uint64) {
 	cUserId := C.CString(userId)
-	C.agora_rtm_storage_remove_user_metadata(unsafe.Pointer(this_.ptr),
+	defer C.free(unsafe.Pointer(cUserId))
+
+	var cOptions *C.struct_C_MetadataOptions
+	if options != nil {
+		cOptions = C.C_MetadataOptions_New()
+		defer C.C_MetadataOptions_Delete(cOptions)
+		cOptions.recordTs = C.bool(options.RecordTs)
+		cOptions.recordUserId = C.bool(options.RecordUserId)
+	}
+
+	var cData *C.struct_C_Metadata
+	if data != nil {
+		cData = C.C_Metadata_New()
+		defer C.C_Metadata_Delete(cData)
+		cData.majorRevision = C.int64_t(data.majorRevision)
+		cData.itemCount = C.size_t(data.itemCount)
+		cItems := make([]*C.struct_C_MetadataItem, data.itemCount)
+		for i := 0; i < int(data.itemCount); i++ {
+			cItems[i] = C.C_MetadataItem_New()
+			defer C.C_MetadataItem_Delete(cItems[i])
+			cItems[i].key = C.CString(data.items[i].Key)
+			defer C.free(unsafe.Pointer(cItems[i].key))
+			cItems[i].value = C.CString(data.items[i].Value)
+			defer C.free(unsafe.Pointer(cItems[i].value))
+			cItems[i].authorUserId = C.CString(data.items[i].AuthorUserId)
+			defer C.free(unsafe.Pointer(cItems[i].authorUserId))
+			cItems[i].revision = C.int64_t(data.items[i].Revision)
+			cItems[i].updateTs = C.int64_t(data.items[i].UpdateTs)
+		}
+		if len(cItems) > 0 {
+			cData.items = cItems[0]
+		}
+	}
+
+	C.agora_rtm_storage_remove_user_metadata(this_.rtmStorage,
 		cUserId,
-		(*C.struct_C_Metadata)(unsafe.Pointer(data)),
-		(*C.struct_C_MetadataOptions)(options),
+		cData,
+		cOptions,
 		(*C.uint64_t)(requestId),
 	)
-	C.free(unsafe.Pointer(cUserId))
 }
 
 /**
@@ -415,11 +623,12 @@ func (this_ *IRtmStorage) RemoveUserMetadata(userId string, data *IMetadata, opt
  */
 func (this_ *IRtmStorage) GetUserMetadata(userId string, requestId *uint64) {
 	cUserId := C.CString(userId)
-	C.agora_rtm_storage_get_user_metadata(unsafe.Pointer(this_.ptr),
+	defer C.free(unsafe.Pointer(cUserId))
+
+	C.agora_rtm_storage_get_user_metadata(this_.rtmStorage,
 		cUserId,
 		(*C.uint64_t)(requestId),
 	)
-
 }
 
 /**
@@ -433,11 +642,12 @@ func (this_ *IRtmStorage) GetUserMetadata(userId string, requestId *uint64) {
  */
 func (this_ *IRtmStorage) SubscribeUserMetadata(userId string, requestId *uint64) {
 	cUserId := C.CString(userId)
-	C.agora_rtm_storage_subscribe_user_metadata(unsafe.Pointer(this_.ptr),
+	defer C.free(unsafe.Pointer(cUserId))
+
+	C.agora_rtm_storage_subscribe_user_metadata(this_.rtmStorage,
 		cUserId,
 		(*C.uint64_t)(requestId),
 	)
-	C.free(unsafe.Pointer(cUserId))
 }
 
 /**
@@ -451,12 +661,13 @@ func (this_ *IRtmStorage) SubscribeUserMetadata(userId string, requestId *uint64
  */
 func (this_ *IRtmStorage) UnsubscribeUserMetadata(userId string) {
 	cUserId := C.CString(userId)
+	defer C.free(unsafe.Pointer(cUserId))
+
 	var requestId uint64
-	C.agora_rtm_storage_unsubscribe_user_metadata(unsafe.Pointer(this_.ptr),
+	C.agora_rtm_storage_unsubscribe_user_metadata(this_.rtmStorage,
 		cUserId,
 		(*C.uint64_t)(&requestId),
 	)
-	C.free(unsafe.Pointer(cUserId))
 }
 
 // #endregion IRtmStorage
