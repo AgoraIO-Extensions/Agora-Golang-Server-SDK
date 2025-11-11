@@ -128,6 +128,9 @@ ains 成功的标记是：
 get ai-ns control extension success
 [10/28/25 21:08:54:974][5635][W]:load ai-ns weight resource success
 
+## 2025.11.11 发布 2.3.5 版本
+-- 更新rtm到1.0 版本
+-- 更新rtm sample
 ## 2025.11.04 发布 2.3.4 版本
 -- 更新：update rtc sdk 版本
 -- 增加：增加apm 模块，支持下行链路的ns等处理
