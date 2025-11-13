@@ -11,14 +11,17 @@ package agoraservice
 // #include "agora_parameter.h"
 // #include "agora_audio_track.h"
 //
-// #ifndef agora_service_load_extension_provider
-// AGORA_API_C_INT agora_service_load_extension_provider(AGORA_HANDLE agora_svc, const char* path, unsigned int unload_after_use) {
-// 	 return -1;
+// #ifndef __linux__
+// // agora_service_load_extension_provider is only available on Linux
+// // Provide a stub implementation for macOS that returns ERR_NOT_SUPPORTED
+// static inline int agora_service_load_extension_provider(void* service, const char* path, unsigned int unload_after_use) {
+//     return -7; // ERR_NOT_SUPPORTED
 // }
 // #endif
 import "C"
 import (
 	"fmt"
+	"runtime"
 	"sync"
 	"unsafe"
 )
@@ -213,6 +216,14 @@ func Initialize(cfg *AgoraServiceConfig) int {
 			agoraService.apmConfig = NewAPMConfig()
 		}else {
 			agoraService.apmConfig = cfg.APMConfig
+		}
+		// need to load the extension provider manually for linux
+		if runtime.GOOS == "linux" {
+			ret = LoadExtensionProvider("libagora_ai_noise_suppression_extension.so", true)
+			if ret != 0 {
+				fmt.Printf("LoadExtensionProvider failed: %d\n", ret)
+				return ret
+			}
 		}
 	}
 	// from version 2.2.1
