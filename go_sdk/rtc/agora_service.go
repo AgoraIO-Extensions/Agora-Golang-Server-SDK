@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"sync"
 	"unsafe"
+	"runtime"
 )
 
 // AgoraServiceConfig is used to initialize agora service.
@@ -203,6 +204,14 @@ func Initialize(cfg *AgoraServiceConfig) int {
 
 		// enable vad v2 model
 		agoraParam.SetParameters("{\"che.audio.label.enable\": true}")
+
+		//should load extension for linux only
+		if runtime.GOOS != "darwin" {
+			ret = LoadExtensionProvider("libagora_ai_noise_suppression_extension.so", true)
+			if ret != 0 {
+				fmt.Printf("load ains.so failed, ret: %d\n", ret)
+			}
+		}
 
 		// enable apm filter but disable 3a by default
 		EnableExtension("agora.builtin", "audio_processing_remote_playback", "", true)
