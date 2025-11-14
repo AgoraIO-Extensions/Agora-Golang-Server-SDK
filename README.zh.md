@@ -41,6 +41,13 @@ export LD_LIBRARY_PATH=../agora_sdk
 ./send_recv_pcm
 ```
 
+如何使用rtm？
+1 下载仓库包
+2 进入目录，执行make deps
+3 执行./scripts/rtmbuild.sh
+4 进入目录bin，执行./rtmdemo appid channelname userid
+5 rtm sample 参考：cmd/main.go
+
 # 构建并运行高级示例
 - 按照本 README 第一章的要求安装 ffmpeg 开发库
 - 以与基础示例相同的方式下载测试数据。如果你已经下载过，可以跳过这一步。
@@ -128,6 +135,10 @@ ains 成功的标记是：
 get ai-ns control extension success
 [10/28/25 21:08:54:974][5635][W]:load ai-ns weight resource success
 
+## 2025.11.14 发布 2.4.0 版本
+-- 主要更新：rtc& rtm 融合为一个sdk
+-- 主要更新：rtm 更新到1.0版本
+-- 主要更新：增加ai-ns，agc,bghvs等算法模块支持
 ## 2025.11.11 发布 2.3.5 版本
 -- 更新rtm到1.0 版本
 -- 更新rtm sample
