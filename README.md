@@ -62,6 +62,13 @@ export LD_LIBRARY_PATH=../agora_sdk
 ./send_h264
 ```
 
+How to use RTM?
+1 Download the repository
+2 Enter the directory and run make deps
+3 Run ./scripts/rtmbuild.sh
+4 Enter the bin directory and run ./rtmdemo appid channelname userid
+5 For RTM sample reference: cmd/main.go
+
 # Intergrate into your project
 - Clone this repository and checkout to the target branch, and install. recommend to use latest version of go.
 The following takes "release/2.1.0" as an example, you can use the latest version to replace release/2.1.0
@@ -104,6 +111,10 @@ import (
   - if you don't use VAD, and your glibc version is between 2.16 and 2.27, you can disable VAD by rename **audio_vad.go** file in go_sdk/agoraserver/ to **audio_vad.go.bak**
 
 # Change log
+## 2025.11.14 Release 2.4.0
+-- Major update: RTC & RTM merged into a single SDK
+-- Major update: RTM updated to version 1.0
+-- Major update: Added support for algorithm modules such as AI-NS, AGC, BGHVS
 ## 2025.08.29 Release 2.3.3
 -- update: update rtc sdk to 4.4.32.0829, which fix a bug when set parameter to do auduio dump could case audio-dump thread to leak
 -- add: add best practice for audio dump usage: use connection.getparameter to set audio dump parameter
