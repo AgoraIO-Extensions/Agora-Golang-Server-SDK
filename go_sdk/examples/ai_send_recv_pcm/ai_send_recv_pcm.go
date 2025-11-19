@@ -903,8 +903,20 @@ func CombineToInt64V8Cmd(isAgora bool, version uint8, turnId uint8, isCmdOrData 
     return result
 }
 
+type V8Data struct {
+	isAgora bool
+	version uint8
+	turnId uint8
+	isCmdOrData bool
+	cmdType uint8
+	turnDurationInPacks uint16
+	reserved uint16
+	sentenceId uint16
+	basePts uint16
+}
+
 // 反向解析函数，用于验证结果
-func ParseInt64V8(value int64) {
+func ParseInt64V8(value int64) V8Data {
     fmt.Printf("原始值: %d\n", value)
     fmt.Printf("二进制: %064b\n", uint64(value))
     
@@ -917,15 +929,23 @@ func ParseInt64V8(value int64) {
     reserved1 := (value >> 32) & 0x1F
     reserved2 := (value >> 16) & 0xFFFF
     basePts := value & 0xFFFF
-    
-    fmt.Printf("isAgora: %d\n", isAgora)
-    fmt.Printf("version: %d\n", version)
-    fmt.Printf("turnId: %d\n", turnId)
-    fmt.Printf("cmdOrDataType: %d\n", cmdOrDataType)
-    fmt.Printf("sentenceId: %d\n", sentenceId)
-    fmt.Printf("reserved1: %d\n", reserved1)
-    fmt.Printf("reserved2: %d\n", reserved2)
-    fmt.Printf("basePts: %d\n", basePts)
+
+	v8Data := V8Data{
+		isAgora: isAgora == 1,
+		version: uint8(version),
+		turnId: uint8(turnId),
+		isCmdOrData: cmdOrDataType == 1,
+		cmdType: 1,
+		turnDurationInPacks: uint16(sentenceId&0xFFF),
+		reserved: uint16(reserved2),
+		sentenceId: uint16(sentenceId),
+		basePts: uint16(basePts),
+	}
+
+	fmt.Printf("v8Data: %v\n", v8Data)
+    fmt.Printf("isAgora: %d,version: %d,turnId: %d,cmdOrDataType: %d,sentenceId: %d,reserved1: %d,reserved2: %d,basePts: %d\n", isAgora, version, turnId, cmdOrDataType, sentenceId, reserved1, reserved2, basePts)
+
+	return v8Data
 }
 
 
@@ -1457,13 +1477,18 @@ func main() {
 
 			//end
 
+			masknumer := frame.PresentTimeMs
+			v8Data := ParseInt64V8(masknumer)
+			fmt.Printf("v8Data: %v\n", v8Data)
+
 		
 
 			if mode == 1 {
 				frame.RenderTimeMs = 0
 				frame.PresentTimeMs = 0
 				//sender.SendAudioPcmData(frame)
-				con.PushAudioPcmData(frame.Buffer, frame.SamplesPerSec, frame.Channels, 0)
+				masknumer = CombineToInt64V8Data(v8Data.isAgora, v8Data.version, v8Data.turnId, v8Data.isCmdOrData, v8Data.sentenceId, v8Data.reserved, v8Data.reserved, v8Data.basePts)
+				con.PushAudioPcmData(frame.Buffer, frame.SamplesPerSec, frame.Channels, masknumer)
 				// loopback
 				//audioQueue.Enqueue(frame)
 
