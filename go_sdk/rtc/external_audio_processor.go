@@ -61,11 +61,15 @@ func NewExternalAudioProcessor() *ExternalAudioProcessor {
 	processor.initialized = false
 	return processor
 }
-
-func (p *ExternalAudioProcessor) Initialize(sampleRate int, channels int) int {
+// Initialize sets up the ExternalAudioProcessor by configuring the underlying audio sink and its filter properties,
+// setting audio track parameters, and enabling the audio track for publishing.
+// outputSampleRate: the desired output sample rate in Hz.
+// outputChannels:   the number of output audio channels.
+// Returns 0 on success, or a non-zero error code on failure.
+func (p *ExternalAudioProcessor) Initialize(outputSampleRate int, outputChannels int) int {
 	var ret int = 0
 	//1. add sink and set filter properties
-	ret = p.addAudioSink(sampleRate, channels)
+	ret = p.addAudioSink(outputSampleRate, outputChannels)
 	if ret != 0 {
 		fmt.Printf("[ExternalAudioProcessor] failed to add audio sink, error code: %d\n", ret)
 		return ret
@@ -103,7 +107,7 @@ func (p *ExternalAudioProcessor) PushAudioPcmData(data []byte, sampleRate int, c
 	// validity check: only accepts data with lengths that are integer multiples of 10ms​​ 
 	if readLen % bytesPerFrameInMs != 0 {
 		fmt.Printf("PushAudioPcmData data length is not integer multiples of 10ms, readLen: %d, bytesPerFrame: %d\n", readLen, bytesPerFrameInMs)
-		return -2
+		return -2001
 	}
 	packnumInMs := readLen / bytesPerFrameInMs
 	
@@ -135,17 +139,24 @@ func (p *ExternalAudioProcessor) Release() {
 	// release audioSinks
 	if p.audioSinks != nil {
 		p.removeAudioSink()
-		p.audioSinks.release()
-		p.audioSinks = nil
 	}
 	if p.audioTrack != nil {
+		p.audioTrack.SetEnabled(false)
+		p.audioTrack.ClearSenderBuffer()
 		p.audioTrack.Release()
 		p.audioTrack = nil
 	}
+
+	if p.audioSinks != nil {
+		p.audioSinks.release()
+		p.audioSinks = nil
+	}
+
 	if p.pcmSender != nil {
 		p.pcmSender.Release()
 		p.pcmSender = nil
 	}
+	p.initialized = false
 	
 }
 
@@ -155,7 +166,7 @@ func (p *ExternalAudioProcessor) Release() {
 
 func (p *ExternalAudioProcessor) setFilterProperties() int {
 	if p.audioTrack == nil || p.audioTrack.cTrack == nil {
-		return -1
+		return -2002
 	}
 	cLocalTrackHandle := p.audioTrack.cTrack
 
@@ -163,12 +174,14 @@ func (p *ExternalAudioProcessor) setFilterProperties() int {
 	ret := enableAudioFilterByTrack(cLocalTrackHandle, "audio_processing_pcm_source", true, true)
 	if ret != 0 {
 		fmt.Printf("[LocalAudioProcessor] failed to enable filter on Track, error code: %d\n", ret)
+		return -2003
 	}
 
 	// Step 2: Load AINS resources (if needed)
 	ret = setFilterPropertyByTrack(cLocalTrackHandle, "audio_processing_pcm_source", "apm_load_resource", "ains", true)
 	if ret != 0 {
 		fmt.Printf("[LocalAudioProcessor] failed to load AINS model resources, error code: %d\n", ret)
+		return -2004
 	}
 
 	// Step 3: Build and apply configuration
@@ -176,6 +189,7 @@ func (p *ExternalAudioProcessor) setFilterProperties() int {
 	ret = setFilterPropertyByTrack(cLocalTrackHandle, "audio_processing_pcm_source", "apm_config", apmConfigJSON, true)
 	if ret != 0 {
 		fmt.Printf("[LocalAudioProcessor] failed to configure audio processing parameters, error code: %d\n", ret)
+		return -2005
 	}
 
 	// Step 4: Enable dump (if debugging is needed)
@@ -183,6 +197,7 @@ func (p *ExternalAudioProcessor) setFilterProperties() int {
 		ret = setFilterPropertyByTrack(cLocalTrackHandle, "audio_processing_pcm_source", "apm_dump", "true", true)
 		if ret != 0 {
 			fmt.Printf("[LocalAudioProcessor] failed to enable dump, error code: %d (non-critical)\n", ret)
+			return -2006
 		}
 	}
 
@@ -198,13 +213,14 @@ func newAudioSink() *AudioSink {
 		cSinkCallback: nil,
 		cSink:         nil,
 	}
-	// 分配 sink 回调结构体
+	// allocate audio_sink	 structure
 	csink_callback := (*C.audio_sink)(C.malloc(C.sizeof_audio_sink))
 	C.memset(unsafe.Pointer(csink_callback), 0, C.sizeof_audio_sink)
-	// 设置回调函数指针 - 使用 C 包装函数
+
+	// set callback function pointer - using C wrapper function
 	csink_callback.on_audio_frame = (*[0]byte)(C.onSinkAudioFrameCallback)
 
-	// 创建 audio sink
+	// create audio sink
 	sink.cSink = C.agora_audio_sink_create(csink_callback)
 	sink.cSinkCallback = csink_callback
 	return sink
@@ -221,8 +237,8 @@ func (s *AudioSink) release() {
 }
 
 func (p *ExternalAudioProcessor) addAudioSink(sampleRate int, channels int) int {
-	if p.audioTrack == nil || p.audioTrack.cTrack == nil || p.audioSinks == nil {
-		return -1
+	if p.audioTrack == nil || p.audioTrack.cTrack == nil || p.audioSinks == nil || p.audioSinks.cSink == nil {
+		return -1000
 	}
 
 	wants := &C.struct__audio_sink_wants{
@@ -236,7 +252,7 @@ func (p *ExternalAudioProcessor) addAudioSink(sampleRate int, channels int) int 
 // RemoveAudioSink 从 audio track 移除音频接收器
 func (p *ExternalAudioProcessor) removeAudioSink() int {
 	if p.audioTrack == nil || p.audioTrack.cTrack == nil || p.audioSinks == nil {
-		return -1
+		return -1001
 	}
 	return int(C.agora_audio_track_remove_audio_sink(p.audioTrack.cTrack, p.audioSinks.cSink))
 }
