@@ -135,6 +135,10 @@ ains 成功的标记是：
 get ai-ns control extension success
 [10/28/25 21:08:54:974][5635][W]:load ai-ns weight resource success
 
+todo: for external audio processor
+1、增加一个接口，用来查看push进来的数据是否已经处理完成？或者就是一个get方法，查看是否当前的处理情况？总输入/总处理完成的/处理的速度/平均耗时等
+2、需要验证是可以chunk push进来，间隔10ms，还是说可以chunk push？处理速度是10ms一个，还是说可以快速？？？
+
 ## 2025.11.14 发布 2.4.0 版本
 -- 主要更新：rtc& rtm 融合为一个sdk
 -- 主要更新：rtm 更新到1.0版本

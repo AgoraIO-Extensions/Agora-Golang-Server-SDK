@@ -6,14 +6,7 @@ package agoraservice
 #include <stdlib.h>
 #include "agora_audio_track.h"
 #include "agora_media_node_factory.h"
-
-// Go callback 声明
-extern int goOnSinkAudioFrame(void* sink, void* frame);
-
-// C 包装函数 - 直接内联，没有额外开销
-static inline int onSinkAudioFrameCallback(void* sink, const audio_pcm_frame* frame) {
-    return goOnSinkAudioFrame(sink, (void*)frame);
-}
+#include "audio_sink_callback_cgo.h"
 */
 import "C"
 import (
@@ -21,14 +14,18 @@ import (
 	"unsafe"
 )
 
+var g_totalOutPacks = 0
 //export goOnSinkAudioFrame
 func goOnSinkAudioFrame(sink unsafe.Pointer, frame unsafe.Pointer) C.int {
 	// TODO: 实现你的音频帧处理逻辑
-	pcmFrame := (*C.audio_pcm_frame)(frame)
-	fmt.Printf("[ExternalAudioProcessor] goOnAudioFrame, pcmFrame: %+v\n", pcmFrame)
+	g_totalOutPacks ++
+	//pcmFrame := (*C.audio_pcm_frame)(frame)
+	//fmt.Printf("[ExternalAudioProcessor] goOnAudioFrame, pcmFrame: %+v\n", pcmFrame)
+	if g_totalOutPacks % 10 == 0 {
+		fmt.Printf("Total out packs: %d\n", g_totalOutPacks)
+	}
 	return C.int(1) // 返回 1 表示成功
 }
-
 
 /*
 audio sink related:
@@ -39,17 +36,17 @@ type AudioSink struct {
 }
 
 type ExternalAudioProcessor struct {
-	pcmSender  *AudioPcmDataSender
-	audioTrack *LocalAudioTrack
-	audioSinks *AudioSink
+	pcmSender   *AudioPcmDataSender
+	audioTrack  *LocalAudioTrack
+	audioSinks  *AudioSink
 	initialized bool
 }
 
 func NewExternalAudioProcessor() *ExternalAudioProcessor {
 	processor := &ExternalAudioProcessor{
-		pcmSender:  nil,
-		audioTrack: nil,
-		audioSinks: nil,
+		pcmSender:   nil,
+		audioTrack:  nil,
+		audioSinks:  nil,
 		initialized: false,
 	}
 
@@ -61,6 +58,7 @@ func NewExternalAudioProcessor() *ExternalAudioProcessor {
 	processor.initialized = false
 	return processor
 }
+
 // Initialize sets up the ExternalAudioProcessor by configuring the underlying audio sink and its filter properties,
 // setting audio track parameters, and enabling the audio track for publishing.
 // outputSampleRate: the desired output sample rate in Hz.
@@ -86,10 +84,9 @@ func (p *ExternalAudioProcessor) Initialize(outputSampleRate int, outputChannels
 		fmt.Printf("[ExternalAudioProcessor] failed to set send delay ms, error code: %d\n", ret)
 		return ret
 	}
-	
+
 	p.audioTrack.SetMaxBufferedAudioFrameNumber(100000) // up to 300 frames, 3000ms
-	
-	
+
 	// 4 enable & publish audio track
 	p.audioTrack.SetEnabled(true)
 
@@ -104,36 +101,34 @@ func (p *ExternalAudioProcessor) PushAudioPcmData(data []byte, sampleRate int, c
 	}
 	readLen := len(data)
 	bytesPerFrameInMs := (sampleRate / 1000) * 2 * channels // 1ms , channels and 16bit
-	// validity check: only accepts data with lengths that are integer multiples of 10ms​​ 
-	if readLen % bytesPerFrameInMs != 0 {
+	// validity check: only accepts data with lengths that are integer multiples of 10ms​​
+	if readLen%bytesPerFrameInMs != 0 {
 		fmt.Printf("PushAudioPcmData data length is not integer multiples of 10ms, readLen: %d, bytesPerFrame: %d\n", readLen, bytesPerFrameInMs)
 		return -2001
 	}
 	packnumInMs := readLen / bytesPerFrameInMs
-	
-	
+
 	frame := &AudioFrame{
-				Buffer:            nil,
-				RenderTimeMs:      0,
-				PresentTimeMs:     startPtsInMs,
-				SamplesPerChannel: sampleRate / 100,
-				BytesPerSample:    2,
-				Channels:          channels,
-				SamplesPerSec:     sampleRate,
-				Type:              AudioFrameTypePCM16,
-			}
+		Buffer:            nil,
+		RenderTimeMs:      0,
+		PresentTimeMs:     startPtsInMs,
+		SamplesPerChannel: sampleRate / 100,
+		BytesPerSample:    2,
+		Channels:          channels,
+		SamplesPerSec:     sampleRate,
+		Type:              AudioFrameTypePCM16,
+	}
 
 	frame.Buffer = data
 	frame.SamplesPerChannel = (sampleRate / 1000) * packnumInMs
-	
 
 	ret := p.pcmSender.SendAudioPcmData(frame)
 
 	return ret
-}	
+}
 
 func (p *ExternalAudioProcessor) Release() {
-	
+
 	// release track
 	// release pcmSender
 	// release audioSinks
@@ -157,7 +152,7 @@ func (p *ExternalAudioProcessor) Release() {
 		p.pcmSender = nil
 	}
 	p.initialized = false
-	
+
 }
 
 //
@@ -191,6 +186,7 @@ func (p *ExternalAudioProcessor) setFilterProperties() int {
 		fmt.Printf("[LocalAudioProcessor] failed to configure audio processing parameters, error code: %d\n", ret)
 		return -2005
 	}
+	fmt.Printf("[LocalAudioProcessor] apmConfigJSON: %s\n", apmConfigJSON)
 
 	// Step 4: Enable dump (if debugging is needed)
 	if agoraService.apmConfig.EnableDump {
@@ -204,10 +200,6 @@ func (p *ExternalAudioProcessor) setFilterProperties() int {
 	return ret
 }
 
-
-
-
-
 func newAudioSink() *AudioSink {
 	sink := &AudioSink{
 		cSinkCallback: nil,
@@ -218,7 +210,7 @@ func newAudioSink() *AudioSink {
 	C.memset(unsafe.Pointer(csink_callback), 0, C.sizeof_audio_sink)
 
 	// set callback function pointer - using C wrapper function
-	csink_callback.on_audio_frame = (*[0]byte)(C.onSinkAudioFrameCallback)
+	csink_callback.on_audio_frame = (*[0]byte)(C.cgo_onSinkAudioFrameCallback)
 
 	// create audio sink
 	sink.cSink = C.agora_audio_sink_create(csink_callback)
