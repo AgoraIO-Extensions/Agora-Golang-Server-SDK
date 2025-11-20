@@ -19,8 +19,11 @@ var g_totalOutPacks = 0
 func goOnSinkAudioFrame(sink unsafe.Pointer, frame unsafe.Pointer) C.int {
 	// TODO: 实现你的音频帧处理逻辑
 	g_totalOutPacks ++
-	//pcmFrame := (*C.audio_pcm_frame)(frame)
-	//fmt.Printf("[ExternalAudioProcessor] goOnAudioFrame, pcmFrame: %+v\n", pcmFrame)
+	pcmFrame := (*C.audio_pcm_frame)(frame)
+	label := (*C.audio_label)(&pcmFrame.audio_label)
+	//convert to go frame
+	//goFrame := GoPcmAudioFrame(pcmFrame)
+	fmt.Printf("[ExternalAudioProcessor APM]: voice prob: %d, rms: %d, pitch: %d\n", label.voice_prob, label.rms, label.pitch)
 	if g_totalOutPacks % 10 == 0 {
 		fmt.Printf("Total out packs: %d\n", g_totalOutPacks)
 	}
@@ -64,10 +67,16 @@ func NewExternalAudioProcessor() *ExternalAudioProcessor {
 // outputSampleRate: the desired output sample rate in Hz.
 // outputChannels:   the number of output audio channels.
 // Returns 0 on success, or a non-zero error code on failure.
-func (p *ExternalAudioProcessor) Initialize(outputSampleRate int, outputChannels int) int {
+func (p *ExternalAudioProcessor) Initialize(apmConfig *APMConfig,outputSampleRate int, outputChannels int) int {
 	var ret int = 0
 
-	ret = p.setFilterProperties()
+	//check apm model
+	if isSupportExternalAudioProcessor(agoraService.apmModel)==false {
+		fmt.Printf("[ExternalAudioProcessor] apm model is not supported, error code: %d, model: %d\n", ret, agoraService.apmModel)
+		return -3000
+	}
+
+	ret = p.setFilterProperties(apmConfig)
 	if ret != 0 {
 		fmt.Printf("[ExternalAudioProcessor] failed to set filter properties, error code: %d\n", ret)
 		return ret
@@ -161,7 +170,7 @@ func (p *ExternalAudioProcessor) Release() {
 // private methods
 //
 
-func (p *ExternalAudioProcessor) setFilterProperties() int {
+func (p *ExternalAudioProcessor) setFilterProperties(apmConfig *APMConfig) int {
 	if p.audioTrack == nil || p.audioTrack.cTrack == nil {
 		return -2002
 	}
@@ -182,7 +191,7 @@ func (p *ExternalAudioProcessor) setFilterProperties() int {
 	}
 
 	// Step 3: Build and apply configuration
-	apmConfigJSON := agoraService.apmConfig.toJson()
+	apmConfigJSON := apmConfig.toJson()
 	ret = setFilterPropertyByTrack(cLocalTrackHandle, "audio_processing_pcm_source", "apm_config", apmConfigJSON, true)
 	if ret != 0 {
 		fmt.Printf("[LocalAudioProcessor] failed to configure audio processing parameters, error code: %d\n", ret)
@@ -191,7 +200,7 @@ func (p *ExternalAudioProcessor) setFilterProperties() int {
 	fmt.Printf("[LocalAudioProcessor] apmConfigJSON: %s\n", apmConfigJSON)
 
 	// Step 4: Enable dump (if debugging is needed)
-	if agoraService.apmConfig.EnableDump {
+	if apmConfig.EnableDump {
 		ret = setFilterPropertyByTrack(cLocalTrackHandle, "audio_processing_pcm_source", "apm_dump", "true", true)
 		if ret != 0 {
 			fmt.Printf("[LocalAudioProcessor] failed to enable dump, error code: %d (non-critical)\n", ret)
