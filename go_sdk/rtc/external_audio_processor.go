@@ -66,15 +66,17 @@ func NewExternalAudioProcessor() *ExternalAudioProcessor {
 // Returns 0 on success, or a non-zero error code on failure.
 func (p *ExternalAudioProcessor) Initialize(outputSampleRate int, outputChannels int) int {
 	var ret int = 0
+
+	ret = p.setFilterProperties()
+	if ret != 0 {
+		fmt.Printf("[ExternalAudioProcessor] failed to set filter properties, error code: %d\n", ret)
+		return ret
+	}
+
 	//1. add sink and set filter properties
 	ret = p.addAudioSink(outputSampleRate, outputChannels)
 	if ret != 0 {
 		fmt.Printf("[ExternalAudioProcessor] failed to add audio sink, error code: %d\n", ret)
-		return ret
-	}
-	ret = p.setFilterProperties()
-	if ret != 0 {
-		fmt.Printf("[ExternalAudioProcessor] failed to set filter properties, error code: %d\n", ret)
 		return ret
 	}
 
