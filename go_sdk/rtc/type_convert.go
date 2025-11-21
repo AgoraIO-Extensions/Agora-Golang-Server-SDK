@@ -199,7 +199,7 @@ func GoPcmAudioFrame(frame *C.struct__audio_frame) *AudioFrame {
 }
 
 func GoSinkAudioFrame(frame *C.struct__audio_pcm_frame) *AudioFrame {
-	bufferLen := frame.samples_per_channel * frame.bytes_per_sample * frame.num_channels
+	//bufferLen := frame.samples_per_channel * frame.bytes_per_sample * frame.num_channels
 	samplepersec := int(frame.sample_rate_hz) * int(frame.num_channels)
 	ret := &AudioFrame{
 		Type:              AudioFrameType(AudioFrameTypePCM16),
@@ -207,7 +207,7 @@ func GoSinkAudioFrame(frame *C.struct__audio_pcm_frame) *AudioFrame {
 		BytesPerSample:    int(frame.bytes_per_sample),
 		Channels:          int(frame.num_channels),
 		SamplesPerSec:     samplepersec,
-		Buffer:            C.GoBytes(unsafe.Pointer(&frame.data[0]), int(bufferLen)),
+		//Buffer:            C.GoBytes(unsafe.Pointer(&frame.data[0]), int(bufferLen)),
 		RenderTimeMs:      int64(frame.capture_timestamp),
 		AvsyncType:        int(0),
 		FarFieldFlag:      int(-1),

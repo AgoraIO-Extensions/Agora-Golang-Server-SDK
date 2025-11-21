@@ -21,8 +21,18 @@ func goOnSinkAudioFrame(sink unsafe.Pointer, frame unsafe.Pointer) C.int {
 	g_totalOutPacks ++
 	pcmFrame := (*C.audio_pcm_frame)(frame)
 	label := (*C.audio_label)(&pcmFrame.audio_label)
+	/*
+	// restore external audio processor instance from user data
+	processor := (*ExternalAudioProcessor)(unsafe.Pointer(sink))
+	if processor == nil {
+		fmt.Printf("[ExternalAudioProcessor] failed to restore external audio processor instance from user data\n")
+		return -1
+	}
+	// call to external audio processor instance to process the audio frame
+	processor.doResultFrame()
+	*/
 	//convert to go frame
-	goFrame := GoPcmAudioFrame(pcmFrame)
+	//goFrame := GoPcmAudioFrame(pcmFrame)
 	fmt.Printf("[ExternalAudioProcessor APM]: voice prob: %d, rms: %d, pitch: %d\n", label.voice_prob, label.rms, label.pitch)
 	if g_totalOutPacks % 10 == 0 {
 		fmt.Printf("Total out packs: %d\n", g_totalOutPacks)
@@ -60,7 +70,7 @@ func NewExternalAudioProcessor() *ExternalAudioProcessor {
 	factory := agoraService.mediaFactory
 	processor.pcmSender = factory.NewAudioPcmDataSender()
 	processor.audioTrack = NewCustomAudioTrackPcm(processor.pcmSender, AudioScenarioDefault)
-	processor.audioSinks = newAudioSink()
+	processor.audioSinks = newAudioSink(processor)
 	processor.initialized = false
 	return processor
 }
@@ -228,17 +238,18 @@ func (p *ExternalAudioProcessor) setFilterProperties(apmConfig *APMConfig) int {
 	return ret
 }
 
-func newAudioSink() *AudioSink {
+func newAudioSink(processor *ExternalAudioProcessor) *AudioSink {
 	sink := &AudioSink{
 		cSinkCallback: nil,
 		cSink:         nil,
 	}
 	// allocate audio_sink	 structure
 	csink_callback := (*C.audio_sink)(C.malloc(C.sizeof_audio_sink))
-	C.memset(unsafe.Pointer(csink_callback), 0, C.sizeof_audio_sink)
+	//C.memset(unsafe.Pointer(csink_callback), 0, C.sizeof_audio_sink)
 
 	// set callback function pointer - using C wrapper function
 	csink_callback.on_audio_frame = (*[0]byte)(C.cgo_onSinkAudioFrameCallback)
+	//csink_callback.user_data = unsafe.Pointer(processor)
 
 	// create audio sink
 	sink.cSink = C.agora_audio_sink_create(csink_callback)
@@ -275,4 +286,8 @@ func (p *ExternalAudioProcessor) removeAudioSink() int {
 		return -1001
 	}
 	return int(C.agora_audio_track_remove_audio_sink(p.audioTrack.cTrack, p.audioSinks.cSink))
+}
+func (p *ExternalAudioProcessor) doResultFrame() {
+	// TODO: implement the logic to process the audio frame
+	fmt.Printf("[ExternalAudioProcessor] doResultFrame\n")
 }
