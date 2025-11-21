@@ -211,7 +211,7 @@ func main() {
 	svcCfg.ConfigDir = "./agora_rtc_log"
 	svcCfg.DataDir = "./agora_rtc_log"
 	svcCfg.IdleMode = true
-	svcCfg.EnableAPM = true
+	svcCfg.APMModel = 2
 	svcCfg.APMConfig = agoraservice.NewAPMConfig()
 	svcCfg.APMConfig.EnableDump = true
 
@@ -222,12 +222,18 @@ func main() {
 	externalAudioProcessor := agoraservice.NewExternalAudioProcessor()
 
 	//step4: initialize the external audio processor
-	ret := externalAudioProcessor.Initialize(inputsamplerate, inputchannels)
+	apmConfig := agoraservice.NewAPMConfig()
+	apmConfig.EnableDump = true
+	apmConfig.AiAecConfig.Enabled = false
+	apmConfig.BghvsCConfig.Enabled = true
+	apmConfig.AgcConfig.Enabled = false
+	apmConfig.AiNsConfig.AiNSEnabled = true
+	apmConfig.AiNsConfig.NsEnabled = true
+	apmConfig.BghvsCConfig.Enabled = true
+	ret := externalAudioProcessor.Initialize(apmConfig, inputsamplerate, inputchannels, nil)
 	if ret != 0 {
 		fmt.Printf("Failed to initialize external audio processor, error code: %d\n", ret)
-		return
 	}
-
 	//step5: push audio pcm data to the external audio processor
 	
 	

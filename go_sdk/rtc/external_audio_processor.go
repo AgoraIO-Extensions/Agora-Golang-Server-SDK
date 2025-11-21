@@ -22,11 +22,12 @@ func goOnSinkAudioFrame(sink unsafe.Pointer, frame unsafe.Pointer) C.int {
 	pcmFrame := (*C.audio_pcm_frame)(frame)
 	label := (*C.audio_label)(&pcmFrame.audio_label)
 	//convert to go frame
-	//goFrame := GoPcmAudioFrame(pcmFrame)
+	goFrame := GoPcmAudioFrame(pcmFrame)
 	fmt.Printf("[ExternalAudioProcessor APM]: voice prob: %d, rms: %d, pitch: %d\n", label.voice_prob, label.rms, label.pitch)
 	if g_totalOutPacks % 10 == 0 {
 		fmt.Printf("Total out packs: %d\n", g_totalOutPacks)
 	}
+	// find the external audio processor instance and call to its own api with vad processing if needed
 	return C.int(1) // 返回 1 表示成功
 }
 
@@ -43,6 +44,7 @@ type ExternalAudioProcessor struct {
 	audioTrack  *LocalAudioTrack
 	audioSinks  *AudioSink
 	initialized bool
+	vadInstance *AudioVadV2
 }
 
 func NewExternalAudioProcessor() *ExternalAudioProcessor {
@@ -51,6 +53,7 @@ func NewExternalAudioProcessor() *ExternalAudioProcessor {
 		audioTrack:  nil,
 		audioSinks:  nil,
 		initialized: false,
+		vadInstance: nil,
 	}
 
 	//and initialize the pcmSender and audioTrack
@@ -67,7 +70,7 @@ func NewExternalAudioProcessor() *ExternalAudioProcessor {
 // outputSampleRate: the desired output sample rate in Hz.
 // outputChannels:   the number of output audio channels.
 // Returns 0 on success, or a non-zero error code on failure.
-func (p *ExternalAudioProcessor) Initialize(apmConfig *APMConfig,outputSampleRate int, outputChannels int) int {
+func (p *ExternalAudioProcessor) Initialize(apmConfig *APMConfig,outputSampleRate int, outputChannels int, vadConfig *AudioVadConfigV2) int {
 	var ret int = 0
 
 	//check apm model
@@ -75,6 +78,15 @@ func (p *ExternalAudioProcessor) Initialize(apmConfig *APMConfig,outputSampleRat
 		fmt.Printf("[ExternalAudioProcessor] apm model is not supported, error code: %d, model: %d\n", ret, agoraService.apmModel)
 		return -3000
 	}
+	// check vad config and create vad instance if needed
+	if vadConfig != nil {
+		p.vadInstance = NewAudioVadV2(vadConfig)
+		if p.vadInstance == nil {
+			fmt.Printf("[ExternalAudioProcessor] failed to create vad instance, error code: %d\n", ret)
+			return -3001
+		}
+	}
+	
 
 	ret = p.setFilterProperties(apmConfig)
 	if ret != 0 {
@@ -161,6 +173,11 @@ func (p *ExternalAudioProcessor) Release() {
 	if p.pcmSender != nil {
 		p.pcmSender.Release()
 		p.pcmSender = nil
+	}
+
+	if p.vadInstance != nil {
+		p.vadInstance.Release()
+		p.vadInstance = nil
 	}
 	p.initialized = false
 

@@ -114,7 +114,7 @@ func main() {
 	svcCfg.AppId = appid
 	svcCfg.LogPath = "./agora_rtc_log/agrasdk.log"
 	svcCfg.LogSize = 2 * 1024
-	svcCfg.EnableAPM = true
+	svcCfg.APMModel = 1
 	svcCfg.APMConfig = agoraservice.NewAPMConfig()
 	svcCfg.APMConfig.AiAecConfig.Enabled = false
 	svcCfg.APMConfig.BghvsCConfig.Enabled = true

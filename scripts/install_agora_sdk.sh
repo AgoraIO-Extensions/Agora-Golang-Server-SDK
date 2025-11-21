@@ -49,6 +49,9 @@ mac_sdk="https://download.agora.io/sdk/release/agora_sdk_mac_v4.4.32_25776_FULL_
 mac_sdk="https://download.agora.io/sdk/release/agora_sdk_mac_v4.4.30_25869_FULL_20251030_1836_953684-aed.zip"
 linux_sdk="https://download.agora.io/sdk/release/agora_rtc_sdk_x86_64-linux-gnu-v4.4.32.150_26715_SERVER_20251030_1807-aed.zip"
 
+#date:20251121 update sdk for auto load so and auto load ains resource, change audio-sink with userdata
+linux_sdk="https://download.agora.io/sdk/release/agora_rtc_sdk_x86_64-linux-gnu-Agora_Native_SDK_for_Linux_x64_zhourui_26895_SERVER_20251121_1628_987405_20251021_1427-3a.zip"
+mac_sdk="https://download.agora.io/sdk/release/agora_sdk_mac_Agora_Native_SDK_for_Mac_zhourui_26100_FULL_20251121_1643_987406_20251021_1427-3a.zip"
 
 if [[ $UNAME_S == Linux ]]; then
     OS=linux

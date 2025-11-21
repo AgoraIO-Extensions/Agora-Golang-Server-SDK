@@ -136,8 +136,20 @@ get ai-ns control extension success
 [10/28/25 21:08:54:974][5635][W]:load ai-ns weight resource success
 
 todo: for external audio processor
-1、增加一个接口，用来查看push进来的数据是否已经处理完成？或者就是一个get方法，查看是否当前的处理情况？总输入/总处理完成的/处理的速度/平均耗时等
+1、增加一个接口，用来查看push进来的数据是否已经处理完成？或者就是一个get方法，查看是否当前的处理情况？总输入/总处理完成的/处理的速度/平均耗时等。关键是怎么判断输入完成？？
 2、需要验证是可以chunk push进来，间隔10ms，还是说可以chunk push？处理速度是10ms一个，还是说可以快速？？？
+==》结论：callback是10ms一个包，但可以快速callback出来；可以chunk push，1ms的整数倍就可以！！
+3、增加vad？？可选？？？
+4、需要增加说明文档：
+  -1、怎么使用，怎么配置 extern audio processor。 
+    a、servcie configure apmModel=2；
+    b、需要在apm configure中，将所需要的算法设置为true；
+    c、如果还需要使用vad，则在externa audio processor中，设置vadconfigure不能为空！
+  
+  -2、extern audio processor 怎么只使用vad？
+    a、servcie configure apmModel=2；
+    b、需要在apm configure中，算法都设置为disable；
+    c、在externa audio processor中，设置vadconfigure不能为空！
 
 ## 2025.11.14 发布 2.4.0 版本
 -- 主要更新：rtc& rtm 融合为一个sdk
