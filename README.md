@@ -111,6 +111,35 @@ import (
   - if you don't use VAD, and your glibc version is between 2.16 and 2.27, you can disable VAD by rename **audio_vad.go** file in go_sdk/agoraserver/ to **audio_vad.go.bak**
 
 # Change log
+这是翻译后的英文版本：
+
+```markdown
+The overall logic of external audio processor is:
+APM must be enabled (enableapm=true), otherwise it will not process audio.
+In this case, you can use algorithms; or you can only use VAD without processing algorithms.
+
+How to use ExternalAudioProcessor:
+  -1. How to enable audio processing algorithms?
+    a. Set service configure apmModel=1;
+    b. In externalAudioProcessor.Initialize, apmConfig must not be nil, and set the required algorithms to true;
+    c. If you also need to use VAD, set vadConfig to non-nil as well!
+  
+  -2. How to use ExternalAudioProcessor with VAD only?
+    a. Set service configure apmModel=1
+    b. In externalAudioProcessor.Initialize(nil, inputSampleRate, inputChannels, vadConfig, observer), set apmConfig to nil, and vadConfig must not be nil!
+
+Performance test comparison:
+When printing every callback result:
+VAD only: Processing 1840ms of input data takes 16ms. 115x speedup
+APM+VAD+APM dump disabled: Processing 1840ms of input data takes 46ms. 40x speedup
+
+## 2025.11.27 Release 2.4.1
+-- Added support for VAD and audio processing algorithms (background voice removal, noise suppression, echo cancellation, automatic gain control, 3A algorithms) on external audio sources. This means you can now use audio processing algorithms and VAD without joining an RTC channel.
+-- Modified the return values of LocalUser to distinguish them from the SDK's native error codes.
+-- Added example_externalAudioProcessor to demonstrate how to use external audio data.
+-- Added Lock-free Ring Buffer implementation in utils.go.
+```
+
 ## 2025.11.14 Release 2.4.0
 -- Major update: RTC & RTM merged into a single SDK
 -- Major update: RTM updated to version 1.0
