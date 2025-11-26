@@ -86,7 +86,8 @@ type AgoraServiceConfig struct {
 	DataDir string
 
 	// 20251028 for apm filter related config
-	EnableAPM bool
+	// apm model: 0: disable apm, default to disable, 1: enable apm. def to int not bool for future extension
+	APMModel int 
 	APMConfig *APMConfig
 
 	// date: 2025-11-03, idle mode, if true, the connection will be released when idle for a period of time
@@ -122,6 +123,7 @@ type AgoraService struct {
 	idleQueue []*IdleItem
 	idleQueueMutex sync.Mutex
 	idleMode bool
+	apmModel int
 }
 
 // / newAgoraService creates a new instance of AgoraService
@@ -137,6 +139,7 @@ func newAgoraService() *AgoraService {
 		idleQueue: make([]*IdleItem, 0),
 		idleQueueMutex: sync.Mutex{},
 		idleMode: false,
+		apmModel: 0,
 	}
 }
 
@@ -163,7 +166,7 @@ func NewAgoraServiceConfig() *AgoraServiceConfig {
 		EnableSteroEncodeMode: 0, // default to 0,i.e default to mono encode mode
 		ConfigDir: "",   // format like: "./agora_rtc_log"
 		DataDir: "",     // format like: "./agora_rtc_log", should ensure the directory exists
-		EnableAPM: false,
+		APMModel: 0,
 		APMConfig: nil,
 		IdleMode: false, // default to false, not in idle mode
 	}
@@ -217,15 +220,19 @@ func Initialize(cfg *AgoraServiceConfig) int {
 
 		// enable apm filter but disable 3a by default
 		EnableExtension("agora.builtin", "audio_processing_remote_playback", "", true)
+		if isSupportExternalAudioProcessor(cfg.APMModel) {
+			EnableExtension("agora.builtin", "audio_processing_pcm_source", "", true)
+		}
 	}
 
-	if cfg.EnableAPM {
+	if isEnableAPM(cfg.APMModel) {
 		if cfg.APMConfig == nil {
 			agoraService.apmConfig = NewAPMConfig()
 		}else {
 			agoraService.apmConfig = cfg.APMConfig
 		}
 	}
+	agoraService.apmModel = cfg.APMModel
 	// from version 2.2.1
 	if cfg.ShouldCallbackWhenMuted > 0 {
 		agoraParam.SetParameters("{\"rtc.audio.enable_user_silence_packet\": true}")
@@ -586,3 +593,16 @@ func setFilterPropertyByTrack(track unsafe.Pointer, name string, key string, val
 	ret := int(C.agora_audio_track_set_filter_property(track, cName, cKey, cValue, C.int(Position)))
 	return ret
 }
+func isSupportExternalAudioProcessor(model int) bool {
+	if model < 1 {
+		return false
+	}
+	return true
+}
+func isEnableAPM(model int) bool {
+	if model < 1 {
+		return false
+	}
+	return true
+}
+

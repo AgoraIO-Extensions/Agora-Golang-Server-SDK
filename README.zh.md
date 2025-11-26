@@ -135,10 +135,35 @@ ains 成功的标记是：
 get ai-ns control extension success
 [10/28/25 21:08:54:974][5635][W]:load ai-ns weight resource success
 
+
+external auido processor 的总体逻辑是：
+必须enableamp 是true，否则不处理
+ 在这样的情况下，可以做算法；也可以只是做vad，不处理算法
+
+externalaudioprocessor 使用方法：
+  -1、如何启动算法？  
+    a、servcie configure apmModel=1；
+    b、externalAudioProcessor.Initialize中，apmconfigure不能为空，并且将所需要的算法设置为true；
+    c、如果还需要使用vad，同事设置vadconfigure不能为空！
+  
+  -2、extern audio processor 怎么只使用vad？
+    a、servcie configure apmModel=1
+    b、在externalAudioProcessor.Initialize(nil, inputsamplerate, inputchannels, vadConfig,observer)中，设置apmconfigure为空，vadconfigure不能为空！
+
+性能测试对比：
+每一个回调结果都打印出来的情况下：
+只启动vad：输入1840ms的数据，处理耗时16ms。x 115 倍数
+启动apm+vad+关闭apmdump： 输入1840ms的数据，处理耗时 46ms。x 40 倍数
+
+## 2025.11.27 发布 2.4.1 版本
+-- 增加了对外部来源音频数据的vad、{背景人声消除, 噪声抑制, 回声消除, 自动增益控制, 3a算法}的支持。也就是说不需要加入rtc频道，也可以使用音频处理算法和vad。
+-- 修改了LocalUser的返回值，从而和sdk本身的错误码做区分。
+-- 增加了example_externalAudioProcessor，用于演示如何使用外部音频数据。
+-- utils.go中增加了Lock-freeRingBuffer的实现。
 ## 2025.11.14 发布 2.4.0 版本
 -- 主要更新：rtc& rtm 融合为一个sdk
 -- 主要更新：rtm 更新到1.0版本
--- 主要更新：增加ai-ns，agc,bghvs等算法模块支持
+-- 主要更新：增加ai-ns，agc,bghvs等算法模块支持，可以在内部实现vad、{背景人声消除, 噪声抑制, 回声消除, 自动增益控制, 3a算法}等算法。
 ## 2025.11.11 发布 2.3.5 版本
 -- 更新rtm到1.0 版本
 -- 更新rtm sample

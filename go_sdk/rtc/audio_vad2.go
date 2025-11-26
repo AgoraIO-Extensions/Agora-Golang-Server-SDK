@@ -180,7 +180,7 @@ func (vad *AudioVadV2) isActive(frame *AudioFrame) bool {
 	// date: 2025-10-29 for sdk which support apm filter, and in this version, we don't need to use farfield flag to detect speech, so we don't need to use farfield flag to detect speech
 	refRms := vad.getRefActiveAvgRms()
 	active = (frame.VoiceProb == 1) || (frame.Rms > refRms)
-	fmt.Printf("[vad] voiceProb: %d, rms: %d, pitch: %d, refRms: %d, active: %v\n", frame.VoiceProb, frame.Rms, frame.Pitch, refRms, active)
+	//fmt.Printf("[vad] voiceProb: %d, rms: %d, pitch: %d, refRms: %d, active: %v\n", frame.VoiceProb, frame.Rms, frame.Pitch, refRms, active)
 	return active
 }
 func (vad *AudioVadV2) getRefActiveAvgRms() int {

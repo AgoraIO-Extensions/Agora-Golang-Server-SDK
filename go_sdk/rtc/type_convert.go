@@ -198,6 +198,29 @@ func GoPcmAudioFrame(frame *C.struct__audio_frame) *AudioFrame {
 	return ret
 }
 
+func GoSinkAudioFrame(frame *C.struct__audio_pcm_frame) *AudioFrame {
+	bufferLen := int(frame.samples_per_channel) * int(frame.bytes_per_sample) * int(frame.num_channels)
+	samplepersec := int(frame.sample_rate_hz) * int(frame.num_channels)
+	buffer := C.GoBytes(unsafe.Pointer(&frame.data[0]), C.int(bufferLen))
+	ret := &AudioFrame{
+		Type:              AudioFrameType(AudioFrameTypePCM16),
+		SamplesPerChannel: int(frame.samples_per_channel),
+		BytesPerSample:    int(frame.bytes_per_sample),
+		Channels:          int(frame.num_channels),
+		SamplesPerSec:     samplepersec,
+		Buffer:            buffer,
+		RenderTimeMs:      int64(frame.capture_timestamp),
+		AvsyncType:        int(0),
+		FarFieldFlag:      int(-1),
+		Rms:               int(frame.audio_label.rms),
+		VoiceProb:         int(frame.audio_label.voice_prob),
+		MusicProb:         int(frame.audio_label.music_prob),
+		Pitch:             int(frame.audio_label.pitch),
+		PresentTimeMs:     int64(frame.capture_timestamp), // NOTE: next version, should include pts in audio_frame in c api layer!!??
+	}
+	return ret
+}
+
 func CVideoFrameObserver() unsafe.Pointer {
 	// ret := (*C.struct__video_frame_observer2)(C.malloc(C.sizeof_struct__video_frame_observer2))
 	ret := C.struct__video_frame_observer2{}
