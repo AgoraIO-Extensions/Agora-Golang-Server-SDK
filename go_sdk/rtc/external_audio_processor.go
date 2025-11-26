@@ -12,16 +12,13 @@ import "C"
 import (
 	"fmt"
 	"unsafe"
+	"sync/atomic"
 )
 
-var g_totalOutPacks = 0
 //export goOnSinkAudioFrame
 func goOnSinkAudioFrame(sink unsafe.Pointer, frame unsafe.Pointer) C.int {
-	// TODO: 实现你的音频帧处理逻辑
-	g_totalOutPacks ++
-	pcmFrame := (*C.audio_pcm_frame)(frame)
-	label := (*C.audio_label)(&pcmFrame.audio_label)
-	/*
+	
+	goFrame := GoSinkAudioFrame((*C.struct__audio_pcm_frame)(frame))
 	// restore external audio processor instance from user data
 	processor := (*ExternalAudioProcessor)(unsafe.Pointer(sink))
 	if processor == nil {
@@ -29,16 +26,12 @@ func goOnSinkAudioFrame(sink unsafe.Pointer, frame unsafe.Pointer) C.int {
 		return -1
 	}
 	// call to external audio processor instance to process the audio frame
-	processor.doResultFrame()
-	*/
-	//convert to go frame
-	//goFrame := GoPcmAudioFrame(pcmFrame)
-	fmt.Printf("[ExternalAudioProcessor APM]: voice prob: %d, rms: %d, pitch: %d\n", label.voice_prob, label.rms, label.pitch)
-	if g_totalOutPacks % 10 == 0 {
-		fmt.Printf("Total out packs: %d\n", g_totalOutPacks)
-	}
-	// find the external audio processor instance and call to its own api with vad processing if needed
-	return C.int(1) // 返回 1 表示成功
+	result := processor.doResultFrame(goFrame)
+	return C.int(result)
+}
+//date: 2025-11-25 to add external audio processor observer
+type ExternalAudioProcessorObserver struct {
+	OnProcessedAudioFrame func(frame *AudioFrame, vadResultStat VadState, vadResultFrame *AudioFrame)
 }
 
 /*
@@ -55,6 +48,9 @@ type ExternalAudioProcessor struct {
 	audioSinks  *AudioSink
 	initialized bool
 	vadInstance *AudioVadV2
+	observer *ExternalAudioProcessorObserver
+	InStreamInMs atomic.Int64
+	ProcessedStreamInMs atomic.Int64
 }
 
 func NewExternalAudioProcessor() *ExternalAudioProcessor {
@@ -64,6 +60,9 @@ func NewExternalAudioProcessor() *ExternalAudioProcessor {
 		audioSinks:  nil,
 		initialized: false,
 		vadInstance: nil,
+		observer: nil,
+		InStreamInMs: atomic.Int64{},
+		ProcessedStreamInMs: atomic.Int64{},
 	}
 
 	//and initialize the pcmSender and audioTrack
@@ -80,13 +79,17 @@ func NewExternalAudioProcessor() *ExternalAudioProcessor {
 // outputSampleRate: the desired output sample rate in Hz.
 // outputChannels:   the number of output audio channels.
 // Returns 0 on success, or a non-zero error code on failure.
-func (p *ExternalAudioProcessor) Initialize(apmConfig *APMConfig,outputSampleRate int, outputChannels int, vadConfig *AudioVadConfigV2) int {
+func (p *ExternalAudioProcessor) Initialize(apmConfig *APMConfig,outputSampleRate int, outputChannels int, vadConfig *AudioVadConfigV2, observer *ExternalAudioProcessorObserver) int {
 	var ret int = 0
 
-	//check apm model
+	//check apm model: must support amp but can only do vad
 	if isSupportExternalAudioProcessor(agoraService.apmModel)==false {
 		fmt.Printf("[ExternalAudioProcessor] apm model is not supported, error code: %d, model: %d\n", ret, agoraService.apmModel)
 		return -3000
+	}
+	if apmConfig == nil && vadConfig == nil {
+	    fmt.Printf("[ExternalAudioProcessor] apm config and vad config are both nil, error code: %d\n", ret)
+		return -3002
 	}
 	// check vad config and create vad instance if needed
 	if vadConfig != nil {
@@ -123,6 +126,9 @@ func (p *ExternalAudioProcessor) Initialize(apmConfig *APMConfig,outputSampleRat
 	// 4 enable & publish audio track
 	p.audioTrack.SetEnabled(true)
 
+	// 4. register observer
+	p.observer = observer
+
 	// 5 check if initialized successfully
 	p.initialized = true
 	return 0
@@ -156,9 +162,11 @@ func (p *ExternalAudioProcessor) PushAudioPcmData(data []byte, sampleRate int, c
 	frame.SamplesPerChannel = (sampleRate / 1000) * packnumInMs
 
 	ret := p.pcmSender.SendAudioPcmData(frame)
+	p.InStreamInMs.Add(int64(packnumInMs))
 
 	return ret
 }
+
 
 func (p *ExternalAudioProcessor) Release() {
 
@@ -189,6 +197,8 @@ func (p *ExternalAudioProcessor) Release() {
 		p.vadInstance.Release()
 		p.vadInstance = nil
 	}
+
+	p.observer = nil
 	p.initialized = false
 
 }
@@ -200,6 +210,11 @@ func (p *ExternalAudioProcessor) Release() {
 func (p *ExternalAudioProcessor) setFilterProperties(apmConfig *APMConfig) int {
 	if p.audioTrack == nil || p.audioTrack.cTrack == nil {
 		return -2002
+	}
+
+	if apmConfig == nil {
+		// in this case, no need to set filter properties.
+		return 0
 	}
 	cLocalTrackHandle := p.audioTrack.cTrack
 
@@ -249,7 +264,7 @@ func newAudioSink(processor *ExternalAudioProcessor) *AudioSink {
 
 	// set callback function pointer - using C wrapper function
 	csink_callback.on_audio_frame = (*[0]byte)(C.cgo_onSinkAudioFrameCallback)
-	//csink_callback.user_data = unsafe.Pointer(processor)
+	csink_callback.user_data = unsafe.Pointer(processor)
 
 	// create audio sink
 	sink.cSink = C.agora_audio_sink_create(csink_callback)
@@ -287,7 +302,17 @@ func (p *ExternalAudioProcessor) removeAudioSink() int {
 	}
 	return int(C.agora_audio_track_remove_audio_sink(p.audioTrack.cTrack, p.audioSinks.cSink))
 }
-func (p *ExternalAudioProcessor) doResultFrame() {
+func (p *ExternalAudioProcessor) doResultFrame(frame *AudioFrame) int	 {
 	// TODO: implement the logic to process the audio frame
-	fmt.Printf("[ExternalAudioProcessor] doResultFrame\n")
+	//fmt.Printf("[ExternalAudioProcessor] doResultFrame, voice prob: %d, rms: %d, pitch: %d\n", frame.VoiceProb, frame.Rms, frame.Pitch)
+	var vadResultState VadState = VadStateInvalid
+	var vadResultFrame *AudioFrame = nil
+	if p.vadInstance != nil {
+		vadResultFrame, vadResultState = p.vadInstance.Process(frame)
+	}
+	p.ProcessedStreamInMs.Add(int64(10))
+	if p.observer != nil {
+		p.observer.OnProcessedAudioFrame(frame, vadResultState, vadResultFrame)
+	}
+	return 0
 }
