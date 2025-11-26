@@ -53,6 +53,11 @@ linux_sdk="https://download.agora.io/sdk/release/agora_rtc_sdk_x86_64-linux-gnu-
 linux_sdk="https://download.agora.io/sdk/release/agora_rtc_sdk_x86_64-linux-gnu-Agora_Native_SDK_for_Linux_x64_zhourui_26895_SERVER_20251121_1628_987405_20251021_1427-3a.zip"
 mac_sdk="https://download.agora.io/sdk/release/agora_sdk_mac_Agora_Native_SDK_for_Mac_zhourui_26100_FULL_20251121_1643_987406_20251021_1427-3a.zip"
 
+#date:20251124 update sdk for fix the issue of auto load so and auto load ains resource
+linux_sdk="https://download.agora.io/sdk/release/agora_rtc_sdk_x86_64-linux-gnu-Agora_Native_SDK_for_Linux_x64_zhourui_26895_SERVER_20251121_1628_987405_20251021_1427-3a.zip"
+#mac_sdk="https://download.agora.io/sdk/release/agora_sdk_mac_Agora_Native_SDK_for_Mac_zhourui_26100_FULL_20251121_1643_987406_20251021_1427-3a.zip"
+mac_sdk="https://download.agora.io/sdk/release/agora_sdk_mac_Agora_Native_SDK_for_Mac_zhourui_26101_FULL_20251121_2135_987705_20251021_1427-3a.zip"
+
 if [[ $UNAME_S == Linux ]]; then
     OS=linux
 elif [[ $UNAME_S == Darwin ]]; then
