@@ -86,7 +86,7 @@ type AgoraServiceConfig struct {
 	DataDir string
 
 	// 20251028 for apm filter related config
-	// apm model: 0: disable apm, default to disable, 1: local apm, 2: external audio source apm; 3: both
+	// apm model: 0: disable apm, default to disable, 1: enable apm. def to int not bool for future extension
 	APMModel int 
 	APMConfig *APMConfig
 
@@ -594,7 +594,7 @@ func setFilterPropertyByTrack(track unsafe.Pointer, name string, key string, val
 	return ret
 }
 func isSupportExternalAudioProcessor(model int) bool {
-	if model < 2 {
+	if model < 1 {
 		return false
 	}
 	return true
