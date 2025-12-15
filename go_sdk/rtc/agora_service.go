@@ -168,7 +168,7 @@ func NewAgoraServiceConfig() *AgoraServiceConfig {
 		DataDir: "",     // format like: "./agora_rtc_log", should ensure the directory exists
 		APMModel: 0,
 		APMConfig: nil,
-		IdleMode: false, // default to false, not in idle mode
+		IdleMode: true, // default to true for  idle mode
 	}
 }
 
@@ -202,6 +202,7 @@ func Initialize(cfg *AgoraServiceConfig) int {
 	C.agora_parameter_set_int(cParam, cParamStr, C.int(17))
 
 	agoraParam := GetAgoraParameter()
+	
 	
 	if (cfg.EnableSteroEncodeMode < 1) { // disable stereo encode mode,can enabel audio label
 		// enable audio label generator
