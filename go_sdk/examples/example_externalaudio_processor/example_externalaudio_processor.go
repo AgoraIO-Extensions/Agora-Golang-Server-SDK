@@ -114,7 +114,7 @@ func main() {
 
 	// add observer
 	observer := &agoraservice.ExternalAudioProcessorObserver{
-		OnProcessedAudioFrame: func(frame *agoraservice.AudioFrame, vadResultStat agoraservice.VadState, vadResultFrame *agoraservice.AudioFrame) {
+		OnProcessedAudioFrame: func(processor *agoraservice.ExternalAudioProcessor, frame *agoraservice.AudioFrame, vadResultStat agoraservice.VadState, vadResultFrame *agoraservice.AudioFrame) {
 			var retBufferLen int = 0
 			if vadResultFrame != nil {
 				retBufferLen = len(vadResultFrame.Buffer)
