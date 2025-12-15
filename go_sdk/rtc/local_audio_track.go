@@ -16,7 +16,7 @@ type LocalAudioTrack struct {
 // NOTE: date：2025-06-27
 // add audioScenario_of_connection param, to set the audio scenario for the audio track
 // recommend to use the same audio scenario for the connection and related audio track
-func NewCustomAudioTrackPcm(pcmSender *AudioPcmDataSender, audioScenario_of_connection AudioScenario) *LocalAudioTrack {
+func NewCustomAudioTrackPcm(pcmSender *AudioPcmDataSender, audioScenario_of_connection AudioScenario, isSendExternalAudioForAI bool) *LocalAudioTrack {
 	if agoraService == nil || agoraService.service == nil {
 		return nil
 	}
@@ -24,7 +24,7 @@ func NewCustomAudioTrackPcm(pcmSender *AudioPcmDataSender, audioScenario_of_conn
 	audioScenario := audioScenario_of_connection
 
 	fmt.Printf("NewCustomAudioTrackPcm, audioScenario: %d, pcmSender.audioScenario: %d\n", audioScenario, pcmSender.audioScenario)
-	if audioScenario == AudioScenarioAiServer {
+	if audioScenario == AudioScenarioAiServer && isSendExternalAudioForAI == false {
 		cTrack  = C.agora_service_create_direct_custom_audio_track_pcm(agoraService.service, pcmSender.cSender)
 	} else {
 		cTrack = C.agora_service_create_custom_audio_track_pcm(agoraService.service, pcmSender.cSender)
