@@ -31,7 +31,7 @@ func goOnSinkAudioFrame(sink unsafe.Pointer, frame unsafe.Pointer) C.int {
 }
 //date: 2025-11-25 to add external audio processor observer
 type ExternalAudioProcessorObserver struct {
-	OnProcessedAudioFrame func(frame *AudioFrame, vadResultStat VadState, vadResultFrame *AudioFrame)
+	OnProcessedAudioFrame func(processor *ExternalAudioProcessor,frame *AudioFrame, vadResultStat VadState, vadResultFrame *AudioFrame)
 }
 
 /*
@@ -68,7 +68,7 @@ func NewExternalAudioProcessor() *ExternalAudioProcessor {
 	//and initialize the pcmSender and audioTrack
 	factory := agoraService.mediaFactory
 	processor.pcmSender = factory.NewAudioPcmDataSender()
-	processor.audioTrack = NewCustomAudioTrackPcm(processor.pcmSender, AudioScenarioDefault)
+	processor.audioTrack = NewCustomAudioTrackPcm(processor.pcmSender, AudioScenarioDefault, false)
 	processor.audioSinks = newAudioSink(processor)
 	processor.initialized = false
 	return processor
@@ -312,7 +312,7 @@ func (p *ExternalAudioProcessor) doResultFrame(frame *AudioFrame) int	 {
 	}
 	p.ProcessedStreamInMs.Add(int64(10))
 	if p.observer != nil {
-		p.observer.OnProcessedAudioFrame(frame, vadResultState, vadResultFrame)
+		p.observer.OnProcessedAudioFrame(p, frame, vadResultState, vadResultFrame)
 	}
 	return 0
 }
