@@ -133,6 +133,34 @@ When printing every callback result:
 VAD only: Processing 1840ms of input data takes 16ms. 115x speedup
 APM+VAD+APM dump disabled: Processing 1840ms of input data takes 46ms. 40x speedup
 
+## 2025.12.15 Release 2.4.2
+
+- Default changed to `idleModel=true`
+- Added `externalaudioprocessor` in the callback of `externalAudioProcessor`
+- Added "Incremental Sending Mode" for supported scenarios
+
+### Features of Incremental Sending Mode
+
+1. Specifically designed for the 'tts' scenario; not recommended for other scenarios. For 'iot' with tts, usage is recommended.
+2. Configurable at the connection level, meaning different connections can have different settings.
+3. If a connection enables "Incremental Sending Mode", data will be sent at the configured rate during the specified period; after the time elapses, it will revert to normal sending speed mode.
+
+### Usage
+
+1. When initializing the `connection`, set the `scenario` parameter to either `AudioScenarioAIServer` or `AudioScenarioDefault`.
+2. Add the parameter `SendExternalAudioParameters` in your `publishConfigure`:
+    - `Enabled` (default: false): whether to enable incremental sending mode.
+    - `SendSpeed` (range: 1~5, recommended: 2, default: 0): set the transmission speed.
+    - `SendMS` (default: 0): duration for fast transmission.
+    - `DeliverMuteDataForFakeAdm` (default: false): whether to send silent packets when there is no tts data.
+
+### Product Behavior
+
+- At the beginning of each round, a segment of data is sent quickly
+- Afterwards, to send data at the normal speed,i.e 1x speed
+
+> The SDK automatically handles "rounds" and calls a new round internally.
+
 ## 2025.11.27 Release 2.4.1
 -- Added support for VAD and audio processing algorithms (background voice removal, noise suppression, echo cancellation, automatic gain control, 3A algorithms) on external audio sources. This means you can now use audio processing algorithms and VAD without joining an RTC channel.
 -- Modified the return values of LocalUser to distinguish them from the SDK's native error codes.

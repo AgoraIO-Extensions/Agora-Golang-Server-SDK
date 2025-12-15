@@ -917,8 +917,8 @@ type V8Data struct {
 
 // 反向解析函数，用于验证结果
 func ParseInt64V8(value int64) V8Data {
-    fmt.Printf("原始值: %d\n", value)
-    fmt.Printf("二进制: %064b\n", uint64(value))
+    //fmt.Printf("原始值: %d\n", value)
+    //fmt.Printf("二进制: %064b\n", uint64(value))
     
     // 提取各个字段
     isAgora := (value >> 62) & 1
@@ -926,7 +926,7 @@ func ParseInt64V8(value int64) V8Data {
     turnId := (value >> 50) & 0xFF
     cmdOrDataType := (value >> 49) & 1
     sentenceId := (value >> 37) & 0xFFF
-    reserved1 := (value >> 32) & 0x1F
+    //reserved1 := (value >> 32) & 0x1F
     reserved2 := (value >> 16) & 0xFFFF
     basePts := value & 0xFFFF
 
@@ -942,8 +942,8 @@ func ParseInt64V8(value int64) V8Data {
 		basePts: uint16(basePts),
 	}
 
-	fmt.Printf("v8Data: %v\n", v8Data)
-    fmt.Printf("isAgora: %d,version: %d,turnId: %d,cmdOrDataType: %d,sentenceId: %d,reserved1: %d,reserved2: %d,basePts: %d\n", isAgora, version, turnId, cmdOrDataType, sentenceId, reserved1, reserved2, basePts)
+	//fmt.Printf("v8Data: %v\n", v8Data)
+    //fmt.Printf("isAgora: %d,version: %d,turnId: %d,cmdOrDataType: %d,sentenceId: %d,reserved1: %d,reserved2: %d,basePts: %d\n", isAgora, version, turnId, cmdOrDataType, sentenceId, reserved1, reserved2, basePts)
 
 	return v8Data
 }
@@ -1353,6 +1353,9 @@ func main() {
 
 	// global set audio dump
 	agoraParameterHandler := agoraservice.GetAgoraParameter()
+	//agoraParameterHandler.SetParameters("{\"che.audio.acm_ptime\":40}")
+	agoraParameterHandler.SetParameters("{\"che.audio.custom_bitrate\":32000}")
+	//agoraParameterHandler.SetParameters("{\"che.audio.opus_celt_only\":true}")
 
 	
 
@@ -1380,6 +1383,10 @@ func main() {
 	publishConfig.VideoPublishType = agoraservice.VideoPublishTypeNoPublish
 	publishConfig.AudioScenario = agoraservice.AudioScenarioAiServer
 	publishConfig.AudioProfile = agoraservice.AudioProfileDefault
+	
+	publishConfig.SendExternalAudioParameters.Enabled = true
+	publishConfig.SendExternalAudioParameters.SendMs = 2000
+	publishConfig.SendExternalAudioParameters.SendSpeed = 2
 
 	
 	con := agoraservice.NewRtcConnection(conCfg, publishConfig)
@@ -1474,12 +1481,13 @@ func main() {
 				con.PushAudioPcmData(data, frame.SamplesPerSec, frame.Channels, 0)
 			}
 			*/
+			fmt.Printf("Playback audio frame before mixing, from userId %s, far :%d,rms:%d, pitch: %d\n", userId, frame.FarFieldFlag, frame.Rms, frame.Pitch)
 
 			//end
 
 			masknumer := frame.PresentTimeMs
 			v8Data := ParseInt64V8(masknumer)
-			fmt.Printf("v8Data: %v\n", v8Data)
+			//fmt.Printf("v8Data: %v\n", v8Data)
 
 		
 
@@ -1495,6 +1503,8 @@ func main() {
 			}
 			// 3: 做方波信号的echo
 			threshold_value := -25
+			// from 2.4.1 for new vad algorithm
+			threshold_value =  100
 			if mode == 3 {
 				if frame.Rms > threshold_value {
 					// from trough to peak​​ now
@@ -1533,6 +1543,21 @@ func main() {
 			fmt.Printf("*****Stream message, from userId %s\n", uid)
 			//con.SendStreamMessage(streamId, data)
 			con.SendStreamMessage(data)
+			// trigger a event
+			event_count++
+			/*
+				if event_count == 10 {
+					fallackEvent <- struct{}{}
+				} else */if event_count%2 == 0 {
+				//NonblockNotiyEvent(interruptEvent)
+				fmt.Printf("lixiang_test interruptEvent, event_count: %d\n", event_count)
+
+				//interruptEvent <- struct{}{}
+			} else { // simulate to interrupt audio
+				audioSendEvent <- struct{}{}
+				//NonblockNotiyEvent(audioSendEvent)
+				fmt.Printf("lixiang_test audioSendEvent, event_count: %d\n", event_count)
+			}
 		},
 
 		OnAudioVolumeIndication: func(localUser *agoraservice.LocalUser, audioVolumeInfo []*agoraservice.AudioVolumeInfo, speakerNumber int, totalVolume int) {
