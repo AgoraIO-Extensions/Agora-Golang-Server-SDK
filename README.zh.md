@@ -155,6 +155,36 @@ externalaudioprocessor 使用方法：
 只启动vad：输入1840ms的数据，处理耗时16ms。x 115 倍数
 启动apm+vad+关闭apmdump： 输入1840ms的数据，处理耗时 46ms。x 40 倍数
 
+## 2025.12.15 发布 2.4.2 版本
+
+- 默认变更为 `idleModel=true`
+- 在 `externalAudioProcessor` 的回调中，增加 `externalaudioprocessor`
+- 增加 `增量发送模式` ，用于增量发送模式。
+
+
+### 增量发送模式方案特点
+
+1. 仅仅针对'tts'场景，其他场景不建议使用；如果是'iot'下的tts场景，则建议使用
+2. 针对connection 级别来做设置，就是说不同的 connection 可以有不同的设置
+3. 如果connecton设置为‘增量发送模式',则在设置的时间内，用设置的速率来发送数据，如果超过设置的时间，则恢复为正常发送模式
+
+### 使用方法
+
+1. 在 `connection` 初始化时，设置 `scenario` 参数为 `AudioScenarioAIServer` 或者 `AudioScenarioDefault`
+2. 在 `publishConfigure` 内增加参数'SendExternalAudioParameters'：
+    - `Enabled` (默认值 false),是否启用增量发送模式
+    - `SendSpeed`（1~5，推荐 2，默认值为0）
+    - `SendMS`（默认值为0, 快速发送的时间段）
+    - `DeliverMuteDataForFakeAdm`（默认值为false，在没有tts 数据的时候，是否发送静音包）
+
+### 产品行为
+
+- 每一轮开始时，先发送一段快发数据
+- 之后按照正常的速度（也就是1倍速）发送
+
+> 内部在每一新轮自动调用：`轮次`
+
+
 ## 2025.11.27 发布 2.4.1 版本
 -- 增加了对外部来源音频数据的vad、{背景人声消除, 噪声抑制, 回声消除, 自动增益控制, 3a算法}的支持。也就是说不需要加入rtc频道，也可以使用音频处理算法和vad。
 -- 修改了LocalUser的返回值，从而和sdk本身的错误码做区分。
