@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"time"
 
 	agoraservice "github.com/AgoraIO-Extensions/Agora-Golang-Server-SDK/v2/go_sdk/rtc"
 
@@ -112,9 +113,15 @@ func main() {
 			fmt.Printf("user %s video subscribed\n", uid)
 		},
 	}
+	lastKeyFrameTime := time.Now().UnixMilli()
 	encodedVideoObserver := &agoraservice.VideoEncodedFrameObserver{
 		OnEncodedVideoFrame: func(uid string, imageBuffer []byte, frameInfo *agoraservice.EncodedVideoFrameInfo) bool {
 			// fmt.Printf("user %s encoded video received\n", uid)
+			//fmt.Printf("user %s encoded video received, frame type %d\n", uid, frameInfo.FrameType)
+			if frameInfo.FrameType == agoraservice.VideoFrameTypeKeyFrame {
+				fmt.Printf("key frame received, time %d\n", time.Now().UnixMilli()-lastKeyFrameTime)
+				lastKeyFrameTime = time.Now().UnixMilli()
+			}
 			videoChan <- &EncodedVideoData{
 				uid:       uid,
 				imageData: imageBuffer,
@@ -137,6 +144,8 @@ func main() {
 	publishConfig.AudioProfile = agoraservice.AudioProfileDefault
 	publishConfig.AudioPublishType = agoraservice.AudioPublishTypeNoPublish
 	publishConfig.VideoPublishType = agoraservice.VideoPublishTypeNoPublish
+
+	publishConfig.AudioPublishType = agoraservice.AudioPublishTypePcm
 
 	con = agoraservice.NewRtcConnection(conCfg, publishConfig)
 	
@@ -161,13 +170,24 @@ func main() {
 	defer file.Close()
 
 	stop := false
+	lastFrameTime := time.Now().UnixMilli()
+	srcUid := ""
 	for !stop {
 		select {
 		case videoData := <-videoChan:
-			fmt.Printf("user %s encoded video received, frame len %d\n", videoData.uid, len(videoData.imageData))
+			//fmt.Printf("user %s encoded video received, frame len %d\n", videoData.uid, len(videoData.imageData))
 			file.Write(videoData.imageData)
+			srcUid = videoData.uid
 		case <-ctx.Done():
 			stop = true
+		default:
+			time.Sleep(100 * time.Millisecond)
+			curTime := time.Now().UnixMilli()
+			if curTime - lastFrameTime > 1000 {
+				fmt.Printf("send intra request to user %s, time %d\n", srcUid, curTime - lastFrameTime)
+				con.SendIntraRequest(srcUid)
+				lastFrameTime = curTime
+			}
 		}
 	}
 
