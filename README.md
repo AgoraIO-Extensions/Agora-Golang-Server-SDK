@@ -133,6 +133,48 @@ When printing every callback result:
 VAD only: Processing 1840ms of input data takes 16ms. 115x speedup
 APM+VAD+APM dump disabled: Processing 1840ms of input data takes 46ms. 40x speedup
 
+## 2025.12.17 Release Version 2.4.3
+
+- New: Added support for the `SendIntraRequest` method, which allows you to actively request an encoded key frame (key frame) from a remote user.
+
+### Test Results
+
+#### Case 1: Encoding on Web
+
+If an intra request is sent to the remote user every 1 second, the key frame is encoded and sent approximately every 1 second as well.
+
+```text
+send intra request to user 1782469624, time 1010
+key frame received, time 1001
+send intra request to user 1782469624, time 1008
+key frame received, time 998
+send intra request to user 1782469624, time 1009
+key frame received, time 1033
+send intra request to user 1782469624, time 1009
+key frame received, time 999
+```
+
+#### Case 2: Encoding on Android
+
+If an intra request is sent to the remote user every 1 second, the key frame is encoded and sent approximately every 2 seconds.
+
+```text
+send intra request to user 4797, time 1002
+send intra request to user 4797, time 1006
+key frame received, time 1692
+send intra request to user 4797, time 1010
+send intra request to user 4797, time 1012
+key frame received, time 2023
+send intra request to user 4797, time 1010
+key frame received, time 1733
+send intra request to user 4797, time 1010
+send intra request to user 4797, time 1005
+key frame received, time 1388
+send intra request to user 4797, time 1011
+send intra request to user 4797, time 1011
+key frame received, time 1971
+```
+
 ## 2025.12.15 Release 2.4.2
 
 - Default changed to `idleModel=true`

@@ -155,6 +155,50 @@ externalaudioprocessor 使用方法：
 只启动vad：输入1840ms的数据，处理耗时16ms。x 115 倍数
 启动apm+vad+关闭apmdump： 输入1840ms的数据，处理耗时 46ms。x 40 倍数
 
+## 2025.12.17 发布 2.4.3 版本
+
+- 新增：支持 `SendIntraRequest` 方法，可主动向远端用户请求编码关键帧（key frame）。
+
+### 测试结果
+
+#### case1: 编码为 Web
+
+如果按照 1s 发送一次请求，编码 Key frame 基本也是 1s。
+
+```text
+send intra request to user 1782469624, time 1010
+key frame received, time 1001
+send intra request to user 1782469624, time 1008
+key frame received, time 998
+send intra request to user 1782469624, time 1009
+key frame received, time 1033
+send intra request to user 1782469624, time 1009
+key frame received, time 999
+```
+
+#### case2: 编码为 Android
+
+如果按照 1s 发送一次请求，编码 Key frame 基本为 2s。
+
+```text
+send intra request to user 4797, time 1002
+send intra request to user 4797, time 1006
+key frame received, time 1692
+send intra request to user 4797, time 1010
+send intra request to user 4797, time 1012
+key frame received, time 2023
+send intra request to user 4797, time 1010
+key frame received, time 1733
+send intra request to user 4797, time 1010
+send intra request to user 4797, time 1005
+key frame received, time 1388
+send intra request to user 4797, time 1011
+send intra request to user 4797, time 1011
+key frame received, time 1971
+```
+
+
+
 ## 2025.12.15 发布 2.4.2 版本
 
 - 默认变更为 `idleModel=true`
