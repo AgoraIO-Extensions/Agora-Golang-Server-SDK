@@ -1365,9 +1365,9 @@ func (conn *RtcConnection) UpdateAudioSenario(scenario AudioScenario) int {
 
 	//6. set properties to new cTrack
 	conn.audioTrack.SetSendDelayMs(10)
-	if isAiServer == false {
-		conn.audioTrack.SetMaxBufferedAudioFrameNumber(100000) //up to 16min,100000 frames
-	}
+	//anyway, to set max buffered audio frame number to 100000
+	conn.audioTrack.SetMaxBufferedAudioFrameNumber(100000) //up to 16min,100000 frames
+	
 	conn.localUser.SetAudioScenario(scenario)
 
 	//7. update the properties of pcmsender
@@ -1582,4 +1582,17 @@ func setDeliverMuteData(deliverMuteData bool) bool {
 	}
 
 	return deliverMuteDataHasSet  
+}
+// send intra request to the remote user to request a new key frame
+// limitation: 
+// 1. if remtoe user is fixed-interval key frame encoding, the api call will be ignored
+// 2. the min-frequency of the api call is 1s, otherwise, it will be ignored  or the vos will do converge
+func (conn *RtcConnection) SendIntraRequest(remoteUid string) int {
+	if conn == nil || conn.cConnection == nil || conn.localUser == nil || conn.localUser.cLocalUser == nil {
+		return -2000
+	}
+	cUid := C.CString(remoteUid)
+	defer C.free(unsafe.Pointer(cUid))
+	ret := int(C.agora_local_user_send_intra_request(conn.localUser.cLocalUser, cUid))
+	return ret
 }

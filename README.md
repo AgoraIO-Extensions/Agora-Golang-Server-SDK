@@ -62,12 +62,38 @@ export LD_LIBRARY_PATH=../agora_sdk
 ./send_h264
 ```
 
-How to use RTM?
-1 Download the repository
-2 Enter the directory and run make deps
-3 Run ./scripts/rtmbuild.sh
-4 Enter the bin directory and run ./rtmdemo appid channelname userid
-5 For RTM sample reference: cmd/main.go
+## How to use RTM?
+
+1. download the RTM SDK
+
+    ```bash
+    git clone https://github.com/AgoraIO-Extensions/Agora-Golang-Server-SDK.git
+    cd Agora-Golang-Server-SDK
+    ```
+
+2. install the dependencies
+
+    ```bash
+    make deps
+    ```
+
+3. build the RTM demo
+
+    ```bash
+    ./scripts/rtmbuild.sh
+    ```
+
+4. run the RTM demo
+
+    ```bash
+    cd bin
+    ./rtmdemo <appid> <channelname> <userid>
+    ```
+
+    > please replace `<appid>`、`<channelname>` and `<userid>` with your own info.
+
+5. more RTM sample ref to：`cmd/main.go`
+
 
 # Intergrate into your project
 - Clone this repository and checkout to the target branch, and install. recommend to use latest version of go.
@@ -111,7 +137,6 @@ import (
   - if you don't use VAD, and your glibc version is between 2.16 and 2.27, you can disable VAD by rename **audio_vad.go** file in go_sdk/agoraserver/ to **audio_vad.go.bak**
 
 # Change log
-这是翻译后的英文版本：
 
 ```markdown
 The overall logic of external audio processor is:
@@ -132,6 +157,48 @@ Performance test comparison:
 When printing every callback result:
 VAD only: Processing 1840ms of input data takes 16ms. 115x speedup
 APM+VAD+APM dump disabled: Processing 1840ms of input data takes 46ms. 40x speedup
+
+## 2025.12.17 Release Version 2.4.3
+
+- New: Added support for the `SendIntraRequest` method, which allows you to actively request an encoded key frame (key frame) from a remote user.
+
+### Test Results
+
+#### Case 1: Encoding on Web
+
+If an intra request is sent to the remote user every 1 second, the key frame is encoded and sent approximately every 1 second as well.
+
+```text
+send intra request to user 1782469624, time 1010
+key frame received, time 1001
+send intra request to user 1782469624, time 1008
+key frame received, time 998
+send intra request to user 1782469624, time 1009
+key frame received, time 1033
+send intra request to user 1782469624, time 1009
+key frame received, time 999
+```
+
+#### Case 2: Encoding on Android
+
+If an intra request is sent to the remote user every 1 second, the key frame is encoded and sent approximately every 2 seconds.
+
+```text
+send intra request to user 4797, time 1002
+send intra request to user 4797, time 1006
+key frame received, time 1692
+send intra request to user 4797, time 1010
+send intra request to user 4797, time 1012
+key frame received, time 2023
+send intra request to user 4797, time 1010
+key frame received, time 1733
+send intra request to user 4797, time 1010
+send intra request to user 4797, time 1005
+key frame received, time 1388
+send intra request to user 4797, time 1011
+send intra request to user 4797, time 1011
+key frame received, time 1971
+```
 
 ## 2025.12.15 Release 2.4.2
 

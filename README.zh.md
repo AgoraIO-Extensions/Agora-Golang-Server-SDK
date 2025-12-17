@@ -99,11 +99,31 @@ import (
 ```
 - 运行项目时，记得将 **agora_sdk**目录 (或 Mac 上的 **agora_sdk_mac** 目录) 路径添加到 LD_LIBRARY_PATH (或 Mac 上的 DYLD_LIBRARY_PATH) 环境变量中。
 
-## 如何使用rtm
-1、先遵循上述步骤make deps/make build 构建rtc
-2、用script/rtminstall.sh 安装rtm有关的sdk
-3、用script/rtmbuild.sh 构建rtm demo
-4、参考cmd/example demo 来使用rtm
+## 如何使用 RTM
+
+1. **构建 RTC**  
+   按照上文步骤（`make deps` / `make build`）完成 RTC 的依赖安装和构建。
+
+2. **安装 RTM 相关 SDK**  
+   ```bash
+   ./script/rtminstall.sh
+   ```
+
+3. **构建 RTM Demo**  
+   ```bash
+   ./script/rtmbuild.sh
+   ```
+
+4. **运行 RTM Demo**  
+   参考 `cmd/example` 下的 demo 实现，或在 `bin` 目录下运行：
+   ```bash
+   cd bin
+   ./rtmdemo <appid> <channelname> <userid>
+   ```
+   > 请将 `<appid>`、`<channelname>` 和 `<userid>` 替换为你自己的信息。
+
+5. **更多用法**  
+   可参考源码 `cmd/example` 进行集成和开发。
 
 ##  ❗ ❗逻辑关系，非常重要 ❗ ❗
 - 一个进程只能有一个service instance；在进程开始的时候，创建service；在进程结束的时候，销毁service。
@@ -154,6 +174,50 @@ externalaudioprocessor 使用方法：
 每一个回调结果都打印出来的情况下：
 只启动vad：输入1840ms的数据，处理耗时16ms。x 115 倍数
 启动apm+vad+关闭apmdump： 输入1840ms的数据，处理耗时 46ms。x 40 倍数
+
+## 2025.12.17 发布 2.4.3 版本
+
+- 新增：支持 `SendIntraRequest` 方法，可主动向远端用户请求编码关键帧（key frame）。
+
+### 测试结果
+
+#### case1: 编码为 Web
+
+如果按照 1s 发送一次请求，编码 Key frame 基本也是 1s。
+
+```text
+send intra request to user 1782469624, time 1010
+key frame received, time 1001
+send intra request to user 1782469624, time 1008
+key frame received, time 998
+send intra request to user 1782469624, time 1009
+key frame received, time 1033
+send intra request to user 1782469624, time 1009
+key frame received, time 999
+```
+
+#### case2: 编码为 Android
+
+如果按照 1s 发送一次请求，编码 Key frame 基本为 2s。
+
+```text
+send intra request to user 4797, time 1002
+send intra request to user 4797, time 1006
+key frame received, time 1692
+send intra request to user 4797, time 1010
+send intra request to user 4797, time 1012
+key frame received, time 2023
+send intra request to user 4797, time 1010
+key frame received, time 1733
+send intra request to user 4797, time 1010
+send intra request to user 4797, time 1005
+key frame received, time 1388
+send intra request to user 4797, time 1011
+send intra request to user 4797, time 1011
+key frame received, time 1971
+```
+
+
 
 ## 2025.12.15 发布 2.4.2 版本
 
