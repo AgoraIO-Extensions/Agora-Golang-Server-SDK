@@ -111,7 +111,6 @@ import (
   - if you don't use VAD, and your glibc version is between 2.16 and 2.27, you can disable VAD by rename **audio_vad.go** file in go_sdk/agoraserver/ to **audio_vad.go.bak**
 
 # Change log
-这是翻译后的英文版本：
 
 ```markdown
 The overall logic of external audio processor is:
