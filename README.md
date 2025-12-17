@@ -62,12 +62,38 @@ export LD_LIBRARY_PATH=../agora_sdk
 ./send_h264
 ```
 
-How to use RTM?
-1 Download the repository
-2 Enter the directory and run make deps
-3 Run ./scripts/rtmbuild.sh
-4 Enter the bin directory and run ./rtmdemo appid channelname userid
-5 For RTM sample reference: cmd/main.go
+## How to use RTM?
+
+1. download the RTM SDK
+
+    ```bash
+    git clone https://github.com/AgoraIO-Extensions/Agora-Golang-Server-SDK.git
+    cd Agora-Golang-Server-SDK
+    ```
+
+2. install the dependencies
+
+    ```bash
+    make deps
+    ```
+
+3. build the RTM demo
+
+    ```bash
+    ./scripts/rtmbuild.sh
+    ```
+
+4. run the RTM demo
+
+    ```bash
+    cd bin
+    ./rtmdemo <appid> <channelname> <userid>
+    ```
+
+    > please replace `<appid>`、`<channelname>` and `<userid>` with your own info.
+
+5. more RTM sample ref to：`cmd/main.go`
+
 
 # Intergrate into your project
 - Clone this repository and checkout to the target branch, and install. recommend to use latest version of go.

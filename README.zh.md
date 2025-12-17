@@ -99,11 +99,31 @@ import (
 ```
 - 运行项目时，记得将 **agora_sdk**目录 (或 Mac 上的 **agora_sdk_mac** 目录) 路径添加到 LD_LIBRARY_PATH (或 Mac 上的 DYLD_LIBRARY_PATH) 环境变量中。
 
-## 如何使用rtm
-1、先遵循上述步骤make deps/make build 构建rtc
-2、用script/rtminstall.sh 安装rtm有关的sdk
-3、用script/rtmbuild.sh 构建rtm demo
-4、参考cmd/example demo 来使用rtm
+## 如何使用 RTM
+
+1. **构建 RTC**  
+   按照上文步骤（`make deps` / `make build`）完成 RTC 的依赖安装和构建。
+
+2. **安装 RTM 相关 SDK**  
+   ```bash
+   ./script/rtminstall.sh
+   ```
+
+3. **构建 RTM Demo**  
+   ```bash
+   ./script/rtmbuild.sh
+   ```
+
+4. **运行 RTM Demo**  
+   参考 `cmd/example` 下的 demo 实现，或在 `bin` 目录下运行：
+   ```bash
+   cd bin
+   ./rtmdemo <appid> <channelname> <userid>
+   ```
+   > 请将 `<appid>`、`<channelname>` 和 `<userid>` 替换为你自己的信息。
+
+5. **更多用法**  
+   可参考源码 `cmd/example` 进行集成和开发。
 
 ##  ❗ ❗逻辑关系，非常重要 ❗ ❗
 - 一个进程只能有一个service instance；在进程开始的时候，创建service；在进程结束的时候，销毁service。
