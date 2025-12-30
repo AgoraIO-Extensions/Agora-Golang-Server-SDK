@@ -157,6 +157,11 @@ func main() {
 		fmt.Println("RegisterLocalUserObserver failed, ret ", ret)
 		return
 	}
+	subvideoopt := &agoraservice.VideoSubscriptionOptions{
+		StreamType:       agoraservice.VideoStreamHigh,
+		EncodedFrameOnly: true,
+	}
+	con.GetLocalUser().SubscribeAllVideo(subvideoopt)
 	con.RegisterVideoEncodedFrameObserver(encodedVideoObserver)
 
 	con.Connect(token, channelName, userId)
