@@ -158,6 +158,13 @@ When printing every callback result:
 VAD only: Processing 1840ms of input data takes 16ms. 115x speedup
 APM+VAD+APM dump disabled: Processing 1840ms of input data takes 46ms. 40x speedup
 
+## 2026.01.05 Release Version 2.4.4
+
+- **SDK Update**: Upgraded to version 156, which internally adds a peer status broadcast packet. This can help reduce delays in the `onUserJoined` callback under certain circumstances.
+- **New Feature**: Added the `SetLocalAccessPoint` API to support private deployment. Usage: call this API after `NewRtcConnection()` and before `con.Connect()`.
+- **New Callback**: Added the `OnIntraRequestReceived` callback. When this client is sending an encoded video (not sending raw YUV), receiving a remote user's request for a key frame will trigger this callback. After receiving this request, you can pre-encode a key frame and push it to the RTC.
+
+
 ## 2025.12.17 Release Version 2.4.3
 
 - New: Added support for the `SendIntraRequest` method, which allows you to actively request an encoded key frame (key frame) from a remote user.
