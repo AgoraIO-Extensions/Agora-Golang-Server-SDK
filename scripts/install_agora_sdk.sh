@@ -62,6 +62,9 @@ mac_sdk="https://download.agora.io/sdk/release/agora_sdk_mac_Agora_Native_SDK_fo
 linux_sdk="https://download.agora.io/sdk/release/agora_rtc_sdk_x86_64-linux-gnu-v4.4.32.154_26982_SERVER_20251210_1745_994155_20251021_1427-3a.zip"
 mac_sdk="https://download.agora.io/sdk/release/agora_sdk_mac_v4.4.32.154_26308_FULL_20251210_1756_994156_20251021_1427-3a.zip"
 #end usrl
+#date: 20251230 update sdk to 156 for 2.4.4
+linux_sdk="https://download.agora.io/sdk/release/agora_rtc_sdk_x86_64-linux-gnu-v4.4.32.156_27122_SERVER_20251229_1956_996360_20251021_1427-3a.zip"
+mac_sdk="https://download.agora.io/sdk/release/agora_sdk_mac_v4.4.32.156_26548_FULL_20251230_1429_996508_20251021_1427-3a.zip"
 
 if [[ $UNAME_S == Linux ]]; then
     OS=linux
