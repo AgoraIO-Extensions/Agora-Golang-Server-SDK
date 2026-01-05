@@ -505,3 +505,16 @@ func goOnCapabilitiesChanged(cCapObserverHandle unsafe.Pointer, caps *C.struct__
 	}
 	con.handleCapabilitiesChanged(caps, size)
 }
+//export goOnIntraRequestReceived
+func goOnIntraRequestReceived(cLocalUser unsafe.Pointer) {
+	//validity check
+	if cLocalUser == nil {
+		return
+	}
+	// get conn from handle
+	con := agoraService.getConFromHandle(cLocalUser, ConTypeCLocalUser)
+	if con == nil || con.localUserObserver == nil || con.localUserObserver.OnIntraRequestReceived == nil {
+		return
+	}
+	con.localUserObserver.OnIntraRequestReceived(con.GetLocalUser())
+}
