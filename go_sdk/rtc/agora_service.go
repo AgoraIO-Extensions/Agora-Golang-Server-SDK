@@ -219,7 +219,8 @@ func Initialize(cfg *AgoraServiceConfig) int {
 			}
 		}
 
-		// enable apm filter but disable 3a by default
+		// enable apm filter but disable 3a by default！must enable this extension for vad
+		// or vad will not work
 		EnableExtension("agora.builtin", "audio_processing_remote_playback", "", true)
 		if isSupportExternalAudioProcessor(cfg.APMModel) {
 			EnableExtension("agora.builtin", "audio_processing_pcm_source", "", true)
@@ -605,5 +606,160 @@ func isEnableAPM(model int) bool {
 		return false
 	}
 	return true
+}
+// SetLocalAccessPoint related struct and function
+// part1: struct def.
+type LocalProxyMode int
+
+const (
+    LocalProxyModeConnectivityFirst LocalProxyMode = 0
+    LocalProxyModeLocalOnly         LocalProxyMode = 1
+)
+
+type LogUploadServerInfo struct {
+    ServerDomain string
+    ServerPath   string
+    ServerPort   int
+    ServerHTTPS  bool
+}
+
+type AdvancedConfigInfo struct {
+    LogUploadServerInfo LogUploadServerInfo
+}
+
+type LocalAccessPointConfiguration struct {
+    IPList           []string
+    DomainList       []string
+    VerifyDomainName string
+    Mode             LocalProxyMode
+    AdvancedConfig   AdvancedConfigInfo
+    DisableAut       bool
+}
+
+//part2: function def.
+// convert from Go's LogUploadServerInfo to C version,private not exported
+func (goInfo *LogUploadServerInfo) toC() C.log_upload_server_info {
+    cInfo := C.log_upload_server_info{
+        server_port: C.int(goInfo.ServerPort),
+        server_https: C.bool(goInfo.ServerHTTPS),
+    }
+    
+    // convert string fields(need to free memory outside)
+    if goInfo.ServerDomain != "" {
+        cInfo.server_domain = C.CString(goInfo.ServerDomain)
+    }
+    if goInfo.ServerPath != "" {
+        cInfo.server_path = C.CString(goInfo.ServerPath)
+    }
+    
+    return cInfo
+}
+
+// convert from Go's AdvancedConfigInfo to C version,private not exported
+func (goInfo *AdvancedConfigInfo) toC() C.advanced_config_info {
+    return C.advanced_config_info{
+        log_upload_server_info: goInfo.LogUploadServerInfo.toC(),
+    }
+}
+
+// convert from Go's LocalAccessPointConfiguration to C version,private not exported
+func (goConfig *LocalAccessPointConfiguration) toC() *C.local_access_point_configuration {
+    cConfig := &C.local_access_point_configuration{
+        mode:       C.LOCAL_PROXY_MODE(goConfig.Mode),
+        disable_aut: C.bool(goConfig.DisableAut),
+    }
+    
+    // convert IP list
+    if len(goConfig.IPList) > 0 {
+        cConfig.ip_list_size = C.int(len(goConfig.IPList))
+        //cIPs := make([]*C.char, len(goConfig.IPList))
+		cIPs := C.malloc(C.size_t(len(goConfig.IPList)) * C.size_t(unsafe.Sizeof(uintptr(0))))
+        for i, ip := range goConfig.IPList {
+            cIP := C.CString(ip)
+			ptr := (**C.char)(unsafe.Pointer(uintptr(unsafe.Pointer(cIPs)) + uintptr(i)*unsafe.Sizeof(uintptr(0))))
+			*ptr = cIP
+        }
+        cConfig.ip_list = (**C.char)(unsafe.Pointer(cIPs))
+    }
+    
+    // convert domain list
+    if len(goConfig.DomainList) > 0 {
+        cConfig.domain_list_size = C.int(len(goConfig.DomainList))
+        //cDomains := make([]*C.char, len(goConfig.DomainList))
+		cDomains := C.malloc(C.size_t(len(goConfig.DomainList)) * C.size_t(unsafe.Sizeof(uintptr(0))))
+        for i, domain := range goConfig.DomainList {
+            cDomain := C.CString(domain)
+			ptr := (**C.char)(unsafe.Pointer(uintptr(unsafe.Pointer(cDomains)) + uintptr(i)*unsafe.Sizeof(uintptr(0))))
+			*ptr = cDomain
+        }
+        cConfig.domain_list = (**C.char)(unsafe.Pointer(cDomains))
+    }
+    
+    // convert verify domain name
+    if goConfig.VerifyDomainName != "" {
+        cConfig.verify_domain_name = C.CString(goConfig.VerifyDomainName)
+    }
+    
+    // convert advanced config
+    cConfig.advanced_config_info = goConfig.AdvancedConfig.toC()
+    
+    return cConfig
+}
+
+// free C structure memory,private not exported
+func freeCLocalAccessPointConfiguration(cConfig *C.local_access_point_configuration) {
+    if cConfig == nil {
+        return
+    }
+    
+    // free IP list
+    if cConfig.ip_list != nil && cConfig.ip_list_size > 0 {
+        cIPs := (*[1 << 30]*C.char)(unsafe.Pointer(cConfig.ip_list))[:cConfig.ip_list_size:cConfig.ip_list_size]
+        for i := 0; i < int(cConfig.ip_list_size); i++ {
+            C.free(unsafe.Pointer(cIPs[i]))
+        }
+        C.free(unsafe.Pointer(cConfig.ip_list))
+    }
+    
+    // free domain list
+    if cConfig.domain_list != nil && cConfig.domain_list_size > 0 {
+        cDomains := (*[1 << 30]*C.char)(unsafe.Pointer(cConfig.domain_list))[:cConfig.domain_list_size:cConfig.domain_list_size]
+        for i := 0; i < int(cConfig.domain_list_size); i++ {
+            C.free(unsafe.Pointer(cDomains[i]))
+        }
+        C.free(unsafe.Pointer(cConfig.domain_list))
+    }
+    
+    // free single string field
+    if cConfig.verify_domain_name != nil {
+        C.free(unsafe.Pointer(cConfig.verify_domain_name))
+    }
+    
+    // free nested structure string fields
+    if cConfig.advanced_config_info.log_upload_server_info.server_domain != nil {
+        C.free(unsafe.Pointer(cConfig.advanced_config_info.log_upload_server_info.server_domain))
+    }
+    if cConfig.advanced_config_info.log_upload_server_info.server_path != nil {
+        C.free(unsafe.Pointer(cConfig.advanced_config_info.log_upload_server_info.server_path))
+    }
+}
+// NOTE: should call after con: = NewRtcConnection(),but before con.Connect()
+func SetLocalAccessPoint(config *LocalAccessPointConfiguration) int {
+	if agoraService.service == nil {
+		return -1000
+	}
+	if config == nil {
+		return -1001
+	}
+	if len(config.IPList) == 0 && len(config.DomainList) == 0 {
+		return -1002
+	}
+	if agoraService.inited == false {
+		return -1003
+	}
+	cConfig := config.toC()	
+	defer freeCLocalAccessPointConfiguration(cConfig)
+	ret := int(C.agora_service_set_local_access_point(agoraService.service, cConfig))
+	return ret
 }
 
