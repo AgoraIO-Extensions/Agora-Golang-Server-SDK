@@ -175,6 +175,13 @@ externalaudioprocessor 使用方法：
 只启动vad：输入1840ms的数据，处理耗时16ms。x 115 倍数
 启动apm+vad+关闭apmdump： 输入1840ms的数据，处理耗时 46ms。x 40 倍数
 
+## 2026.01.05 发布 2.4.4 版本
+
+- **SDK 更新**：升级至 156 版，内部增加 peer status 的广播包，可优化在某些情况下 `onUserJoined` 回调的延迟。
+- **新功能**：新增 `SetLocalAccessPoint` 接口，用于支持私有化部署。调用方式：需在 `NewRtcConnection()` 后、`con.Connect()` 前调用。
+- **新回调**：新增 `OnIntraRequestReceived` 回调。当本端发送编码后的视频（不是发送 yuv）时，收到远端用户请求编码关键帧，将触发该回调。收到此请求后，可预编码一个关键帧并推送到 rtc。
+
+
 ## 2025.12.17 发布 2.4.3 版本
 
 - 新增：支持 `SendIntraRequest` 方法，可主动向远端用户请求编码关键帧（key frame）。

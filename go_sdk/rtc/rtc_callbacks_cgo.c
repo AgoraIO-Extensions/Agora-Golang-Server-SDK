@@ -152,3 +152,8 @@ extern void goOnCapabilitiesChanged(void* agora_local_user, struct  _capabilitie
 void cgo_on_capabilities_changed(AGORA_HANDLE agora_local_user, const capabilities* caps, int size) {
   goOnCapabilitiesChanged(agora_local_user, (struct _capabilities*)caps, size);
 }
+
+extern void goOnIntraRequestReceived(void* agora_local_user);
+void cgo_on_intra_request_received(AGORA_HANDLE agora_local_user) {
+  goOnIntraRequestReceived(agora_local_user);
+}

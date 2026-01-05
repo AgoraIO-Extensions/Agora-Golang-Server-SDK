@@ -4,6 +4,7 @@ import (
 	//"bytes"
 	//"bufio"
 	"fmt"
+	"math"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
@@ -18,6 +19,7 @@ import (
 
 	rtctokenbuilder "github.com/AgoraIO/Tools/DynamicKey/AgoraDynamicKey/go/src/rtctokenbuilder2"
 )
+
 /*
 date:2025-09-15
 author: weihongqin
@@ -186,13 +188,14 @@ func SendTTSDataToClient(samplerate int, audioConsumer *agoraservice.AudioConsum
 	}
 }
 
-func calculateEnergyFast(data []byte) uint64 {
-	var energy uint64
+func calculateEnergyFast(data []byte) int32 {
+	var energy int32
+	samplelen := len(data)/2
 	samples := unsafe.Slice((*int16)(unsafe.Pointer(&data[0])), len(data)/2)
 	for _, s := range samples {
-		energy += uint64(s) * uint64(s)
+		energy += int32(s) * int32(s)
 	}
-	return energy
+	return (energy/int32(samplelen))
 }
 func mixAudio(data1 []byte, data2 []byte) []byte {
 	// check if the length of data1 and data2 is the same
@@ -1351,13 +1354,17 @@ func main() {
 
 	agoraservice.Initialize(svcCfg)
 
+
 	// global set audio dump
 	agoraParameterHandler := agoraservice.GetAgoraParameter()
 	//agoraParameterHandler.SetParameters("{\"che.audio.acm_ptime\":40}")
 	agoraParameterHandler.SetParameters("{\"che.audio.custom_bitrate\":32000}")
 	//agoraParameterHandler.SetParameters("{\"che.audio.opus_celt_only\":true}")
+	//agoraParameterHandler.SetParameters("{\"che.audio.custom_payload_type\":9}")
 
-	
+	// force vos to london for chuanyin  test!!
+	agoraParameterHandler.SetParameters("{\"rtc.vos_list\":[\"104.166.161.29:4051\"]}")
+
 
 	conCfg := &agoraservice.RtcConnectionConfig{
 		AutoSubscribeAudio: true,
@@ -1383,11 +1390,12 @@ func main() {
 	publishConfig.VideoPublishType = agoraservice.VideoPublishTypeNoPublish
 	publishConfig.AudioScenario = agoraservice.AudioScenarioAiServer
 	publishConfig.AudioProfile = agoraservice.AudioProfileDefault
-	
-	publishConfig.SendExternalAudioParameters.Enabled = true
+
+	/*
+	publishConfig.SendExternalAudioParameters.Enabled = false
 	publishConfig.SendExternalAudioParameters.SendMs = 2000
 	publishConfig.SendExternalAudioParameters.SendSpeed = 2
-
+*/
 	
 	con := agoraservice.NewRtcConnection(conCfg, publishConfig)
 	
@@ -1401,9 +1409,29 @@ func main() {
 	con.GetAgoraParameter().SetParameters("{\"che.audio.frame_dump\":{\"location\":\"all\",\"action\":\"start\",\"max_size_bytes\":\"100000000\",\"uuid\":\"123456789\", \"duration\": \"150000\"}}")
 
 	
+	// verify peer status broadcast protocol, avg diff for testing is 349ms !!
+	// must set this before join channel!!
+	con.GetAgoraParameter().SetParameters("{\"rtc.enable_peer_state_rexfer\":true}")
+	con.GetAgoraParameter().SetParameters("{\"rtc.peer_state_rexfer_strategy\":[20,50,50,60,100,10]}")
+	
+	
 	// todo: chuanyin test
 	parser := NewSessionParser(chuanyin_callback)
 	parser.Start()
+
+	
+	/*
+	// test case: local access point config 
+	localAccessPointConfig := &agoraservice.LocalAccessPointConfiguration{
+		IPList: []string{"10.62.0.95", "10.62.0.96", "10.62.0.97"},
+		DomainList: []string{"ap.1452738.agora.local", "ap.1452739.agora.local", "ap.1452740.agora.local"},
+		VerifyDomainName: "ap.1452738.agora.local",
+		Mode: agoraservice.LocalProxyModeConnectivityFirst,
+		DisableAut: false,
+	}
+	agoraservice.SetLocalAccessPoint(localAccessPointConfig)
+	*/
+	
 
 	//audioQueue := agoraservice.NewQueue(10)
 
@@ -1437,10 +1465,13 @@ func main() {
 			fmt.Printf("Connection failure, error code %d\n", errCode)
 		},
 		OnUserJoined: func(con *agoraservice.RtcConnection, uid string) {
-			fmt.Println("user joined, " + uid)
+			now := time.Now()	
+    // 布局字符串为 "2006::01::02 15:04:05.000"
+    		fmt.Println(now.Format("2006:01:02 15:04:05.000")+" user joined, " + uid)
 		},
 		OnUserLeft: func(con *agoraservice.RtcConnection, uid string, reason int) {
-			fmt.Println("user left, " + uid)
+			now := time.Now()
+    		fmt.Println(now.Format("2006:01:02 15:04:05.000")+" user left, " + uid)
 		},
 		OnAIQoSCapabilityMissing: func(con *agoraservice.RtcConnection, defaultFallbackSenario int) int {
 			fmt.Printf("onAIQoSCapabilityMissing, defaultFallbackSenario: %d\n", defaultFallbackSenario)
@@ -1503,10 +1534,14 @@ func main() {
 			}
 			// 3: 做方波信号的echo
 			threshold_value := -25
-			// from 2.4.1 for new vad algorithm
+			// from 2.4.1 for new vad algorithm; 60 for iot
 			threshold_value =  100
+			threshold_value = 1300  // for no-apm case
 			if mode == 3 {
-				if frame.Rms > threshold_value {
+				curEnergy := calculateEnergyFast(frame.Buffer)
+				rms := math.Sqrt(float64(curEnergy))
+				fmt.Printf("curEnergy: %d, rms: %d, sqrt: %02f\n", curEnergy, frame.Rms, rms)
+				if int(rms)> threshold_value {
 					// from trough to peak​​ now
 					if is_square_wave_inpeak == false {
 						fmt.Printf("????????#####$$$$$$$ square_wave IN peak now: %d, through count: %d\n",1, square_wave_count)
@@ -1607,6 +1642,9 @@ func main() {
 		},
 		OnAudioTrackUnpublished: func(localUser *agoraservice.LocalUser, audioTrack *agoraservice.LocalAudioTrack) {
 			fmt.Printf("*****Audio track unpublished, time %d\n", time.Now().UnixMilli())
+		},
+		OnIntraRequestReceived: func(localUser *agoraservice.LocalUser) {
+			fmt.Printf("*****Intra request received, time %d\n", time.Now().UnixMilli())
 		},
 	}
 

@@ -107,3 +107,4 @@ extern void cgo_on_audio_track_unpublished(AGORA_HANDLE agora_local_user, AGORA_
 
 // added on 2025-06-13
 extern void cgo_on_capabilities_changed(AGORA_HANDLE agora_local_user, const capabilities* caps, int size);
+extern void cgo_on_intra_request_received(AGORA_HANDLE agora_local_user);
