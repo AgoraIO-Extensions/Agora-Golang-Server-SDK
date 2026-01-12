@@ -62,7 +62,7 @@ func main() {
 	svcCfg.DataDir = "./agora_rtc_log"
 
 	agoraservice.Initialize(svcCfg)
-	scenario := agoraservice.AudioScenarioChorus
+	scenario := agoraservice.AudioScenarioDefault
 	
 
 	conCfg := agoraservice.RtcConnectionConfig{
@@ -131,7 +131,7 @@ func main() {
 				frameLastRecvTime = time.Now().UnixMilli()
 			}
 			// do something
-			fmt.Printf("recv video frame, from channel %s, user %s\n", channelId, userId)
+			//fmt.Printf("recv video frame, from channel %s, user %s\n", channelId, userId)
 			return true
 		},
 	}
@@ -148,33 +148,46 @@ func main() {
 	<-conSignal
 
 	// can update in session life cycle
-	con.SetVideoEncoderConfiguration(&agoraservice.VideoEncoderConfiguration{
-		CodecType:         agoraservice.VideoCodecTypeAv1,
-		Width:             320,
-		Height:            240,
-		Framerate:         30,
-		Bitrate:           1000,
-		MinBitrate:        400,
-		OrientationMode:   agoraservice.OrientationModeAdaptive,
-		DegradePreference: 2,
+	encoderCfg := agoraservice.NewVideoEncoderConfiguration()
+	encoderCfg.Width = 960
+	encoderCfg.Height = 720
+	encoderCfg.Framerate = 20
+
+	encoderCfg.Bitrate = 1700
+	encoderCfg.MinBitrate = -1
+	
+	con.SetVideoEncoderConfiguration(encoderCfg)
+
+	// enable dual video stream
+	/*
+	con.SetSimulcastStream(true, &agoraservice.SimulcastStreamConfig{
+		Width: 480,
+		Height: 360,
+		Bitrate: 500,
+		Framerate: 10,
 	})
+	*/
 	
 	con.PublishVideo()
 
-	
-	// for yuv test
-	
-	w := 352
-	h := 288
-	dataSize := w * h * 3 / 2
-	data := make([]byte, dataSize)
-	// read yuv from file 103_RaceHorses_416x240p30_300.yuv
-	file, err := os.Open("../test_data/send_video_cif.yuv")
+	// for yuv 
+	w := 960
+	h := 720
+	//file, err := os.Open("../test_data/send_video_cif.yuv")
+	file, err := os.Open("../test_data/960-720.yuv")
 	if err != nil {
 		fmt.Println("Error opening file:", err)
 		return
 	}
 	defer file.Close()
+
+	
+	// for yuv test
+	
+	dataSize := w * h * 3 / 2
+	data := make([]byte, dataSize)
+	// read yuv from file 103_RaceHorses_416x240p30_300.yuv
+	
 
 	for !*bStop {
 		dataLen, err := file.Read(data)
@@ -193,6 +206,7 @@ func main() {
 		})
 		time.Sleep(33 * time.Millisecond)
 	}
+	
 	
 	/*
 	// rgag colos space type test
@@ -224,6 +238,7 @@ func main() {
 			Height:    h,
 			Timestamp: 0,
 			
+			
 			// for rgba with pure background color test
 			ColorSpace: agoraservice.ColorSpaceType{
 				MatrixId:    1,
@@ -235,6 +250,7 @@ func main() {
 		time.Sleep(33 * time.Millisecond)
 	}
 	*/
+	
 	
 
 	//release now
