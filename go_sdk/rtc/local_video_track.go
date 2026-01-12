@@ -43,6 +43,27 @@ type LocalVideoTrack struct {
 	cTrack unsafe.Pointer
 }
 
+type SimulcastStreamConfig struct {
+	Width int
+	Height int
+	Bitrate int
+	Framerate int
+}
+
+func NewVideoEncoderConfiguration() *VideoEncoderConfiguration {
+	return &VideoEncoderConfiguration{
+		CodecType:         VideoCodecTypeH264,
+		Width:             0,
+		Height:            0,
+		Framerate:         15,
+		Bitrate:           0, //0: meas STAND_BITRATE, in this mode, the bitrate is twice of the base bitrate
+		MinBitrate:        -1, // default value is -1
+		OrientationMode:   OrientationModeAdaptive,
+		DegradePreference: DegradeMaintainQuality,
+		MirrorMode: VideoMirrorModeDisabled,
+	}
+}
+
 func NewCustomVideoTrackFrame(videoSender *VideoFrameSender) *LocalVideoTrack {
 	cTrack := C.agora_service_create_custom_video_track_frame(agoraService.service, videoSender.cSender)
 	if cTrack == nil {
@@ -105,4 +126,21 @@ func (track *LocalVideoTrack) setVideoEncoderConfiguration(cfg *VideoEncoderConf
 	cCfg.mirror_mode = C.int(cfg.MirrorMode)
 	cCfg.encode_alpha = CIntFromBool(cfg.EncodeAlpha)
 	return int(C.agora_local_video_track_set_video_encoder_config(track.cTrack, &cCfg))
+}
+func (track *LocalVideoTrack) setSimulcastStream(enable bool, config *SimulcastStreamConfig) int {
+	if track == nil || track.cTrack == nil {
+		return -2000
+	}
+	cEnable := 0
+	if enable {
+		cEnable = 1
+	}
+	// convert the config to C version
+	cConfig := C.struct__simulcast_stream_config{}
+	C.memset(unsafe.Pointer(&cConfig), 0, C.sizeof_struct__simulcast_stream_config)
+  	cConfig.dimensions.width = C.int(config.Width)
+	cConfig.dimensions.height = C.int(config.Height)
+	cConfig.bitrate = C.int(config.Bitrate)
+	cConfig.framerate = C.int(config.Framerate)
+	return int(C.agora_local_video_track_enable_simulcast_stream(track.cTrack, C.int(cEnable), &cConfig))
 }

@@ -175,6 +175,13 @@ externalaudioprocessor 使用方法：
 只启动vad：输入1840ms的数据，处理耗时16ms。x 115 倍数
 启动apm+vad+关闭apmdump： 输入1840ms的数据，处理耗时 46ms。x 40 倍数
 
+## 2026.01.12 发布 2.4.5 版本
+
+- **新功能**：新增 `SetSimulcastStream` 接口，用于支持将一路流编码为双流。  
+  **调用方式**：可以在任何时候调用，推荐在 `PublishVideo` 前调用。
+  **参考代码**：`send_recv_yuv.go`
+
+
 ## 2026.01.05 发布 2.4.4 版本
 
 - **SDK 更新**：升级至 156 版，内部增加 peer status 的广播包，可优化在某些情况下 `onUserJoined` 回调的延迟。
