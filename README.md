@@ -158,6 +158,13 @@ When printing every callback result:
 VAD only: Processing 1840ms of input data takes 16ms. 115x speedup
 APM+VAD+APM dump disabled: Processing 1840ms of input data takes 46ms. 40x speedup
 
+
+## 2026.01.12 Release Version 2.4.5
+
+- **New Feature**: Added the `SetSimulcastStream` API, which allows a single stream to be encoded as dual streams (simulcast).
+  **Usage**: This API can be called at any time, but it is recommended to call it before `PublishVideo`.
+  **Sample Reference**: See `send_recv_yuv.go`
+
 ## 2026.01.05 Release Version 2.4.4
 
 - **SDK Update**: Upgraded to version 156, which internally adds a peer status broadcast packet. This can help reduce delays in the `onUserJoined` callback under certain circumstances.
