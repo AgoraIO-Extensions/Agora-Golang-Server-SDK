@@ -1597,3 +1597,30 @@ func (conn *RtcConnection) SendIntraRequest(remoteUid string) int {
 	ret := int(C.agora_local_user_send_intra_request(conn.localUser.cLocalUser, cUid))
 	return ret
 }
+// SetSimulcastStream: to enable or disalbe dual video stream when publishing video through yuv
+// and can be called anytime after connection is connected
+// normally the call sequence should be:
+// 1. set the video encoder configuration
+// 2. set the simulcast stream config
+// 3. publish video
+// 4. during the publishing, can call the api to update the simulcast stream config without stopping the publishing
+
+// if want disable the simulcast stream, just call the api with enable=false, and config=nil
+func (conn *RtcConnection) SetSimulcastStream(enable bool, config *SimulcastStreamConfig) int {
+	if conn == nil || conn.cConnection == nil || conn.videoTrack == nil || conn.videoTrack.cTrack == nil {
+		return -1000
+	}
+	if (conn.videoTrack==nil || conn.videoTrack.cTrack==nil) {
+		return -1001
+	}
+
+	if enable == false && config == nil {
+		config = &SimulcastStreamConfig{
+			Width: 0,
+			Height: 0,
+			Bitrate: 0,
+			Framerate: 15,
+		}
+	}
+	return conn.videoTrack.setSimulcastStream(enable, config)
+}
