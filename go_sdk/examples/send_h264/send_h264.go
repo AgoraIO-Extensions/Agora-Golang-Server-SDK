@@ -196,14 +196,27 @@ func main() {
 			frameType = agoraservice.VideoFrameTypeDeltaFrame
 		}
 		data := C.GoBytes(unsafe.Pointer(packet.data), packet.size)
-		con.PushVideoEncodedData(data, &agoraservice.EncodedVideoFrameInfo{
+		// add sei to package
+		// RFC3339Nano (包含纳秒)
+		
+		timeStr := time.Now().Format(time.RFC3339Nano)
+		seiBytes := []byte(timeStr)
+	
+		// sample with sei data
+		// if do not need sei data, just remove SeiData field
+		isSendSei := false
+		videoinfo := &agoraservice.EncodedVideoFrameInfo{
 			CodecType:       agoraservice.VideoCodecTypeH264,
 			Width:           int(codecParam.width),
 			Height:          int(codecParam.height),
 			FramesPerSecond: int(codecParam.framerate.num / codecParam.framerate.den),
 			FrameType:       frameType,
 			Rotation:        agoraservice.VideoOrientation0,
-		})
+		}
+		if isSendSei {
+			videoinfo.SeiData = seiBytes
+		}
+		con.PushVideoEncodedData(data, videoinfo)
 		C.av_packet_unref(packet)
 		time.Sleep(time.Duration(sendInterval) * time.Millisecond)
 	}
