@@ -1304,6 +1304,15 @@ func (conn *RtcConnection) PushVideoEncodedData(data []byte, frameInfo *EncodedV
 	if conn == nil || conn.cConnection == nil || conn.encodedVideoSender == nil {
 		return -2000
 	}
+
+	// check and process SEI if needed
+	if frameInfo.SeiData != nil && len(frameInfo.SeiData) > 0 {
+		result := InsertSEIToEncodedData(data, frameInfo.SeiData, frameInfo.CodecType)
+		if result != nil {
+			data = result
+		}
+		//fmt.Printf("PushVideoEncodedData, sei data inserted, data size %d -> %d\n", len(data), len(result))
+	}
 	return conn.encodedVideoSender.SendEncodedVideoImage(data, frameInfo)
 }
 
