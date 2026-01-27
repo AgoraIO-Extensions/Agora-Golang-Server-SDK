@@ -390,6 +390,7 @@ type SendExternalAudioParameters struct {
 	DeliverMuteDataForFakeAdm bool
 }
 
+
 type RtcConnection struct {
 	cConnection unsafe.Pointer
 	connInfo    RtcConnectionInfo
@@ -442,6 +443,9 @@ type RtcConnection struct {
 
 	// for ai scenario send external audio parameters,default to nil
 	sendExternalAudioParameters *SendExternalAudioParameters
+
+	// for transcoding
+	transcodingWorker *TranscodingWorker
 }
 
 // for pcm consumption stats
@@ -500,6 +504,7 @@ func NewRtcConnection(cfg *RtcConnectionConfig, publishConfig *RtcConnectionPubl
 		publishConfig:               publishConfig,
 		dataStreamId:                -1,
 		sendExternalAudioParameters: nil,
+		transcodingWorker:           nil,
 	}
 
 	if isSupportExternalAudio(publishConfig) {
@@ -782,6 +787,9 @@ func (conn *RtcConnection) Disconnect() int {
 	if conn.cConnection == nil {
 		return -1
 	}
+
+	// for transcoding worker, stop it
+	conn.stopTranscodingWorker()
 	// date: 2025-07-04
 	//1. unpublish all tracks
 	conn.UnpublishAudio()
@@ -1632,4 +1640,43 @@ func (conn *RtcConnection) SetSimulcastStream(enable bool, config *SimulcastStre
 		}
 	}
 	return conn.videoTrack.setSimulcastStream(enable, config)
+}
+
+func (conn *RtcConnection) PushVideoEncodedDataForTranscode(data []byte, frameInfo *EncodedVideoFrameInfo) int {
+	if conn == nil || conn.cConnection == nil || conn.videoSender == nil {
+		return -2000
+	}
+	if conn.transcodingWorker == nil {
+		conn.startTranscodingWorker()
+	}
+
+	conn.transcodingWorker.PushEncodedData(data, frameInfo)
+
+	
+	return 0
+}
+func (conn *RtcConnection) handleDecodedVideoFrameForTranscode(frame *ExternalVideoFrame) int {
+    if conn == nil  {
+		return -2000
+	}
+	ret := conn.PushVideoFrame(frame)
+
+	return ret
+}
+func (conn *RtcConnection) startTranscodingWorker() int {
+	if conn.transcodingWorker != nil {
+		return -1000
+	}
+	fps := 15
+	conn.transcodingWorker = NewTranscodingWorker(conn, fps)
+	conn.transcodingWorker.Start()
+	return 0
+}
+func (conn *RtcConnection) stopTranscodingWorker() int {
+	if conn.transcodingWorker == nil {
+		return -1000
+	}
+	conn.transcodingWorker.Stop()
+	conn.transcodingWorker = nil
+	return 0
 }
