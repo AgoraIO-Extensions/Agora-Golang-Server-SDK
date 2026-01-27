@@ -83,8 +83,7 @@ func (vd *VideoDecoder) DecodeAndSave(data []byte, width, height, codecType int)
 		outframe.Timestamp = 0
 
 		vd.frameCount++
-		fmt.Printf("Decoded frame %d: %dx%d, YUV size: %d bytes\n",
-			vd.frameCount, yuvFrame.width, yuvFrame.height, yuvFrame.total_size)
+		//fmt.Printf("Decoded frame %d: %dx%d, YUV size: %d bytes\n",vd.frameCount, yuvFrame.width, yuvFrame.height, yuvFrame.total_size)
 	}
 
 	return outframe, ret
