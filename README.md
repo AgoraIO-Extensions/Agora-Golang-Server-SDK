@@ -159,7 +159,7 @@ VAD only: Processing 1840ms of input data takes 16ms. 115x speedup
 APM+VAD+APM dump disabled: Processing 1840ms of input data takes 46ms. 40x speedup
 
 ## 2026.01.28 Release Version 2.4.6 
-
+- **New Update**: update rtc sdk to 161 tag, can control bitrate more flexibly
 - **New Feature**: Added support for SEI in the `PushVideoEncodedData` interface, allowing transmission of SEI information in self-encoded video streams.  
   **Usage**: This interface can be called at any time. It is recommended to include the SEI information in `EncodedVideoFrameInfo.SeiData`.
   **Limitations**: `Only H.264/H.265 are supported; AV1 is temporarily not supported. The size must be less than 1k.`

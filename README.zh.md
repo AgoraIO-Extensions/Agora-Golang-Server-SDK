@@ -176,7 +176,7 @@ externalaudioprocessor 使用方法：
 启动apm+vad+关闭apmdump： 输入1840ms的数据，处理耗时 46ms。x 40 倍数
 
 ## 2026.01.28 发布 2.4.6 版本
-
+- **新更新**：更新sdk 到161 tag，可以更好的控制码率。
 - **新功能**：新增 `PushVideoEncodedData 中支持SEI` 接口，用于支持对自编码视频中带SEI信息。  
   **调用方式**：可以在任何时候调用，推荐在 `EncodedVideoFrameInfo.SeiData` 中带入sei 信息。
   **限制条件**：`只支持264/265，av1暂时不支持；大小需要小于1k`
