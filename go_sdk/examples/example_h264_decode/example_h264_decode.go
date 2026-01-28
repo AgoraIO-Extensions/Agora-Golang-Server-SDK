@@ -148,12 +148,31 @@ func main() {
 
 	con.RegisterObserver(&conHandler)
 
+	// can update in session life cycle
+	encoderCfg := agoraservice.NewVideoEncoderConfiguration()
+	encoderCfg.Width = 1920
+	encoderCfg.Height = 720
+	encoderCfg.Framerate = 24
+
+	encoderCfg.Bitrate = 1250
+	encoderCfg.MinBitrate = -1
+
 	// 注册视频编码帧观察者，用于接收编码的视频帧
 	encodedVideoObserver := &agoraservice.VideoEncodedFrameObserver{
 		OnEncodedVideoFrame: func(uid string, imageBuffer []byte, frameInfo *agoraservice.EncodedVideoFrameInfo) bool {
 			fmt.Printf("Received encoded video from uid: %s, size: %d, width: %d, height: %d, frameType: %d, codecType: %d\n",
 				uid, len(imageBuffer), frameInfo.Width, frameInfo.Height, frameInfo.FrameType, frameInfo.CodecType)
-			
+
+			//update encoder configuration
+			width := frameInfo.Width
+			height := frameInfo.Height
+			if width != encoderCfg.Width && height != encoderCfg.Height {
+				fmt.Printf("update encoder configuration, width: %d, height: %d\n", width, height)
+				encoderCfg.Width = width
+				encoderCfg.Height = height
+				con.SetVideoEncoderConfiguration(encoderCfg)
+				
+			}
 			// checck codec type: only process h264 codec type
 			if frameInfo.CodecType == agoraservice.VideoCodecTypeH264 {
 
@@ -178,14 +197,7 @@ func main() {
 		EncodedFrameOnly: true,
 	})
 
-	// can update in session life cycle
-	encoderCfg := agoraservice.NewVideoEncoderConfiguration()
-	encoderCfg.Width = 1920
-	encoderCfg.Height = 720
-	encoderCfg.Framerate = 24
-
-	encoderCfg.Bitrate = 1250
-	encoderCfg.MinBitrate = -1
+	
 	
 	con.SetVideoEncoderConfiguration(encoderCfg)
 
