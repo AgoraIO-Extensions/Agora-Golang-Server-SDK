@@ -175,6 +175,30 @@ externalaudioprocessor 使用方法：
 只启动vad：输入1840ms的数据，处理耗时16ms。x 115 倍数
 启动apm+vad+关闭apmdump： 输入1840ms的数据，处理耗时 46ms。x 40 倍数
 
+## 2026.01.28 发布 2.4.6 版本
+- **新更新**：更新sdk 到161 tag，可以更好的控制码率。
+- **新功能**：新增 `PushVideoEncodedData 中支持SEI` 接口，用于支持对自编码视频中带SEI信息。  
+  **调用方式**：可以在任何时候调用，推荐在 `EncodedVideoFrameInfo.SeiData` 中带入sei 信息。
+  **限制条件**：`只支持264/265，av1暂时不支持；大小需要小于1k`
+  **参考代码**：`send_h264.go`
+- **新功能**：新增 `FindSEI` 接口，用于解析编码数据流中的sei信息。
+  **调用方式**：推荐在 `OnEncodedVideoFrame` 中调用来做解析
+  **限制条件**：`只支持264/265，av1暂时不支持；是copy模式，不会修改原始编码码流`
+  **参考代码**：`send_h264.go`
+- **新功能**：新增 `PushVideoEncodedDataForTranscode` 接口，用于支持对自编码视频做转码操作。
+  **调用方式**：在sdk内部会启动2个task：decoding_task; encoding_task;
+  一个负责解码；一个负责将解码后的yuv数据timer的方式，发给sdk
+  decoding_task: 接收自编码数据，解码，必须确保输入的每一个自编码数据，都要做解码处理，不能丢数据。否则会导致解码失败。日志：对debug级别，可以打印每一个frame type、输出yuv的width/height；如果有解码失败，需要打印出来信息。
+  encoding_task: 接收解码后的yuv数据，编码。是以timer方式来推送给sdk做编码，允许drop 数据。
+  encoding_timer: 以20ms 的timer，内部根据setEncoderConfigure的参数来设定timer。
+  编码/解码的时钟漂移： 预估在timer范围内，应该是可以允许的。理论
+  **限制条件**：`只支持264码流，暂时不支持别的码流`
+  **参考代码**：`example_h264_decode.go`
+
+## 2026.01.12 发布 2.4.5 版本
+
+- **新功能**：新增 `SetSimulcastStream` 接口，用于支持将一路流编码为双流。
+
 ## 2026.01.12 发布 2.4.5 版本
 
 - **新功能**：新增 `SetSimulcastStream` 接口，用于支持将一路流编码为双流。  

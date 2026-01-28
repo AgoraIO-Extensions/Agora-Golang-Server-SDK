@@ -1404,7 +1404,7 @@ func main() {
 	// 0829版本：也需要在NewRtcConnection之后，调用一次SetParameters，否则，会不生效！！
 	// 但在每一NewRtcConnecton	后调用，不会产生线程的泄漏！
 	//agoraParameterHandler.SetParameters("{\"che.audio.frame_dump\":{\"location\":\"all\",\"action\":\"start\",\"max_size_bytes\":\"100000000\",\"uuid\":\"123456789\", \"duration\": \"150000\"}}")
-	fmt.Printf("agoraParameterHandler: %v\n", agoraParameterHandler)
+	//fmt.Printf("agoraParameterHandler: %v\n", agoraParameterHandler)
 	//推荐用con.GetAgoraParameter()来调用！这个对任意版本都工作，而且没有线程泄漏
 	con.GetAgoraParameter().SetParameters("{\"che.audio.frame_dump\":{\"location\":\"all\",\"action\":\"start\",\"max_size_bytes\":\"100000000\",\"uuid\":\"123456789\", \"duration\": \"150000\"}}")
 

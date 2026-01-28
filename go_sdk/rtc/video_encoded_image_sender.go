@@ -55,6 +55,10 @@ type EncodedVideoFrameInfo struct {
 	 */
 	StreamType int
 	PresentTimeMs int64
+	/**
+	 * The SEI data of the video frame. default is nil.
+	 */
+	SeiData []byte
 }
 
 type VideoEncodedImageSender struct {

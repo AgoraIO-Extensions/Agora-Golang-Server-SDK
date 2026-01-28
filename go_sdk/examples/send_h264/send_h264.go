@@ -44,6 +44,35 @@ func closeMediaFile(pFormatContext **C.struct_AVFormatContext) {
 	C.avformat_close_input(pFormatContext)
 }
 
+func ut_sei_test() {
+	metadataBuffer := []byte("Hello, Agora!")
+	fmt.Printf("metadata buffer:  % x\n", metadataBuffer)
+	// insert sei to 264
+	encoded := make([]byte, 2048)
+	seiData := []byte("BEGIN_OF_STRING_test sei data: 2026-01-17 10:00:00END_OF_STRING")
+	ret := agoraservice.InsertSEIToEncodedData(encoded, seiData, agoraservice.VideoCodecTypeH264)
+	fmt.Printf("insert sei data: %v, sei length: %d\n", ret, len(ret))	
+
+	result, seiLength := agoraservice.FindSEI(ret, agoraservice.VideoCodecTypeH264)
+	if result == nil {
+		fmt.Println("Failed to find 264 sei data", seiLength)
+	} else {
+		fmt.Printf("264 sei data:%s, sei length: %d, result length: %d\n", result, seiLength, len(result))
+	}
+
+	// for 265, insert sei to 265
+	encoded265 := make([]byte, 2048)
+	ret265 := agoraservice.InsertSEIToEncodedData(encoded265, seiData, agoraservice.VideoCodecTypeH265)
+	fmt.Printf("insert 265 sei data: %x , sei length: %d\n", ret265, len(ret265))
+
+	result265, seiLength265 := agoraservice.FindSEI(ret265, agoraservice.VideoCodecTypeH265)
+	if result265 == nil {
+		fmt.Println("Failed to find 265 sei data", seiLength265)
+	} else {
+		fmt.Printf("265 sei data:%s, sei length: %d, result length: %d\n", result265, seiLength265, len(result265))
+	}
+}
+
 func main() {
 	bStop := new(bool)
 	*bStop = false
@@ -89,7 +118,10 @@ func main() {
 	svcCfg.AppId = appid
 
 	agoraservice.Initialize(svcCfg)
-	
+
+	// sei test
+	ut_sei_test()
+	//end test
 	var con *agoraservice.RtcConnection = nil
 
 	conSignal := make(chan struct{})
@@ -196,14 +228,27 @@ func main() {
 			frameType = agoraservice.VideoFrameTypeDeltaFrame
 		}
 		data := C.GoBytes(unsafe.Pointer(packet.data), packet.size)
-		con.PushVideoEncodedData(data, &agoraservice.EncodedVideoFrameInfo{
+		// add sei to package
+		// RFC3339Nano (包含纳秒)
+		
+		timeStr := time.Now().Format(time.RFC3339Nano)
+		seiBytes := []byte(timeStr)
+	
+		// sample with sei data
+		// if do not need sei data, just remove SeiData field
+		isSendSei := true
+		videoinfo := &agoraservice.EncodedVideoFrameInfo{
 			CodecType:       agoraservice.VideoCodecTypeH264,
 			Width:           int(codecParam.width),
 			Height:          int(codecParam.height),
 			FramesPerSecond: int(codecParam.framerate.num / codecParam.framerate.den),
 			FrameType:       frameType,
 			Rotation:        agoraservice.VideoOrientation0,
-		})
+		}
+		if isSendSei {
+			videoinfo.SeiData = seiBytes
+		}
+		con.PushVideoEncodedData(data, videoinfo)
 		C.av_packet_unref(packet)
 		time.Sleep(time.Duration(sendInterval) * time.Millisecond)
 	}

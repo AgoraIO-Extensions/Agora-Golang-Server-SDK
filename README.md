@@ -158,6 +158,24 @@ When printing every callback result:
 VAD only: Processing 1840ms of input data takes 16ms. 115x speedup
 APM+VAD+APM dump disabled: Processing 1840ms of input data takes 46ms. 40x speedup
 
+## 2026.01.28 Release Version 2.4.6 
+- **New Update**: update rtc sdk to 161 tag, can control bitrate more flexibly
+- **New Feature**: Added support for SEI in the `PushVideoEncodedData` interface, allowing transmission of SEI information in self-encoded video streams.  
+  **Usage**: This interface can be called at any time. It is recommended to include the SEI information in `EncodedVideoFrameInfo.SeiData`.
+  **Limitations**: `Only H.264/H.265 are supported; AV1 is temporarily not supported. The size must be less than 1k.`
+  **Sample Reference**: `send_h264.go`
+- **New Feature**: Added the `FindSEI` interface, which can parse SEI information from an encoded data stream.
+  **Usage**: It is recommended to call this on receiving an encoded video frame in `OnEncodedVideoFrame`.
+  **Limitations**: `Only H.264/H.265 are supported; AV1 is temporarily not supported. This works in copy mode and will not modify the original encoded stream.`
+  **Sample Reference**: `send_h264.go`
+- **New Feature**: Added the `PushVideoEncodedDataForTranscode` interface, supporting transcoding for self-encoded video.
+  **Usage**: The SDK will start two internal tasks: `decoding_task` and `encoding_task`.
+    - `decoding_task`: Accepts encoded data and performs decoding. Every input encoded data must be decoded; dropping data will cause decoding failures. In debug mode, the log prints frame type, output YUV width/height, and error messages if decoding fails.
+    - `encoding_task`: Accepts decoded YUV data and performs encoding. Data is pushed to SDK on a timer and frame drops are permitted.
+    - `encoding_timer`: Uses a 20ms interval; the actual timer interval can be configured via `setEncoderConfigure`.
+    - Encoding/decoding clock drift: The drift is expected to be tolerable within the timer range, in theory.
+  **Limitations**: `Only H.264 is supported; other codecs are not currently supported.`
+  **Sample Reference**: `example_h264_decode.go`
 
 ## 2026.01.12 Release Version 2.4.5
 

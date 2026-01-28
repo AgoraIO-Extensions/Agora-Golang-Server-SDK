@@ -390,6 +390,7 @@ type SendExternalAudioParameters struct {
 	DeliverMuteDataForFakeAdm bool
 }
 
+
 type RtcConnection struct {
 	cConnection unsafe.Pointer
 	connInfo    RtcConnectionInfo
@@ -442,6 +443,11 @@ type RtcConnection struct {
 
 	// for ai scenario send external audio parameters,default to nil
 	sendExternalAudioParameters *SendExternalAudioParameters
+
+	// for transcoding
+	transcodingWorker *TranscodingWorker
+	// for video encoder configuration
+	videoEncoderConfiguration *VideoEncoderConfiguration
 }
 
 // for pcm consumption stats
@@ -500,6 +506,8 @@ func NewRtcConnection(cfg *RtcConnectionConfig, publishConfig *RtcConnectionPubl
 		publishConfig:               publishConfig,
 		dataStreamId:                -1,
 		sendExternalAudioParameters: nil,
+		transcodingWorker:           nil,
+		videoEncoderConfiguration:   nil,
 	}
 
 	if isSupportExternalAudio(publishConfig) {
@@ -782,6 +790,9 @@ func (conn *RtcConnection) Disconnect() int {
 	if conn.cConnection == nil {
 		return -1
 	}
+
+	// for transcoding worker, stop it
+	conn.stopTranscodingWorker()
 	// date: 2025-07-04
 	//1. unpublish all tracks
 	conn.UnpublishAudio()
@@ -1304,6 +1315,15 @@ func (conn *RtcConnection) PushVideoEncodedData(data []byte, frameInfo *EncodedV
 	if conn == nil || conn.cConnection == nil || conn.encodedVideoSender == nil {
 		return -2000
 	}
+
+	// check and process SEI if needed
+	if frameInfo.SeiData != nil && len(frameInfo.SeiData) > 0 {
+		result := InsertSEIToEncodedData(data, frameInfo.SeiData, frameInfo.CodecType)
+		if result != nil {
+			data = result
+		}
+		//fmt.Printf("PushVideoEncodedData, sei data inserted, data size %d -> %d\n", len(data), len(result))
+	}
 	return conn.encodedVideoSender.SendEncodedVideoImage(data, frameInfo)
 }
 
@@ -1446,8 +1466,10 @@ func (consumer *PcmConsumeStats) reset() {
 func (conn *RtcConnection) SetVideoEncoderConfiguration(cfg *VideoEncoderConfiguration) int {
 	// validate the connection
 	if conn == nil || conn.cConnection == nil || conn.videoTrack == nil || conn.videoTrack.cTrack == nil {
-		return -1
+		return -1000
 	}
+	// keep configure
+	conn.videoEncoderConfiguration = cfg
 
 	// validate the cfg
 
@@ -1623,4 +1645,54 @@ func (conn *RtcConnection) SetSimulcastStream(enable bool, config *SimulcastStre
 		}
 	}
 	return conn.videoTrack.setSimulcastStream(enable, config)
+}
+
+func (conn *RtcConnection) PushVideoEncodedDataForTranscode(data []byte, frameInfo *EncodedVideoFrameInfo) int {
+	if conn == nil || conn.cConnection == nil || conn.videoSender == nil {
+		return -2000
+	}
+	if conn.transcodingWorker == nil {
+		conn.startTranscodingWorker()
+	}
+
+	conn.transcodingWorker.PushEncodedData(data, frameInfo)
+
+	
+	return 0
+}
+func (conn *RtcConnection) handleDecodedVideoFrameForTranscode(frame *ExternalVideoFrame) int {
+    if conn == nil  {
+		return -2000
+	}
+	ret := conn.PushVideoFrame(frame)
+
+	return ret
+}
+func (conn *RtcConnection) startTranscodingWorker() int {
+	if conn.transcodingWorker != nil {
+		return -1000
+	}
+	fps := 15
+	if conn.videoEncoderConfiguration != nil {
+		fps = conn.videoEncoderConfiguration.Framerate
+	}
+	// range validation
+	if fps < 1  {
+		fps = 5
+	}
+	if fps > 30 {
+		fps = 30
+	}
+	fmt.Printf("startTranscodingWorker, fps: %d\n", fps)
+	conn.transcodingWorker = NewTranscodingWorker(conn, fps)
+	conn.transcodingWorker.Start()
+	return 0
+}
+func (conn *RtcConnection) stopTranscodingWorker() int {
+	if conn.transcodingWorker == nil {
+		return -1000
+	}
+	conn.transcodingWorker.Stop()
+	conn.transcodingWorker = nil
+	return 0
 }
