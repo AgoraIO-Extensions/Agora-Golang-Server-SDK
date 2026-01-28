@@ -156,6 +156,7 @@ func main() {
 
 	encoderCfg.Bitrate = 1250
 	encoderCfg.MinBitrate = -1
+	encoderCfg.DegradePreference = agoraservice.DegradeMaintainFramerate
 
 	// 注册视频编码帧观察者，用于接收编码的视频帧
 	encodedVideoObserver := &agoraservice.VideoEncodedFrameObserver{
