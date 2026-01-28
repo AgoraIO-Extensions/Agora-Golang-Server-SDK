@@ -446,6 +446,8 @@ type RtcConnection struct {
 
 	// for transcoding
 	transcodingWorker *TranscodingWorker
+	// for video encoder configuration
+	videoEncoderConfiguration *VideoEncoderConfiguration
 }
 
 // for pcm consumption stats
@@ -505,6 +507,7 @@ func NewRtcConnection(cfg *RtcConnectionConfig, publishConfig *RtcConnectionPubl
 		dataStreamId:                -1,
 		sendExternalAudioParameters: nil,
 		transcodingWorker:           nil,
+		videoEncoderConfiguration:   nil,
 	}
 
 	if isSupportExternalAudio(publishConfig) {
@@ -1463,8 +1466,10 @@ func (consumer *PcmConsumeStats) reset() {
 func (conn *RtcConnection) SetVideoEncoderConfiguration(cfg *VideoEncoderConfiguration) int {
 	// validate the connection
 	if conn == nil || conn.cConnection == nil || conn.videoTrack == nil || conn.videoTrack.cTrack == nil {
-		return -1
+		return -1000
 	}
+	// keep configure
+	conn.videoEncoderConfiguration = cfg
 
 	// validate the cfg
 
@@ -1668,6 +1673,17 @@ func (conn *RtcConnection) startTranscodingWorker() int {
 		return -1000
 	}
 	fps := 15
+	if conn.videoEncoderConfiguration != nil {
+		fps = conn.videoEncoderConfiguration.Framerate
+	}
+	// range validation
+	if fps < 1  {
+		fps = 5
+	}
+	if fps > 30 {
+		fps = 30
+	}
+	fmt.Printf("startTranscodingWorker, fps: %d\n", fps)
 	conn.transcodingWorker = NewTranscodingWorker(conn, fps)
 	conn.transcodingWorker.Start()
 	return 0
