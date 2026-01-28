@@ -71,6 +71,9 @@ func main() {
 	svcCfg.AppId = appid
 	// whether sending or receiving video, we need to set EnableVideo to true!!
 	svcCfg.EnableVideo = true
+	svcCfg.LogPath = "./agora_rtc_log/agorasdk.log"
+	svcCfg.ConfigDir = "./agora_rtc_log"
+	svcCfg.DataDir = "./agora_rtc_log"
 	
 
 	agoraservice.Initialize(svcCfg)
