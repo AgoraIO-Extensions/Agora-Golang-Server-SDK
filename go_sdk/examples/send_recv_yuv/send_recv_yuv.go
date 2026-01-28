@@ -159,14 +159,14 @@ func main() {
 	con.SetVideoEncoderConfiguration(encoderCfg)
 
 	// enable dual video stream
-	/*
+	
 	con.SetSimulcastStream(true, &agoraservice.SimulcastStreamConfig{
-		Width: 480,
-		Height: 360,
-		Bitrate: 500,
+		Width: 384,
+		Height: 216,
+		Bitrate: 300,
 		Framerate: 10,
 	})
-	*/
+	
 	
 	con.PublishVideo()
 
@@ -180,6 +180,11 @@ func main() {
 		return
 	}
 	defer file.Close()
+
+	con.GetLocalUser().SubscribeAllVideo(&agoraservice.VideoSubscriptionOptions{
+		StreamType:       agoraservice.VideoStreamLow,
+		EncodedFrameOnly: true,
+	})
 
 	
 	// for yuv test
@@ -203,6 +208,7 @@ func main() {
 			Stride:    w,
 			Height:    h,
 			Timestamp: 0,
+			MetadataBuffer: []byte("Hello, Agora!"),
 		})
 		time.Sleep(33 * time.Millisecond)
 	}
