@@ -32,14 +32,19 @@ struct H264Decoder {
 H264Decoder* h264_decoder_init(void) {
     H264Decoder *decoder = (H264Decoder*)calloc(1, sizeof(H264Decoder));
     if (!decoder) {
-        //fprintf(stderr, "Failed to allocate decoder memory\n");
+        fprintf(stderr, "Failed to allocate decoder memory\n");
         return NULL;
     }
+    // should register all the codecs
+    #if LIBAVCODEC_VERSION_MAJOR < 58
+    // FFmpeg 3.x and earlier versions need to register all the codecs
+        avcodec_register_all();
+    #endif
 
     // Find H.264 decoder
     decoder->codec = avcodec_find_decoder(AV_CODEC_ID_H264);
     if (!decoder->codec) {
-        //fprintf(stderr, "H.264 decoder not found\n");
+        fprintf(stderr, "H.264 decoder not found\n");
         free(decoder);
         return NULL;
     }
@@ -47,7 +52,7 @@ H264Decoder* h264_decoder_init(void) {
     // Allocate decoder context
     decoder->codec_ctx = avcodec_alloc_context3(decoder->codec);
     if (!decoder->codec_ctx) {
-        //fprintf(stderr, "Failed to allocate decoder context\n");
+        fprintf(stderr, "Failed to allocate decoder context\n");
         free(decoder);
         return NULL;
     }
@@ -58,7 +63,7 @@ H264Decoder* h264_decoder_init(void) {
 
     // Open decoder
     if (avcodec_open2(decoder->codec_ctx, decoder->codec, NULL) < 0) {
-        //fprintf(stderr, "Failed to open decoder\n");
+        fprintf(stderr, "Failed to open decoder\n");
         avcodec_free_context(&decoder->codec_ctx);
         free(decoder);
         return NULL;
@@ -68,7 +73,7 @@ H264Decoder* h264_decoder_init(void) {
     decoder->frame = av_frame_alloc();
     decoder->pkt = av_packet_alloc();
     if (!decoder->frame || !decoder->pkt) {
-        //fprintf(stderr, "Failed to allocate frame or packet memory\n");
+        fprintf(stderr, "Failed to allocate frame or packet memory\n");
         h264_decoder_free(decoder);
         return NULL;
     }
