@@ -150,7 +150,7 @@ func main() {
 
 	// can update in session life cycle
 	encoderCfg := agoraservice.NewVideoEncoderConfiguration()
-	encoderCfg.Width = 1920
+	encoderCfg.Width = 1280
 	encoderCfg.Height = 720
 	encoderCfg.Framerate = 24
 
