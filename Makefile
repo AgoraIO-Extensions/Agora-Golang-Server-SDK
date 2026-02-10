@@ -34,11 +34,14 @@ deps:
 	./scripts/install_agora_sdk.sh
 	$(GOGET) -v ./...
 
+# Build tags (e.g. make build TAGS=avcodec, or set default below)
+TAGS ?=
+
 # Build the project
 .PHONY: build
 build:
 	mkdir -p $(CURRENT_PATH)/bin
-	$(GOBUILD) -C $(CURRENT_PATH)/go_sdk/rtc -v -o $(CURRENT_PATH)/bin/rtc.a
+	$(GOBUILD) -C $(CURRENT_PATH)/go_sdk/rtc $(if $(TAGS),-tags $(TAGS),) -v -o $(CURRENT_PATH)/bin/rtc.a
 
 # Clean the project
 .PHONY: clean
