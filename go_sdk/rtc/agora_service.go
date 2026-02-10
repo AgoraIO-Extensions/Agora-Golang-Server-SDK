@@ -124,6 +124,8 @@ type AgoraService struct {
 	idleQueueMutex sync.Mutex
 	idleMode bool
 	apmModel int
+	// for encoded audio frame received
+	encAudioFrameObserverItemsMap sync.Map
 }
 
 // / newAgoraService creates a new instance of AgoraService
@@ -410,12 +412,22 @@ func (s *AgoraService) cleanup() {
         s.consByCEncodedVideoObserver.Delete(key)
         return true
     })
+	s.encAudioFrameObserverItemsMap.Range(func(key, value interface{}) bool {
+		if item, ok := value.(*EncAudioFrameObserverItem); ok {
+			s.encAudioFrameObserverItemsMap.Delete(key)
+			item.Con = nil
+			item.Uid = ""
+			item = nil
+		}
+		return true
+	})
 
     // After cleaning up all connections, set maps to nil
     s.consByCCon = sync.Map{}
     s.consByCLocalUser = sync.Map{}
     s.consByCVideoObserver = sync.Map{}
     s.consByCEncodedVideoObserver = sync.Map{}
+	s.encAudioFrameObserverItemsMap = sync.Map{}
 }
 
 // to get value from sync.Map, use Load method
@@ -479,6 +491,51 @@ func (s *AgoraService) deleteConFromHandle(handle unsafe.Pointer, conType int) b
 	}
 	return true
 }
+
+type EncAudioFrameObserverItem struct {
+	Uid string
+	Con *RtcConnection
+	Handle unsafe.Pointer
+}
+
+func (s *AgoraService) setEncAudioFrameObserverItem(handle unsafe.Pointer, uid string, con *RtcConnection) bool {
+	if handle == nil {
+		return false
+	}
+	item := &EncAudioFrameObserverItem{
+		Uid: uid,
+		Con: con,
+		Handle: handle,
+	}
+	s.encAudioFrameObserverItemsMap.Store(handle, item)
+	return true
+}
+func (s *AgoraService) getEncAudioFrameObserverItem(handle unsafe.Pointer) *EncAudioFrameObserverItem {
+	if handle == nil {
+		return nil
+	}
+	item, ok := s.encAudioFrameObserverItemsMap.Load(handle)
+	if !ok {
+		return nil
+	}
+	return item.(*EncAudioFrameObserverItem)
+}
+func (s *AgoraService) deleteEncAudioFrameObserverItem(handle unsafe.Pointer) bool {
+	if handle == nil {
+		return false
+	}
+	item, ok := s.encAudioFrameObserverItemsMap.Load(handle)
+	if !ok {
+		return false
+	}
+	s.encAudioFrameObserverItemsMap.Delete(handle)
+	encAudioFrameObserverItem := item.(*EncAudioFrameObserverItem)
+	encAudioFrameObserverItem.Con = nil
+	encAudioFrameObserverItem.Uid = ""
+	encAudioFrameObserverItem = nil
+	return true
+}
+
 //date: 20251028 for set apm filter related struct:
 //AiNSConfig: for AiNS , ns,and sf_st_cfg,sf_ext_cfg
 type AiNsConfig struct {
