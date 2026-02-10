@@ -67,6 +67,9 @@ func main() {
 	}
 	svcCfg := agoraservice.NewAgoraServiceConfig()
 	svcCfg.AppId = appid
+	svcCfg.LogPath = "./agora_rtc_log/agorasdk.log"
+	svcCfg.ConfigDir = "./agora_rtc_log"
+	svcCfg.DataDir = "./agora_rtc_log"
 
 	agoraservice.Initialize(svcCfg)
 	defer agoraservice.Release()
@@ -166,6 +169,16 @@ func main() {
 			return true
 		},
 	}
+	encaudioObserver := &agoraservice.AudioEncodedFrameObserver{
+		OnEncodedAudioFrameReceived: func(uid string, packet []byte, sendTs int64, codec int) {
+			//fmt.Printf("OnEncodedAudioFrameReceived, from userId %s\n", uid)
+			fmt.Printf("packet len: %d, sendTs: %d, codec: %d\n", len(packet), sendTs, codec)
+			// save to file
+		},
+	}
+
+	// for test encoded audio frame received
+	conCfg.AudioRecvEncodedFrame = true
 
 	conn = agoraservice.NewRtcConnection(&conCfg, publishConfig)
 
@@ -208,10 +221,12 @@ func main() {
 	<-conSignal
 
 	localUser = conn.GetLocalUser()
-	localUser.SetPlaybackAudioFrameBeforeMixingParameters(1, 16000)
+	//localUser.SetPlaybackAudioFrameBeforeMixingParameters(1, 16000)
 	conn.RegisterLocalUserObserver(localUserObserver)
 
-	conn.RegisterAudioFrameObserver(audioObserver, 0, nil)
+	//conn.RegisterAudioFrameObserver(audioObserver, 0, nil)
+	conn.RegisterEncodedAudioFrameObserver(encaudioObserver)
+	fmt.Printf("RegisterEncodedAudioFrameObserver success: %p, localUser: %p\n", audioObserver,localUser)
 
 	conn.PublishAudio()
 
