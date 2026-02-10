@@ -1,6 +1,7 @@
 /**
  * H.264 realtime decoder implementation
  * Function: decode H.264 NAL unit to YUV format (used for realtime stream decoding)
+ * When built without USE_AVCODEC (i.e. make build without TAGS=avcodec), only stubs are compiled.
  */
 
 #include <stdio.h>
@@ -8,10 +9,11 @@
 #include <string.h>
 #include <stdint.h>
 
+#include "h26x_decode_frame.h"
+
+#ifdef USE_AVCODEC
 #include <libavcodec/avcodec.h>
 #include <libavutil/error.h>
-
-#include "h26x_decode_frame.h"
 
 // Decoder structure definition
 struct H264Decoder {
@@ -29,23 +31,29 @@ struct H264Decoder {
 /**
  * Initialize H.264 realtime decoder
  */
-H264Decoder* h264_decoder_init(void) {
+H264Decoder* h264_decoder_init(int *error_code) {
+    *error_code = 0;
     H264Decoder *decoder = (H264Decoder*)calloc(1, sizeof(H264Decoder));
     if (!decoder) {
         fprintf(stderr, "Failed to allocate decoder memory\n");
+        *error_code = -10001;
         return NULL;
     }
+    //hard code for debug
+    *error_code = 2000;
     // should register all the codecs
     #if LIBAVCODEC_VERSION_MAJOR < 58
     // FFmpeg 3.x and earlier versions need to register all the codecs
         avcodec_register_all();
     #endif
+    *error_code = 2001;
 
     // Find H.264 decoder
     decoder->codec = avcodec_find_decoder(AV_CODEC_ID_H264);
     if (!decoder->codec) {
         fprintf(stderr, "H.264 decoder not found\n");
         free(decoder);
+        *error_code = -10002;
         return NULL;
     }
 
@@ -54,6 +62,7 @@ H264Decoder* h264_decoder_init(void) {
     if (!decoder->codec_ctx) {
         fprintf(stderr, "Failed to allocate decoder context\n");
         free(decoder);
+        *error_code = -10003;
         return NULL;
     }
 
@@ -66,6 +75,7 @@ H264Decoder* h264_decoder_init(void) {
         fprintf(stderr, "Failed to open decoder\n");
         avcodec_free_context(&decoder->codec_ctx);
         free(decoder);
+        *error_code = -10004;
         return NULL;
     }
 
@@ -75,6 +85,7 @@ H264Decoder* h264_decoder_init(void) {
     if (!decoder->frame || !decoder->pkt) {
         fprintf(stderr, "Failed to allocate frame or packet memory\n");
         h264_decoder_free(decoder);
+        *error_code = -10005;
         return NULL;
     }
 
@@ -88,6 +99,7 @@ H264Decoder* h264_decoder_init(void) {
     if (!decoder->buffer) {
         fprintf(stderr, "Failed to allocate stream buffer memory\n");
         h264_decoder_free(decoder);
+        *error_code = -10006;
         return NULL;
     }
     
@@ -451,3 +463,73 @@ void h264_decoder_free(H264Decoder *decoder) {
     }
     free(decoder);
 }
+
+#else /* !USE_AVCODEC */
+
+/* Stub implementations when building without libavcodec (no -tags avcodec).
+   These are never called at runtime because the Go side uses h26x_decode_pure.go. */
+
+struct H264Decoder {
+    int dummy;
+};
+
+H264Decoder* h264_decoder_init(int *error_code) {
+    (void)error_code;
+    return NULL;
+}
+
+int h264_decode_frame(H264Decoder *decoder,
+                      const uint8_t *nal_data,
+                      int nal_size,
+                      int width,
+                      int height,
+                      YUVFrame **yuv_frame) {
+    (void)decoder;
+    (void)nal_data;
+    (void)nal_size;
+    (void)width;
+    (void)height;
+    (void)yuv_frame;
+    return -1;
+}
+
+int h264_decode_frame_flush(H264Decoder *decoder,
+                             int width,
+                             int height,
+                             YUVFrame **yuv_frame) {
+    (void)decoder;
+    (void)width;
+    (void)height;
+    (void)yuv_frame;
+    return -1;
+}
+
+int h264_decode_stream(H264Decoder *decoder,
+                       const uint8_t *stream_data,
+                       int stream_size,
+                       int width,
+                       int height,
+                       YUVFrame **yuv_frame) {
+    (void)decoder;
+    (void)stream_data;
+    (void)stream_size;
+    (void)width;
+    (void)height;
+    (void)yuv_frame;
+    return -1;
+}
+
+void yuv_frame_free(YUVFrame *yuv_frame) {
+    (void)yuv_frame;
+}
+
+int h264_decode_frame_get_count(H264Decoder *decoder) {
+    (void)decoder;
+    return 0;
+}
+
+void h264_decoder_free(H264Decoder *decoder) {
+    (void)decoder;
+}
+
+#endif /* USE_AVCODEC */

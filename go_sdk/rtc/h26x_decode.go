@@ -1,5 +1,9 @@
+//go:build avcodec
+// +build avcodec
+
 package agoraservice
 
+// #cgo CFLAGS: -DUSE_AVCODEC
 // #cgo pkg-config: libavcodec libavutil
 // #include "h26x_decode_frame.h"
 import "C"
@@ -19,9 +23,11 @@ type VideoDecoder struct {
 
 // create video decoder
 func NewVideoDecoder() (*VideoDecoder, error) {
-	decoder := C.h264_decoder_init()
+	fmt.Printf("0202:200318_v1: NewVideoDecoder\n")
+	var errorCode C.int
+	decoder := C.h264_decoder_init(&errorCode)
 	if decoder == nil {
-		return nil, fmt.Errorf("failed to initialize H264 decoder")
+		return nil, fmt.Errorf("0202:200318_v1: failed to initialize H264 decoder: %d", errorCode)
 	}
 
 	return &VideoDecoder{
@@ -196,7 +202,7 @@ func (worker *TranscodingWorker) run() {
 }
 func (worker *TranscodingWorker) PushEncodedData(data []byte, frameInfo *EncodedVideoFrameInfo) {
 	worker.encodeDataQueue <- &TransCodeInData{
-		data: data,
+		data:      data,
 		frameInfo: frameInfo,
 		timestamp: time.Now().UnixMilli(),
 	}
