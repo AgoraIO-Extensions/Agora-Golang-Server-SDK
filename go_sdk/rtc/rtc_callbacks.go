@@ -265,10 +265,16 @@ func goOnUserAudioTrackSubscribed(cLocalUser unsafe.Pointer, uid *C.char, cRemot
 		// open apm filter
 		con.setApmFilterProperties(uid, cRemoteAudioTrack)
 	} 
+	// for encoded audio frame received, if needed
+	if con != nil {
+		ret := con.initEncodedAudioFrameReceived(uid, cRemoteAudioTrack)
+		if ret != 0 {
+			fmt.Printf("initEncodedAudioFrameReceived failed, ret: %d, uid: %s, cRemoteAudioTrack: %p\n", ret, uid, cRemoteAudioTrack)
+		}
+	}
 	if con == nil || con.localUserObserver == nil || con.localUserObserver.OnUserAudioTrackSubscribed == nil {
 		return
 	}
-
 	// note： best practise is never reelase handler until app is exiting
 	con.localUserObserver.OnUserAudioTrackSubscribed(con.GetLocalUser(), C.GoString(uid), NewRemoteAudioTrack(cRemoteAudioTrack))
 }
@@ -517,4 +523,33 @@ func goOnIntraRequestReceived(cLocalUser unsafe.Pointer) {
 		return
 	}
 	con.localUserObserver.OnIntraRequestReceived(con.GetLocalUser())
+}
+
+//export goOnEncodedAudioFrameReceived
+func goOnEncodedAudioFrameReceived(cAudioEncodedFrameObserverHandle unsafe.Pointer, packet *C.uint8_t, length C.size_t, encodedAudioFrameInfo *C.struct__encoded_audio_frame_rev_info) {
+	fmt.Printf("goOnEncodedAudioFrameReceived, cAudioEncodedFrameObserverHandle: %p, packet: %p, length: %d, encodedAudioFrameInfo: %p\n", cAudioEncodedFrameObserverHandle, packet, length, encodedAudioFrameInfo)
+	//validity check
+	if cAudioEncodedFrameObserverHandle == nil {
+		fmt.Printf("goOnEncodedAudioFrameReceived, cAudioEncodedFrameObserverHandle is nil\n")
+		return
+	}
+	item := agoraService.getEncAudioFrameObserverItem(cAudioEncodedFrameObserverHandle)
+	if item == nil {
+		fmt.Printf("goOnEncodedAudioFrameReceived, item is nil\n")
+		return
+	}
+	con := item.Con
+	if con == nil {
+		fmt.Printf("goOnEncodedAudioFrameReceived, con is nil\n")
+		return
+	}
+	if con.encodedAudioFrameObserver == nil {
+		fmt.Printf("goOnEncodedAudioFrameReceived, encodedAudioFrameObserver is nil\n")
+		return
+	}
+	// conver C.uint8_t to []byte
+	packetBytes := C.GoBytes(unsafe.Pointer(packet), C.int(length))
+	
+	con.encodedAudioFrameObserver.OnEncodedAudioFrameReceived(item.Uid, packetBytes, 
+		int64(encodedAudioFrameInfo.sendTs), int(encodedAudioFrameInfo.codec))
 }

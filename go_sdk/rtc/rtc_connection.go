@@ -9,6 +9,7 @@ package agoraservice
 #include "agora_service.h"
 #include "agora_media_base.h"
 #include "agora_parameter.h"
+#include "audio_observer_cgo.h"
 */
 import "C"
 import (
@@ -361,6 +362,10 @@ type RtcConnectionConfig struct {
 	 */
 	AudioRecvMediaPacket bool
 	/**
+	 * Determines whether to receive audio encoded frame or not.
+	 */
+	AudioRecvEncodedFrame bool
+	/**
 	 * Determines whether to receive video media packet or not.
 	 */
 	VideoRecvMediaPacket bool
@@ -380,6 +385,7 @@ type RtcConnectionPublishConfig struct {
 	// for this case, recommend to ExternalAudioSendMs to 500, and Speed to 2
 	SendExternalAudioParameters *SendExternalAudioParameters
 }
+
 // note: DeliverMuteDataForFakeAdm can only set to rtc engine level, can not
 // set to connection level
 // so if once a connection has set to true, wihich will affect all the connections,
@@ -389,7 +395,6 @@ type SendExternalAudioParameters struct {
 	SendSpeed                 int
 	DeliverMuteDataForFakeAdm bool
 }
-
 
 type RtcConnection struct {
 	cConnection unsafe.Pointer
@@ -447,7 +452,9 @@ type RtcConnection struct {
 	// for transcoding
 	transcodingWorker *TranscodingWorker
 	// for video encoder configuration
-	videoEncoderConfiguration *VideoEncoderConfiguration
+	videoEncoderConfiguration  *VideoEncoderConfiguration
+	encodedAudioFrameObserver  *AudioEncodedFrameObserver
+	cEncodedAudioFrameObserver *C.struct__audio_encoded_frame_rev_observer
 }
 
 // for pcm consumption stats
@@ -508,6 +515,8 @@ func NewRtcConnection(cfg *RtcConnectionConfig, publishConfig *RtcConnectionPubl
 		sendExternalAudioParameters: nil,
 		transcodingWorker:           nil,
 		videoEncoderConfiguration:   nil,
+		encodedAudioFrameObserver:   nil,
+		cEncodedAudioFrameObserver:  nil,
 	}
 
 	if isSupportExternalAudio(publishConfig) {
@@ -1388,7 +1397,7 @@ func (conn *RtcConnection) UpdateAudioSenario(scenario AudioScenario) int {
 	conn.audioTrack.SetSendDelayMs(10)
 	//anyway, to set max buffered audio frame number to 100000
 	conn.audioTrack.SetMaxBufferedAudioFrameNumber(100000) //up to 16min,100000 frames
-	
+
 	conn.localUser.SetAudioScenario(scenario)
 
 	//7. update the properties of pcmsender
@@ -1592,11 +1601,11 @@ func isSupportExternalAudio(publishConfig *RtcConnectionPublishConfig) bool {
 
 // add a closer function to set only once the extra audio send ms the agora parameter
 var deliverMuteDataHasSet bool = false
+
 func setDeliverMuteData(deliverMuteData bool) bool {
-    
+
 	fmt.Printf("createDeliverMuteDataSetter, deliverMuteData: %t\n", deliverMuteDataHasSet)
-    
-   
+
 	if !deliverMuteData && !deliverMuteDataHasSet {
 		agoraParameterHandler := GetAgoraParameter()
 		agoraParameterHandler.SetParameters("{\"che.audio.deliver_mute_data_for_fake_adm\":false}")
@@ -1604,10 +1613,11 @@ func setDeliverMuteData(deliverMuteData bool) bool {
 		fmt.Printf("createDeliverMuteDataSetter, deliverMuteData: %t, deliverMuteDataHasSet: %t\n", deliverMuteData, deliverMuteDataHasSet)
 	}
 
-	return deliverMuteDataHasSet  
+	return deliverMuteDataHasSet
 }
+
 // send intra request to the remote user to request a new key frame
-// limitation: 
+// limitation:
 // 1. if remtoe user is fixed-interval key frame encoding, the api call will be ignored
 // 2. the min-frequency of the api call is 1s, otherwise, it will be ignored  or the vos will do converge
 func (conn *RtcConnection) SendIntraRequest(remoteUid string) int {
@@ -1619,6 +1629,7 @@ func (conn *RtcConnection) SendIntraRequest(remoteUid string) int {
 	ret := int(C.agora_local_user_send_intra_request(conn.localUser.cLocalUser, cUid))
 	return ret
 }
+
 // SetSimulcastStream: to enable or disalbe dual video stream when publishing video through yuv
 // and can be called anytime after connection is connected
 // normally the call sequence should be:
@@ -1632,15 +1643,15 @@ func (conn *RtcConnection) SetSimulcastStream(enable bool, config *SimulcastStre
 	if conn == nil || conn.cConnection == nil || conn.videoTrack == nil || conn.videoTrack.cTrack == nil {
 		return -1000
 	}
-	if (conn.videoTrack==nil || conn.videoTrack.cTrack==nil) {
+	if conn.videoTrack == nil || conn.videoTrack.cTrack == nil {
 		return -1001
 	}
 
 	if enable == false && config == nil {
 		config = &SimulcastStreamConfig{
-			Width: 0,
-			Height: 0,
-			Bitrate: 0,
+			Width:     0,
+			Height:    0,
+			Bitrate:   0,
 			Framerate: 15,
 		}
 	}
@@ -1657,11 +1668,10 @@ func (conn *RtcConnection) PushVideoEncodedDataForTranscode(data []byte, frameIn
 
 	conn.transcodingWorker.PushEncodedData(data, frameInfo)
 
-	
 	return 0
 }
 func (conn *RtcConnection) handleDecodedVideoFrameForTranscode(frame *ExternalVideoFrame) int {
-    if conn == nil  {
+	if conn == nil {
 		return -2000
 	}
 	ret := conn.PushVideoFrame(frame)
@@ -1677,7 +1687,7 @@ func (conn *RtcConnection) startTranscodingWorker() int {
 		fps = conn.videoEncoderConfiguration.Framerate
 	}
 	// range validation
-	if fps < 1  {
+	if fps < 1 {
 		fps = 5
 	}
 	if fps > 30 {
@@ -1694,5 +1704,119 @@ func (conn *RtcConnection) stopTranscodingWorker() int {
 	}
 	conn.transcodingWorker.Stop()
 	conn.transcodingWorker = nil
+	return 0
+}
+
+// date: 20260206
+// for encoded audio frame received, if needed
+
+type AudioEncodedFrameObserver struct {
+	OnEncodedAudioFrameReceived func(uid string, packet []byte, sendTs int64, codec int)
+}
+// _audio_encoded_frame_rev_observer
+// on_encoded_audio_frame_received
+func CAudioEncodedFrameObserver() *C.struct__audio_encoded_frame_rev_observer {
+	ret := (*C.struct__audio_encoded_frame_rev_observer)(C.malloc(C.sizeof_struct__audio_encoded_frame_rev_observer))
+	C.memset(unsafe.Pointer(ret), 0, C.sizeof_struct__audio_encoded_frame_rev_observer)
+	ret.on_encoded_audio_frame_received = (*[0]byte)(C.cgo_on_encoded_audio_frame_received)
+	return ret
+}
+func FreeCAudioEncodedFrameObserver(observer *C.struct__audio_encoded_frame_rev_observer) {
+	C.free(unsafe.Pointer(observer))
+}
+func (conn *RtcConnection) RegisterEncodedAudioFrameObserver(observer *AudioEncodedFrameObserver) int {
+	if conn == nil || conn.cConnection == nil  {
+		return -2000
+	}
+	if observer == nil {
+		return -2001
+	}
+	// create a handle:
+	conn.encodedAudioFrameObserver = observer
+	conn.cEncodedAudioFrameObserver = CAudioEncodedFrameObserver()
+	if conn.cEncodedAudioFrameObserver == nil {
+		return -3001
+	}
+	fmt.Printf("RegisterEncodedAudioFrameObserver, conn.cEncodedAudioFrameObserver: %p\n", conn.cEncodedAudioFrameObserver)
+	return 0
+}
+func (conn *RtcConnection) unregisterEncodedAudioFrameObserver() int {
+	if conn == nil || conn.cConnection == nil || conn.localUser == nil || conn.localUser.cLocalUser == nil {
+		return -2000
+	}
+	if conn.encodedAudioFrameObserver == nil {
+		return -2001
+	}
+
+	
+	//遍历agoraService.encAudioFrameObserverItemsMap, 当item.Con == conn时, 删除这个item, 并释放handle
+	agoraService.encAudioFrameObserverItemsMap.Range(func(key, value interface{}) bool {
+		if item, ok := value.(*EncAudioFrameObserverItem); ok {
+			if item.Con == conn {
+				agoraService.encAudioFrameObserverItemsMap.Delete(item.Handle)
+				return true
+			}
+		}
+		return true
+	})
+
+	//free the observer
+	if conn.cEncodedAudioFrameObserver != nil {
+		FreeCAudioEncodedFrameObserver(conn.cEncodedAudioFrameObserver)
+		conn.cEncodedAudioFrameObserver = nil
+	}
+	conn.encodedAudioFrameObserver = nil
+	return 0
+}
+
+	
+func (conn *RtcConnection) initEncodedAudioFrameReceived(uid *C.char, cRemoteAudioTrack unsafe.Pointer) int {
+	if conn == nil || conn.cConnection == nil || conn.localUser == nil || conn.localUser.cLocalUser == nil {
+		return -2000
+	}
+	if conn.encodedAudioFrameObserver == nil {
+		return -2001
+	}
+	// create a map , key is uid, value is cRemoteAudioTrack
+	uidStr := C.GoString(uid)
+
+	// 从agoraService.encodedAudioFrameReceivedMap 中查找所有 的yuans
+	// 当item.Uid == uidStr时, 删除这个item, 并释放handle
+	var existeItem *EncAudioFrameObserverItem = nil
+	agoraService.encAudioFrameObserverItemsMap.Range(func(key, value interface{}) bool {
+		if item, ok := value.(*EncAudioFrameObserverItem); ok {
+			if item.Uid == uidStr {
+				existeItem = item
+				agoraService.deleteEncAudioFrameObserverItem(item.Handle)
+				return true
+			}
+		}
+		return true
+	})
+	if existeItem != nil {
+		C.agora_destroy_remote_audio_track(existeItem.Handle)
+		existeItem.Handle = nil
+		existeItem.Con = nil
+		existeItem.Uid = ""
+		existeItem = nil
+	}
+	// create a new handle
+	handle := C.agora_create_remote_audio_track(cRemoteAudioTrack)
+	if handle == nil {
+		return -3001
+	}
+
+
+	agoraService.setEncAudioFrameObserverItem(handle, uidStr, conn)
+
+	// create a new encoded audio frame observer
+	cEncodedAudioFrameObserver := conn.cEncodedAudioFrameObserver
+	// store to sync map
+	
+	ret := C.agora_remote_audio_track_register_encoded_frame_rev_observer(handle, unsafe.Pointer(cEncodedAudioFrameObserver))
+
+	// store to sync map
+	fmt.Printf("initEncodedAudioFrameReceived, uid: %s, ret: %d, handle: %p, cEncodedAudioFrameObserver: %p\n", uidStr, ret, handle, cEncodedAudioFrameObserver	)
+
 	return 0
 }
