@@ -453,8 +453,9 @@ type RtcConnection struct {
 	transcodingWorker *TranscodingWorker
 	// for video encoder configuration
 	videoEncoderConfiguration  *VideoEncoderConfiguration
+
+	// for encoded audio frame observer
 	encodedAudioFrameObserver  *AudioEncodedFrameObserver
-	cEncodedAudioFrameObserver *C.struct__audio_encoded_frame_rev_observer
 }
 
 // for pcm consumption stats
@@ -516,7 +517,6 @@ func NewRtcConnection(cfg *RtcConnectionConfig, publishConfig *RtcConnectionPubl
 		transcodingWorker:           nil,
 		videoEncoderConfiguration:   nil,
 		encodedAudioFrameObserver:   nil,
-		cEncodedAudioFrameObserver:  nil,
 	}
 
 	if isSupportExternalAudio(publishConfig) {
@@ -1336,11 +1336,6 @@ func (conn *RtcConnection) PushVideoEncodedData(data []byte, frameInfo *EncodedV
 	return conn.encodedVideoSender.SendEncodedVideoImage(data, frameInfo)
 }
 
-func (conn *RtcConnection) unregisterAudioEncodedFrameObserver() int {
-	// todo: ??? not implement
-
-	return -1
-}
 
 // to pudate connction's scenario
 func (conn *RtcConnection) UpdateAudioSenario(scenario AudioScenario) int {
@@ -1707,40 +1702,30 @@ func (conn *RtcConnection) stopTranscodingWorker() int {
 	return 0
 }
 
-// date: 20260206
-// for encoded audio frame received, if needed
 
-type AudioEncodedFrameObserver struct {
-	OnEncodedAudioFrameReceived func(uid string, packet []byte, sendTs int64, codec int)
-}
-// _audio_encoded_frame_rev_observer
-// on_encoded_audio_frame_received
-func CAudioEncodedFrameObserver() *C.struct__audio_encoded_frame_rev_observer {
-	ret := (*C.struct__audio_encoded_frame_rev_observer)(C.malloc(C.sizeof_struct__audio_encoded_frame_rev_observer))
-	C.memset(unsafe.Pointer(ret), 0, C.sizeof_struct__audio_encoded_frame_rev_observer)
-	ret.on_encoded_audio_frame_received = (*[0]byte)(C.cgo_on_encoded_audio_frame_received)
-	return ret
-}
-func FreeCAudioEncodedFrameObserver(observer *C.struct__audio_encoded_frame_rev_observer) {
-	C.free(unsafe.Pointer(observer))
-}
-func (conn *RtcConnection) RegisterEncodedAudioFrameObserver(observer *AudioEncodedFrameObserver) int {
+func (conn *RtcConnection) RegisterAudioEncodedFrameObserver(observer *AudioEncodedFrameObserver) int {
 	if conn == nil || conn.cConnection == nil  {
 		return -2000
 	}
 	if observer == nil {
 		return -2001
 	}
-	// create a handle:
+	// 'hold' the observer
 	conn.encodedAudioFrameObserver = observer
-	conn.cEncodedAudioFrameObserver = CAudioEncodedFrameObserver()
-	if conn.cEncodedAudioFrameObserver == nil {
-		return -3001
-	}
-	fmt.Printf("RegisterEncodedAudioFrameObserver, conn.cEncodedAudioFrameObserver: %p\n", conn.cEncodedAudioFrameObserver)
+	
 	return 0
 }
-func (conn *RtcConnection) unregisterEncodedAudioFrameObserver() int {
+
+func (conn *RtcConnection) unregAudioEncFrameObserverItem(item *EncAudioFrameObserverItem) int {
+	if item == nil {
+		return -2000
+	}
+
+	C.agora_remote_audio_track_unregister_encoded_frame_rev_observer(item.CTrack, item.CObserverHandle)
+	fmt.Printf("unregAudioEncFrameObserverItem, uid: %s, cTrack: %p, cObserverHandle: %p\n", item.Uid, item.CTrack, item.CObserverHandle)
+	return 0
+}
+func (conn *RtcConnection) unregisterAudioEncodedFrameObserver() int {
 	if conn == nil || conn.cConnection == nil || conn.localUser == nil || conn.localUser.cLocalUser == nil {
 		return -2000
 	}
@@ -1749,27 +1734,55 @@ func (conn *RtcConnection) unregisterEncodedAudioFrameObserver() int {
 	}
 
 	
-	//遍历agoraService.encAudioFrameObserverItemsMap, 当item.Con == conn时, 删除这个item, 并释放handle
+	//iterate agoraService.encAudioFrameObserverItemsMap, when item.Con == conn, delete the item, and free the handle
 	agoraService.encAudioFrameObserverItemsMap.Range(func(key, value interface{}) bool {
 		if item, ok := value.(*EncAudioFrameObserverItem); ok {
 			if item.Con == conn {
-				agoraService.encAudioFrameObserverItemsMap.Delete(item.Handle)
+				agoraService.encAudioFrameObserverItemsMap.Delete(item.CObserverHandle)
+				conn.unregAudioEncFrameObserverItem(item)
+				freeAudioEncodedFrameObserverItem(item)
+				item.CObserver = nil
+				item.CObserverHandle = nil
+				item.CTrack = nil
+				item.Con = nil
+				item.Uid = ""
+				item = nil
+				// continue to iterate!
+				return true
+			}
+		}
+		return false
+	})
+	return 0 
+}
+
+func (conn *RtcConnection) doUnregisterAudioEncodedFrameObserver(uid string) int {
+	agoraService.encAudioFrameObserverItemsMap.Range(func(key, value interface{}) bool {
+		if item, ok := value.(*EncAudioFrameObserverItem); ok {
+			if item.Uid == uid {
+				agoraService.encAudioFrameObserverItemsMap.Delete(item.CObserverHandle)
+				// unregister the observer
+				conn.unregAudioEncFrameObserverItem(item)
+				// free the item
+				freeAudioEncodedFrameObserverItem(item)
+				
+				item.CObserver = nil
+				item.CObserverHandle = nil
+				item.CTrack = nil
+				item.Con = nil
+				item.Uid = ""
+				item = nil
+
+				fmt.Printf("doUnregisterAudioEncodedFrameObserver, uid: %s", uid)
+
+				// continue to iterate!
 				return true
 			}
 		}
 		return true
 	})
-
-	//free the observer
-	if conn.cEncodedAudioFrameObserver != nil {
-		FreeCAudioEncodedFrameObserver(conn.cEncodedAudioFrameObserver)
-		conn.cEncodedAudioFrameObserver = nil
-	}
-	conn.encodedAudioFrameObserver = nil
 	return 0
 }
-
-	
 func (conn *RtcConnection) initEncodedAudioFrameReceived(uid *C.char, cRemoteAudioTrack unsafe.Pointer) int {
 	if conn == nil || conn.cConnection == nil || conn.localUser == nil || conn.localUser.cLocalUser == nil {
 		return -2000
@@ -1780,43 +1793,40 @@ func (conn *RtcConnection) initEncodedAudioFrameReceived(uid *C.char, cRemoteAud
 	// create a map , key is uid, value is cRemoteAudioTrack
 	uidStr := C.GoString(uid)
 
-	// 从agoraService.encodedAudioFrameReceivedMap 中查找所有 的yuans
-	// 当item.Uid == uidStr时, 删除这个item, 并释放handle
-	var existeItem *EncAudioFrameObserverItem = nil
-	agoraService.encAudioFrameObserverItemsMap.Range(func(key, value interface{}) bool {
-		if item, ok := value.(*EncAudioFrameObserverItem); ok {
-			if item.Uid == uidStr {
-				existeItem = item
-				agoraService.deleteEncAudioFrameObserverItem(item.Handle)
-				return true
-			}
-		}
-		return true
-	})
-	if existeItem != nil {
-		C.agora_destroy_remote_audio_track(existeItem.Handle)
-		existeItem.Handle = nil
-		existeItem.Con = nil
-		existeItem.Uid = ""
-		existeItem = nil
-	}
-	// create a new handle
-	handle := C.agora_create_remote_audio_track(cRemoteAudioTrack)
-	if handle == nil {
+	// iterate agoraService.encAudioFrameObserverItemsMap, find all items where item.Uid == uidStr, delete the item, and free the handle
+	
+	conn.doUnregisterAudioEncodedFrameObserver(uidStr)
+	
+	// create a new item
+	item := createAudioEncodedFrameObserverItem(uidStr, cRemoteAudioTrack, conn)
+	if item == nil {
 		return -3001
 	}
 
 
-	agoraService.setEncAudioFrameObserverItem(handle, uidStr, conn)
+	agoraService.setAudioEncObserToMap(item)
 
-	// create a new encoded audio frame observer
-	cEncodedAudioFrameObserver := conn.cEncodedAudioFrameObserver
+	persistTrack := item.CTrack
+
+	cObserverHandle := item.CObserverHandle
+	ret := C.agora_remote_audio_track_register_encoded_frame_rev_observer(persistTrack, cObserverHandle)
+
 	// store to sync map
+	fmt.Printf("initEncodedAudioFrameReceived, uid: %s, ret: %d, persistTrack: %p, cObserverHandle: %p\n", uidStr, ret, persistTrack, cObserverHandle	)
+
+	return 0
+}
+
+func (conn *RtcConnection) doAudioTrackStateChanged(uid *C.char, cRemoteAudioTrack unsafe.Pointer, state int, reason int) int {
+
+	//1. if has audio encoded frame observer, then unregister the observer
+	if conn.encodedAudioFrameObserver != nil {
+		// if state is 0, and reason is 5 or 7,
+		if state == 0 && (reason == 5 || reason == 7) {
+			conn.doUnregisterAudioEncodedFrameObserver(C.GoString(uid))
+		}
+	}
+
 	
-	ret := C.agora_remote_audio_track_register_encoded_frame_rev_observer(handle, unsafe.Pointer(cEncodedAudioFrameObserver))
-
-	// store to sync map
-	fmt.Printf("initEncodedAudioFrameReceived, uid: %s, ret: %d, handle: %p, cEncodedAudioFrameObserver: %p\n", uidStr, ret, handle, cEncodedAudioFrameObserver	)
-
 	return 0
 }

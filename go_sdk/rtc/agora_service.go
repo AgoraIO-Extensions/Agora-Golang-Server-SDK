@@ -492,47 +492,35 @@ func (s *AgoraService) deleteConFromHandle(handle unsafe.Pointer, conType int) b
 	return true
 }
 
-type EncAudioFrameObserverItem struct {
-	Uid string
-	Con *RtcConnection
-	Handle unsafe.Pointer
-}
 
-func (s *AgoraService) setEncAudioFrameObserverItem(handle unsafe.Pointer, uid string, con *RtcConnection) bool {
-	if handle == nil {
+
+func (s *AgoraService) setAudioEncObserToMap(item *EncAudioFrameObserverItem) bool {
+	if item == nil {
 		return false
 	}
-	item := &EncAudioFrameObserverItem{
-		Uid: uid,
-		Con: con,
-		Handle: handle,
-	}
-	s.encAudioFrameObserverItemsMap.Store(handle, item)
+	s.encAudioFrameObserverItemsMap.Store(item.CObserverHandle, item)
 	return true
 }
-func (s *AgoraService) getEncAudioFrameObserverItem(handle unsafe.Pointer) *EncAudioFrameObserverItem {
-	if handle == nil {
+func (s *AgoraService) getAudioEncObserverItemFromMap(observerHandle unsafe.Pointer) *EncAudioFrameObserverItem {
+	if observerHandle == nil {
 		return nil
 	}
-	item, ok := s.encAudioFrameObserverItemsMap.Load(handle)
+	item, ok := s.encAudioFrameObserverItemsMap.Load(observerHandle)
 	if !ok {
 		return nil
 	}
 	return item.(*EncAudioFrameObserverItem)
 }
-func (s *AgoraService) deleteEncAudioFrameObserverItem(handle unsafe.Pointer) bool {
-	if handle == nil {
+// only delete the item from map, do not free the item!!!
+func (s *AgoraService) deleteAudioEncObserverItemFromMap(observerHandle unsafe.Pointer) bool {
+	if observerHandle == nil {
 		return false
 	}
-	item, ok := s.encAudioFrameObserverItemsMap.Load(handle)
+	_, ok := s.encAudioFrameObserverItemsMap.Load(observerHandle)
 	if !ok {
 		return false
 	}
-	s.encAudioFrameObserverItemsMap.Delete(handle)
-	encAudioFrameObserverItem := item.(*EncAudioFrameObserverItem)
-	encAudioFrameObserverItem.Con = nil
-	encAudioFrameObserverItem.Uid = ""
-	encAudioFrameObserverItem = nil
+	s.encAudioFrameObserverItemsMap.Delete(observerHandle)
 	return true
 }
 

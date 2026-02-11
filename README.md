@@ -158,6 +158,55 @@ When printing every callback result:
 VAD only: Processing 1840ms of input data takes 16ms. 115x speedup
 APM+VAD+APM dump disabled: Processing 1840ms of input data takes 46ms. 40x speedup
 
+
+### How to Use PushVideoEncodedDataForTranscode
+
+#### Using PushVideoEncodedDataForTranscode (requires `-tags avcodec`)
+
+To use `PushVideoEncodedDataForTranscode` for video transcoding, you must specify the `avcodec` build tag. This feature depends on the FFmpeg developer library being installed on your system. You can build and run using the following commands:
+
+``````bash
+go build -C /*/work/Agora-Golang-Server-SDK/go_sdk/rtc -tags avcodec
+``````
+That is, when compiling, you need to use:  
+`go build -C <your_code_path> -tags avcodec`
+
+Example of using with make:
+```bash
+make build TAGS=avcodec  
+make example TAGS=avcodec
+make advanced-examples TAGS=avcodec
+```
+With this, you can use the `PushVideoEncodedDataForTranscode` API for transcoding.
+
+#### Normal Usage
+
+If you don't need the transcoding API above, just build and run in the regular way:
+
+```bash
+make build
+make example
+make advanced-examples
+```
+
+### How to use audioEncodedFrameObserver?
+
+1. Set `audioEncodedFrameObserver = true` in the `connection configure` step.
+2. Before calling `conn.Connect`, call `RegisterAudioEncodedFrameObserver`.
+3. The following two interfaces are no longer needed:
+   - `localUser.SetPlaybackAudioFrameBeforeMixingParameters(1, 16000)`
+   - `conn.RegisterAudioFrameObserver(audioObserver, 0, nil)`
+
+### How to use videoEncodedFrameObserver?
+
+1. Set `videoEncodedFrameObserver = true` in the `connection configure` step.
+
+## 2026.02.12 Release Version 2.4.8
+- **Update**: Updated SDK to tag 162. Small streams now support keyframe requests.
+- **New Feature**: Added `RegisterAudioEncodedFrameObserver` interface to obtain encoded audio.
+- **New Feature**: Added `-tags avcodec` build param to make it possible to build without relying on FFmpeg developer libraries when transcoding is not needed.
+- **New Feature**: Added `arm64` SDK for supporting Linux arm64 systems (not strictly tested).
+
 ## 2026.01.30 Release Version 2.4.7
 - **bug fix**: ## a bug when ffmpeg version is lower than 3.x.0
 

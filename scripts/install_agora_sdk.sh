@@ -75,7 +75,9 @@ arm_sdk="https://download.agora.io/sdk/release/agora_rtc_sdk_arm64-linux-gnu-v4.
 
 #date: 20260210 update sdk to 162 for 2.4.7
 
-#mac_sdk="https://download.agora.io/sdk/release/agora_sdk_mac_Agora_Native_SDK_for_Mac_zhourui_26914_FULL_20260210_1559_1009097_20251021_1427-3a.zip"
+mac_sdk="https://download.agora.io/sdk/release/agora_sdk_mac_v4.4.32.163_26922_FULL_20260211_1047_1009661_20251021_1427-3a.zip"
+linux_sdk="https://download.agora.io/sdk/release/agora_rtc_sdk_x86_64-linux-gnu-v4.4.32.163_27411_SERVER_20260211_1033_1009658_20251021_1427-3a.zip"
+arm_sdk="https://download.agora.io/sdk/release/agora_rtc_sdk_aarch64-linux-gnu-v4.4.32.163_27411_SERVER_20260211_103529-1009669.zip"
 if [[ $UNAME_S == Linux ]]; then
     OS=linux
 elif [[ $UNAME_S == Darwin ]]; then
@@ -142,7 +144,8 @@ check_and_download() {
 # Download the Agora RTC SDK
 if [[ $OS == mac ]]; then
     check_and_download $mac_sdk agora_sdk_mac
-elif [[ $ARCH == arm64 ]] && [[ $OS == linux ]]; then
+fi
+if [[ $ARCH == arm64 ]] && [[ $OS == linux ]]; then
     check_and_download $arm_sdk agora_sdk
 else
     check_and_download $linux_sdk agora_sdk

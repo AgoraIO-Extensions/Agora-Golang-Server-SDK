@@ -175,6 +175,67 @@ externalaudioprocessor 使用方法：
 只启动vad：输入1840ms的数据，处理耗时16ms。x 115 倍数
 启动apm+vad+关闭apmdump： 输入1840ms的数据，处理耗时 46ms。x 40 倍数
 
+todo：
+如何做registerencodeaudioframeobserver？
+-- 使用条件：需要在con.connect前调用！！这个非常重要。这样做就不需要考虑中途切换的问题了。就是预设在进入频道前，都已经设计好了关注模式和需要的observer！
+-- 不保存remote_audio_track，做临时方式保存。这样降低复杂度。也能提高稳定性。
+查看如何创建audio encoded frame observer??
+需要支持arm？
+
+
+### PushVideoEncodedDataForTranscode 使用方法
+
+#### 使用 PushVideoEncodedDataForTranscode（需要 `-tags avcodec`）
+
+如果需要使用 `PushVideoEncodedDataForTranscode` 进行转码，必须指定 `avcodec` 标签。底层依赖于系统已安装的 ffmpeg 开发者库。相关的构建和运行方式如下：
+
+``````bash
+go build -C /*/work/Agora-Golang-Server-SDK/go_sdk/rtc -tags avcodec
+也就是说：开发者自己编译的时候需要用: go build -C <代码路径> -tags avcodec
+
+``` example 的使用方式如下：
+make build TAGS=avcodec  
+make example TAGS=avcodec
+make advanced-examples TAGS=avcodec
+```
+这样即可使用 `PushVideoEncodedDataForTranscode` 接口完成转码。
+
+#### 普通使用方式
+
+如果不需要使用上面的转码接口，采用常规方式编译和运行即可：
+
+```bash
+make build
+make example
+make advanced-examples
+```
+
+
+### 如何使用 audioEncodedFrameObserver？
+
+1. 在 `connection configure` 中设置：`audioEncodedFrameObserver = true`
+2. 在 `conn.Connect` 前调用：`RegisterAudioEncodedFrameObserver`
+3. 不再需要调用下面 2 个接口：
+   - `localUser.SetPlaybackAudioFrameBeforeMixingParameters(1, 16000)`
+   - `conn.RegisterAudioFrameObserver(audioObserver, 0, nil)`
+
+
+### 如何使用videoEncodedFrameObserver?
+1. 在 `connection configure` 中设置：`videoEncodedFrameObserver = true`
+
+## 2026.02.12 发布 2.4.8 版本
+- **新更新**：更新sdk 到162 tag，支持小流可以响应keyframereequest。
+- **新功能**：新增 `RegiserAudioEncodedFrameObserver` 接口，用于获取编码音频。
+- **新功能**：新增 `-tags avcodec` 编译参数，用于支持在不需要转码的时候，不依赖于系统安装ffmpeg 开发者库
+- **新功能**：新增 `arm64` sdk ，用于对linux arm64 系统的支持<没有严格测试>。
+
+## 2026.01.30 发布 2.4.7 版本
+- **问题修复**：修复了ffmpeg 版本低于3.x 下调用的问题。
+
+## 2026.01.28 发布 2.4.6 版本
+- **新更新**：更新sdk 到161 tag，可以更好的控制码率。
+- **新功能**：新增 `PushVideoEncodedData 中支持SEI` 接口，用于支持对自编码视频中带SEI信息。
+
 ## 2026.01.30 发布 2.4.7 版本
 - **问题修复**：修复了ffmpeg 版本低于3.x 下调用的问题。
 

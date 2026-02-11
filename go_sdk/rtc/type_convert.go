@@ -426,3 +426,69 @@ func CCapatilitiesObserver() *C.struct__capabilites_observer {
 func FreeCCapatilitiesObserver(observer *C.struct__capabilites_observer) {
 	C.free(unsafe.Pointer(observer))
 }
+
+// for encoded audio frame observer
+// date: 20260206
+// for encoded audio frame received, if needed
+
+type AudioEncodedFrameObserver struct {
+	OnEncodedAudioFrameReceived func(uid string, packet []byte, sendTs int64, codec int)
+}
+
+type EncAudioFrameObserverItem struct {
+	Uid string
+	Con *RtcConnection
+	CObserver *C.struct__audio_encoded_frame_rev_observer
+	CTrack unsafe.Pointer
+	CObserverHandle unsafe.Pointer
+}
+// _audio_encoded_frame_rev_observer
+// on_encoded_audio_frame_received
+func CAudioEncodedFrameObserver() *C.struct__audio_encoded_frame_rev_observer {
+	ret := (*C.struct__audio_encoded_frame_rev_observer)(C.malloc(C.sizeof_struct__audio_encoded_frame_rev_observer))
+	C.memset(unsafe.Pointer(ret), 0, C.sizeof_struct__audio_encoded_frame_rev_observer)
+	ret.on_encoded_audio_frame_received = (*[0]byte)(C.cgo_on_encoded_audio_frame_received)
+	return ret
+}
+func freeCAudioEncodedFrameObserver(observer *C.struct__audio_encoded_frame_rev_observer) {
+	C.free(unsafe.Pointer(observer))
+}
+
+func createAudioEncodedFrameObserverItem(uid string, cTrack unsafe.Pointer, conn *RtcConnection) *EncAudioFrameObserverItem {
+	// create a c type observer
+	cObserver := CAudioEncodedFrameObserver()
+	// convert c type observer to handle for c api layer
+	cObserverHandle := C.agora_audio_encoded_frame_rev_observer_create(cObserver)
+	// end
+	
+	if cObserverHandle == nil {
+		return nil
+	}
+
+	cPersistTrack := C.agora_create_remote_audio_track(cTrack)
+
+	item := &EncAudioFrameObserverItem{
+		Uid: uid,
+		Con: conn,
+		CObserverHandle: cObserverHandle,
+		CObserver: cObserver,
+		CTrack: cPersistTrack,
+	}
+	return item
+}
+
+func freeAudioEncodedFrameObserverItem(item *EncAudioFrameObserverItem) int {
+	// 1. free track
+	C.agora_destroy_remote_audio_track(item.CTrack)
+	// 2. free cobser
+	C.agora_audio_encoded_frame_rev_observer_destroy(item.CObserverHandle)
+	C.free(unsafe.Pointer(item.CObserver))
+	// 3. free item
+	item.CTrack = nil
+	item.CObserver = nil
+	item.CObserverHandle = nil
+
+	item.Con = nil
+	
+	return 0
+}

@@ -100,7 +100,7 @@ func main() {
 
 	go audioRoutine()
 
-	scenario := agoraservice.AudioScenarioAiServer
+	scenario := agoraservice.AudioScenarioDefault
 	conCfg := agoraservice.RtcConnectionConfig{
 		AutoSubscribeAudio: true,
 		AutoSubscribeVideo: false,
@@ -172,7 +172,7 @@ func main() {
 	encaudioObserver := &agoraservice.AudioEncodedFrameObserver{
 		OnEncodedAudioFrameReceived: func(uid string, packet []byte, sendTs int64, codec int) {
 			//fmt.Printf("OnEncodedAudioFrameReceived, from userId %s\n", uid)
-			fmt.Printf("packet len: %d, sendTs: %d, codec: %d\n", len(packet), sendTs, codec)
+			fmt.Printf("uid: %s, packet len: %d, sendTs: %d, codec: %d\n", uid, len(packet), sendTs, codec)
 			// save to file
 		},
 	}
@@ -206,27 +206,29 @@ func main() {
 
 		},
 		OnUserAudioTrackStateChanged: func(localUser *agoraservice.LocalUser, uid string, remoteAudioTrack *agoraservice.RemoteAudioTrack, state int, reason int, elapsed int) {
-			fmt.Printf("*****User audio track state changed, uid %s\n", uid)
+			fmt.Printf("*****User audio track state changed, uid %s, state %d, reason %d, elapsed %d\n", uid, state, reason, elapsed)
 		},
 		OnUserVideoTrackStateChanged: func(localUser *agoraservice.LocalUser, uid string, remoteAudioTrack *agoraservice.RemoteVideoTrack, state int, reason int, elapsed int) {
-			fmt.Printf("*****User video track state changed, uid %s\n", uid)
+			fmt.Printf("*****User video track state changed, uid %s\n", uid, state, reason, elapsed)
 		},
 	}
 
 	conn.RegisterObserver(conHandler)
 
 	localUser := conn.GetLocalUser()
-	//localUser.SetAudioScenario(agoraservice.AudioScenarioChorus)
-	conn.Connect(token, channelName, userId)
-	<-conSignal
+
 
 	localUser = conn.GetLocalUser()
 	//localUser.SetPlaybackAudioFrameBeforeMixingParameters(1, 16000)
 	conn.RegisterLocalUserObserver(localUserObserver)
 
 	//conn.RegisterAudioFrameObserver(audioObserver, 0, nil)
-	conn.RegisterEncodedAudioFrameObserver(encaudioObserver)
+	conn.RegisterAudioEncodedFrameObserver(encaudioObserver)
 	fmt.Printf("RegisterEncodedAudioFrameObserver success: %p, localUser: %p\n", audioObserver,localUser)
+
+	//localUser.SetAudioScenario(agoraservice.AudioScenarioChorus)
+	conn.Connect(token, channelName, userId)
+	<-conSignal
 
 	conn.PublishAudio()
 

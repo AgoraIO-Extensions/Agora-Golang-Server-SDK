@@ -305,6 +305,11 @@ func goOnUserAudioTrackStateChanged(cLocalUser unsafe.Pointer, uid *C.char, cRem
 	if con == nil || con.localUserObserver == nil || con.localUserObserver.OnUserAudioTrackStateChanged == nil {
 		return
 	}
+	// for encoded audio frame received, if needed
+	if con != nil {
+		// inner to do track state changed
+		con.doAudioTrackStateChanged(uid, cRemoteAudioTrack, int(state), int(reason))
+	}
 	// note： best practise is never reelase handler until app is exiting
 	con.localUserObserver.OnUserAudioTrackStateChanged(con.GetLocalUser(), C.GoString(uid), NewRemoteAudioTrack(cRemoteAudioTrack), int(state), int(reason), int(elapsed))
 }
@@ -526,23 +531,27 @@ func goOnIntraRequestReceived(cLocalUser unsafe.Pointer) {
 }
 
 //export goOnEncodedAudioFrameReceived
-func goOnEncodedAudioFrameReceived(cAudioEncodedFrameObserverHandle unsafe.Pointer, packet *C.uint8_t, length C.size_t, encodedAudioFrameInfo *C.struct__encoded_audio_frame_rev_info) {
-	fmt.Printf("goOnEncodedAudioFrameReceived, cAudioEncodedFrameObserverHandle: %p, packet: %p, length: %d, encodedAudioFrameInfo: %p\n", cAudioEncodedFrameObserverHandle, packet, length, encodedAudioFrameInfo)
+func goOnEncodedAudioFrameReceived(cObserverHandle unsafe.Pointer, packet *C.uint8_t, length C.size_t, encodedAudioFrameInfo *C.struct__encoded_audio_frame_rev_info) {
+	//fmt.Printf("goOnEncodedAudioFrameReceived, cObserverHandle: %p, packet: %p, length: %d, encodedAudioFrameInfo: %p\n", cObserverHandle, packet, length, encodedAudioFrameInfo)
 	//validity check
-	if cAudioEncodedFrameObserverHandle == nil {
-		fmt.Printf("goOnEncodedAudioFrameReceived, cAudioEncodedFrameObserverHandle is nil\n")
+	if cObserverHandle == nil {
+		fmt.Printf("goOnEncodedAudioFrameReceived, cObserverHandle is nil\n")
 		return
 	}
-	item := agoraService.getEncAudioFrameObserverItem(cAudioEncodedFrameObserverHandle)
+
+	// get item from map
+	item := agoraService.getAudioEncObserverItemFromMap(cObserverHandle)
 	if item == nil {
 		fmt.Printf("goOnEncodedAudioFrameReceived, item is nil\n")
 		return
 	}
+
 	con := item.Con
 	if con == nil {
 		fmt.Printf("goOnEncodedAudioFrameReceived, con is nil\n")
 		return
 	}
+
 	if con.encodedAudioFrameObserver == nil {
 		fmt.Printf("goOnEncodedAudioFrameReceived, encodedAudioFrameObserver is nil\n")
 		return
