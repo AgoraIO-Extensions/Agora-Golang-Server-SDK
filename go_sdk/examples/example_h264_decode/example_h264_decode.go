@@ -10,7 +10,7 @@ import (
 
 	agoraservice "github.com/AgoraIO-Extensions/Agora-Golang-Server-SDK/v2/go_sdk/rtc"
 
-	rtctokenbuilder "github.com/AgoraIO/Tools/DynamicKey/AgoraDynamicKey/go/src/rtctokenbuilder2"
+	//rtctokenbuilder "github.com/AgoraIO/Tools/DynamicKey/AgoraDynamicKey/go/src/rtctokenbuilder2"
 )
 
 
@@ -48,7 +48,7 @@ func main() {
 
 	// get environment variable
 
-	cert := os.Getenv("AGORA_APP_CERTIFICATE")
+	//cert := os.Getenv("AGORA_APP_CERTIFICATE")
 
 	userId := "0"
 	if appid == "" {
@@ -56,6 +56,7 @@ func main() {
 		return
 	}
 	token := ""
+	/*
 	if cert != "" {
 		tokenExpirationInSeconds := uint32(3600)
 		privilegeExpirationInSeconds := uint32(3600)
@@ -66,7 +67,7 @@ func main() {
 			fmt.Println("Failed to build token: ", err)
 			return
 		}
-	}
+	}*/
 	svcCfg := agoraservice.NewAgoraServiceConfig()
 	svcCfg.AppId = appid
 	// whether sending or receiving video, we need to set EnableVideo to true!!

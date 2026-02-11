@@ -12,14 +12,18 @@ if [ "$#" -eq 0 ]; then
   exit 1
 fi
 
+
+# Build tags from env (e.g. TAGS=avcodec ./scripts/build_examples.sh ...)
+TAGS=${TAGS:-}
+
 # Iterate over each file passed as an argument
-for file in "$@"; 
+for file in "$@";
 do
   example_path="$examples_path/$file"
-  if [ -d $example_path ]; then
+  if [ -d "$example_path" ]; then
     echo "building example: $file"
-    go mod tidy -C $example_path
-    go build -C $example_path -o "${PACKAGE_HOME}/bin/${file}"
+    go mod tidy -C "$example_path"
+    go build -C "$example_path" ${TAGS:+-tags $TAGS} -o "${PACKAGE_HOME}/bin/${file}"
   else
     echo "File not found: $file"
   fi

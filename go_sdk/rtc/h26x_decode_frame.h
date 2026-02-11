@@ -23,7 +23,7 @@ typedef struct {
     int total_size;       // total size (y_size + uv_size * 2)
 } YUVFrame;
 
-H264Decoder* h264_decoder_init(void);
+H264Decoder* h264_decoder_init(int *error_code);
 
 /**
  * Decode H.264 stream data 

@@ -27,3 +27,4 @@ extern audio_params cgo_on_get_playback_audio_frame_param(AGORA_HANDLE agora_loc
 extern audio_params cgo_on_get_record_audio_frame_param(AGORA_HANDLE agora_local_user);
 extern audio_params cgo_on_get_mixed_audio_frame_param(AGORA_HANDLE agora_local_user);
 extern audio_params cgo_on_get_ear_monitoring_audio_frame_param(AGORA_HANDLE agora_local_user);
+extern int cgo_on_encoded_audio_frame_received(AGORA_HANDLE agora_audio_encoded_frame_observer, const uint8_t* packet, size_t length, const encoded_audio_frame_rev_info* encoded_audio_frame_info);

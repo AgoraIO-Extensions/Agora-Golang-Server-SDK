@@ -50,3 +50,10 @@ extern audio_params goOnGetEarMonitoringAudioFrameParam(void* agora_local_user);
 audio_params cgo_on_get_ear_monitoring_audio_frame_param(AGORA_HANDLE agora_local_user) {
   return goOnGetEarMonitoringAudioFrameParam(agora_local_user);
 }
+
+extern int goOnEncodedAudioFrameReceived(void* agora_audio_encoded_frame_observer_handle, const uint8_t* packet, size_t length,
+    const struct _encoded_audio_frame_rev_info* encoded_audio_frame_info);
+int cgo_on_encoded_audio_frame_received(AGORA_HANDLE agora_audio_encoded_frame_observer, const uint8_t* packet, size_t length,
+    const encoded_audio_frame_rev_info* encoded_audio_frame_info) {
+  return goOnEncodedAudioFrameReceived(agora_audio_encoded_frame_observer, packet, length, encoded_audio_frame_info);
+}

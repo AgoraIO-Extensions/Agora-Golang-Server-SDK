@@ -8,6 +8,9 @@ PACKAGE_HOME=$(
 UNAME_S=`uname -s`
 OS=unknown
 
+UNAME_M=`uname -m`
+ARCH=unknown
+
 
 #ver2.2.4
 #linux_sdk="https://download.agora.io/sdk/release/agora_rtc_sdk-x86_64-linux-gnu-v4.4.32-20250425_144419-675648-aed-0521.zip"
@@ -68,7 +71,13 @@ mac_sdk="https://download.agora.io/sdk/release/agora_sdk_mac_v4.4.32.156_26548_F
 #date: 20260128 update sdk to 161 for 2.4.6
 linux_sdk="https://download.agora.io/sdk/release/agora_rtc_sdk_x86_64-linux-gnu-v4.4.32.161_27323_SERVER_20260128_1128_1004648_20251021_1427-3a.zip"
 mac_sdk="https://download.agora.io/sdk/release/agora_sdk_mac_v4.4.32.161_26814_FULL_20260128_1113_1004619_20251021_1427-3a.zip"
+arm_sdk="https://download.agora.io/sdk/release/agora_rtc_sdk_arm64-linux-gnu-v4.4.32.161_27323_SERVER_20260128_1128_1004648_20251021_1427-3a.zip"
 
+#date: 20260210 update sdk to 162 for 2.4.7
+
+mac_sdk="https://download.agora.io/sdk/release/agora_sdk_mac_v4.4.32.163_26922_FULL_20260211_1047_1009661_20251021_1427-3a.zip"
+linux_sdk="https://download.agora.io/sdk/release/agora_rtc_sdk_x86_64-linux-gnu-v4.4.32.163_27411_SERVER_20260211_1033_1009658_20251021_1427-3a.zip"
+arm_sdk="https://download.agora.io/sdk/release/agora_rtc_sdk_aarch64-linux-gnu-v4.4.32.163_27411_SERVER_20260211_103529-1009669.zip"
 if [[ $UNAME_S == Linux ]]; then
     OS=linux
 elif [[ $UNAME_S == Darwin ]]; then
@@ -82,9 +91,22 @@ elif [[ $UNAME_S == Darwin ]]; then
 else
     echo "Unsupported OS: ${UNAME_S}"
     exit 1
-fi
+fi  
+#判断是arm64还是x86_64, 并设置ARCH
+
+if [[ $UNAME_M == x86_64 ]]; then
+    ARCH=x86_64
+elif [[ $UNAME_M == aarch64 ]]; then
+    ARCH=arm64
+elif [[ $UNAME_M == arm64 ]]; then
+    ARCH=arm64
+else
+    echo "Unsupported ARCH: ${UNAME_M}"
+    exit 1
+fi 
 
 echo "OS: ${OS}"
+echo "ARCH: ${ARCH}"
 
 check_and_download() {
     download_url=$1
@@ -123,4 +145,8 @@ check_and_download() {
 if [[ $OS == mac ]]; then
     check_and_download $mac_sdk agora_sdk_mac
 fi
-check_and_download $linux_sdk agora_sdk
+if [[ $ARCH == arm64 ]] && [[ $OS == linux ]]; then
+    check_and_download $arm_sdk agora_sdk
+else
+    check_and_download $linux_sdk agora_sdk
+fi

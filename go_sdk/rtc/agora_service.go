@@ -124,6 +124,8 @@ type AgoraService struct {
 	idleQueueMutex sync.Mutex
 	idleMode bool
 	apmModel int
+	// for encoded audio frame received
+	encAudioFrameObserverItemsMap sync.Map
 }
 
 // / newAgoraService creates a new instance of AgoraService
@@ -410,12 +412,22 @@ func (s *AgoraService) cleanup() {
         s.consByCEncodedVideoObserver.Delete(key)
         return true
     })
+	s.encAudioFrameObserverItemsMap.Range(func(key, value interface{}) bool {
+		if item, ok := value.(*EncAudioFrameObserverItem); ok {
+			s.encAudioFrameObserverItemsMap.Delete(key)
+			item.Con = nil
+			item.Uid = ""
+			item = nil
+		}
+		return true
+	})
 
     // After cleaning up all connections, set maps to nil
     s.consByCCon = sync.Map{}
     s.consByCLocalUser = sync.Map{}
     s.consByCVideoObserver = sync.Map{}
     s.consByCEncodedVideoObserver = sync.Map{}
+	s.encAudioFrameObserverItemsMap = sync.Map{}
 }
 
 // to get value from sync.Map, use Load method
@@ -479,6 +491,39 @@ func (s *AgoraService) deleteConFromHandle(handle unsafe.Pointer, conType int) b
 	}
 	return true
 }
+
+
+
+func (s *AgoraService) setAudioEncObserToMap(item *EncAudioFrameObserverItem) bool {
+	if item == nil {
+		return false
+	}
+	s.encAudioFrameObserverItemsMap.Store(item.CObserverHandle, item)
+	return true
+}
+func (s *AgoraService) getAudioEncObserverItemFromMap(observerHandle unsafe.Pointer) *EncAudioFrameObserverItem {
+	if observerHandle == nil {
+		return nil
+	}
+	item, ok := s.encAudioFrameObserverItemsMap.Load(observerHandle)
+	if !ok {
+		return nil
+	}
+	return item.(*EncAudioFrameObserverItem)
+}
+// only delete the item from map, do not free the item!!!
+func (s *AgoraService) deleteAudioEncObserverItemFromMap(observerHandle unsafe.Pointer) bool {
+	if observerHandle == nil {
+		return false
+	}
+	_, ok := s.encAudioFrameObserverItemsMap.Load(observerHandle)
+	if !ok {
+		return false
+	}
+	s.encAudioFrameObserverItemsMap.Delete(observerHandle)
+	return true
+}
+
 //date: 20251028 for set apm filter related struct:
 //AiNSConfig: for AiNS , ns,and sf_st_cfg,sf_ext_cfg
 type AiNsConfig struct {

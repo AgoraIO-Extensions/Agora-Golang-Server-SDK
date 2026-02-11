@@ -265,10 +265,16 @@ func goOnUserAudioTrackSubscribed(cLocalUser unsafe.Pointer, uid *C.char, cRemot
 		// open apm filter
 		con.setApmFilterProperties(uid, cRemoteAudioTrack)
 	} 
+	// for encoded audio frame received, if needed
+	if con != nil {
+		ret := con.initEncodedAudioFrameReceived(uid, cRemoteAudioTrack)
+		if ret != 0 {
+			fmt.Printf("initEncodedAudioFrameReceived failed, ret: %d, uid: %s, cRemoteAudioTrack: %p\n", ret, uid, cRemoteAudioTrack)
+		}
+	}
 	if con == nil || con.localUserObserver == nil || con.localUserObserver.OnUserAudioTrackSubscribed == nil {
 		return
 	}
-
 	// note： best practise is never reelase handler until app is exiting
 	con.localUserObserver.OnUserAudioTrackSubscribed(con.GetLocalUser(), C.GoString(uid), NewRemoteAudioTrack(cRemoteAudioTrack))
 }
@@ -298,6 +304,11 @@ func goOnUserAudioTrackStateChanged(cLocalUser unsafe.Pointer, uid *C.char, cRem
 	con := agoraService.getConFromHandle(cLocalUser, ConTypeCLocalUser)
 	if con == nil || con.localUserObserver == nil || con.localUserObserver.OnUserAudioTrackStateChanged == nil {
 		return
+	}
+	// for encoded audio frame received, if needed
+	if con != nil {
+		// inner to do track state changed
+		con.doAudioTrackStateChanged(uid, cRemoteAudioTrack, int(state), int(reason))
 	}
 	// note： best practise is never reelase handler until app is exiting
 	con.localUserObserver.OnUserAudioTrackStateChanged(con.GetLocalUser(), C.GoString(uid), NewRemoteAudioTrack(cRemoteAudioTrack), int(state), int(reason), int(elapsed))
@@ -517,4 +528,37 @@ func goOnIntraRequestReceived(cLocalUser unsafe.Pointer) {
 		return
 	}
 	con.localUserObserver.OnIntraRequestReceived(con.GetLocalUser())
+}
+
+//export goOnEncodedAudioFrameReceived
+func goOnEncodedAudioFrameReceived(cObserverHandle unsafe.Pointer, packet *C.uint8_t, length C.size_t, encodedAudioFrameInfo *C.struct__encoded_audio_frame_rev_info) {
+	//fmt.Printf("goOnEncodedAudioFrameReceived, cObserverHandle: %p, packet: %p, length: %d, encodedAudioFrameInfo: %p\n", cObserverHandle, packet, length, encodedAudioFrameInfo)
+	//validity check
+	if cObserverHandle == nil {
+		fmt.Printf("goOnEncodedAudioFrameReceived, cObserverHandle is nil\n")
+		return
+	}
+
+	// get item from map
+	item := agoraService.getAudioEncObserverItemFromMap(cObserverHandle)
+	if item == nil {
+		fmt.Printf("goOnEncodedAudioFrameReceived, item is nil\n")
+		return
+	}
+
+	con := item.Con
+	if con == nil {
+		fmt.Printf("goOnEncodedAudioFrameReceived, con is nil\n")
+		return
+	}
+
+	if con.encodedAudioFrameObserver == nil {
+		fmt.Printf("goOnEncodedAudioFrameReceived, encodedAudioFrameObserver is nil\n")
+		return
+	}
+	// conver C.uint8_t to []byte
+	packetBytes := C.GoBytes(unsafe.Pointer(packet), C.int(length))
+	
+	con.encodedAudioFrameObserver.OnEncodedAudioFrameReceived(item.Uid, packetBytes, 
+		int64(encodedAudioFrameInfo.sendTs), int(encodedAudioFrameInfo.codec))
 }
