@@ -114,6 +114,21 @@ type TransCodeInData struct {
 	// need to keep timestamp for calc processing time??
 	timestamp int64
 }
+type TransCodeStatus struct {
+	orgEncodedDataInFrameCount int
+	transcodedYuvDataOutFrameCount int
+	pushToRtcFrameCount int
+	pushToRtcFailedCount int
+	lastCheckCount int
+	
+}
+func (status *TransCodeStatus) Reset() {
+	status.orgEncodedDataInFrameCount = 0
+	status.transcodedYuvDataOutFrameCount = 0
+	status.pushToRtcFrameCount = 0
+	status.pushToRtcFailedCount = 0
+	status.lastCheckCount = 0
+}
 type TranscodingWorker struct {
 	isRunning        bool
 	encodeDataQueue  chan *TransCodeInData // for en
@@ -125,6 +140,7 @@ type TranscodingWorker struct {
 	mutex            sync.Mutex
 	wg               sync.WaitGroup // for waiting run() goroutine to complete
 	stopOnce         sync.Once      // ensure stopChan is only closed once
+	status           *TransCodeStatus
 }
 
 func NewTranscodingWorker(conn *RtcConnection, fps int) *TranscodingWorker {
@@ -146,6 +162,13 @@ func NewTranscodingWorker(conn *RtcConnection, fps int) *TranscodingWorker {
 		mutex:            sync.Mutex{},
 		wg:               sync.WaitGroup{},
 		stopOnce:         sync.Once{},
+		status:           &TransCodeStatus{
+			orgEncodedDataInFrameCount: 0,
+			transcodedYuvDataOutFrameCount: 0,
+			pushToRtcFrameCount: 0,
+			pushToRtcFailedCount: 0,
+			lastCheckCount: 0,
+		},
 	}
 	decoder, err := NewVideoDecoder()
 	if err != nil {
@@ -175,6 +198,8 @@ func (worker *TranscodingWorker) run() {
 	for {
 		select {
 		case data := <-worker.encodeDataQueue:
+			// update status
+			worker.status.orgEncodedDataInFrameCount++
 			//should decoding all the data in the queue, Never never drop any data, even if the decoder is busy.
 			yuvframe, ret := worker.decoder.DecodeAndSave(data.data, data.frameInfo.Width, data.frameInfo.Height, int(data.frameInfo.CodecType))
 			if yuvframe != nil {
@@ -182,6 +207,7 @@ func (worker *TranscodingWorker) run() {
 				// replace and assign to decodeVideoFrame
 				worker.mutex.Lock()
 				worker.decodeVideoFrame = yuvframe
+				worker.status.transcodedYuvDataOutFrameCount++
 				worker.mutex.Unlock()
 			} else if ret != 0 {
 				fmt.Printf("TranscodingWorker decode video frame failed: %d\n", ret)
@@ -189,8 +215,20 @@ func (worker *TranscodingWorker) run() {
 		case <-worker.timer.C:
 			// do processing decoded video frame now
 			worker.mutex.Lock()
-			worker.conn.handleDecodedVideoFrameForTranscode(worker.decodeVideoFrame)
+			ret := worker.conn.handleDecodedVideoFrameForTranscode(worker.decodeVideoFrame)
+			if ret == 0 {
+				worker.status.pushToRtcFrameCount++
+			} else {
+				worker.status.pushToRtcFailedCount++
+			}
 			worker.mutex.Unlock()
+			// output status
+			worker.status.lastCheckCount++
+			if worker.status.lastCheckCount >= 50 {
+				fmt.Printf("TranscodingWorker status: orgEncodedDataInFrameCount: %d, transcodedYuvDataOutFrameCount: %d, pushToRtcFrameCount: %d, pushToRtcFailedCount: %d\n", worker.status.orgEncodedDataInFrameCount, worker.status.transcodedYuvDataOutFrameCount, worker.status.pushToRtcFrameCount, worker.status.pushToRtcFailedCount)
+				// reset status
+				worker.status.Reset()
+			}
 		case <-worker.stopChan:
 			// received stop signal, exit loop
 			worker.mutex.Lock()

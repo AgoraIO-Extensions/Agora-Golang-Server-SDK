@@ -201,6 +201,9 @@ make advanced-examples
 
 1. Set `videoEncodedFrameObserver = true` in the `connection configure` step.
 
+## 2026.02.13 Release Version 2.4.9
+- **New Feature**: Added `transcode status` information.
+
 ## 2026.02.12 Release Version 2.4.8
 - **Update**: Updated SDK to tag 162. Small streams now support keyframe requests.
 - **New Feature**: Added `RegisterAudioEncodedFrameObserver` interface to obtain encoded audio.
