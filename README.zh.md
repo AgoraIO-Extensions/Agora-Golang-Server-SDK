@@ -223,6 +223,9 @@ make advanced-examples
 ### 如何使用videoEncodedFrameObserver?
 1. 在 `connection configure` 中设置：`videoEncodedFrameObserver = true`
 
+## 2026.02.13 发布 2.4.9  版本
+- **新更新**：增加统计转码信息。
+
 ## 2026.02.12 发布 2.4.8 版本
 - **新更新**：更新sdk 到162 tag，支持小流可以响应keyframereequest。
 - **新功能**：新增 `RegiserAudioEncodedFrameObserver` 接口，用于获取编码音频。
