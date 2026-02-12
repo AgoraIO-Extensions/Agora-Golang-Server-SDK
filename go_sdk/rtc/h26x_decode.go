@@ -122,6 +122,13 @@ type TransCodeStatus struct {
 	lastCheckCount int
 	
 }
+func (status *TransCodeStatus) Reset() {
+	status.orgEncodedDataInFrameCount = 0
+	status.transcodedYuvDataOutFrameCount = 0
+	status.pushToRtcFrameCount = 0
+	status.pushToRtcFailedCount = 0
+	status.lastCheckCount = 0
+}
 type TranscodingWorker struct {
 	isRunning        bool
 	encodeDataQueue  chan *TransCodeInData // for en
@@ -220,11 +227,7 @@ func (worker *TranscodingWorker) run() {
 			if worker.status.lastCheckCount >= 50 {
 				fmt.Printf("TranscodingWorker status: orgEncodedDataInFrameCount: %d, transcodedYuvDataOutFrameCount: %d, pushToRtcFrameCount: %d, pushToRtcFailedCount: %d\n", worker.status.orgEncodedDataInFrameCount, worker.status.transcodedYuvDataOutFrameCount, worker.status.pushToRtcFrameCount, worker.status.pushToRtcFailedCount)
 				// reset status
-				worker.status.lastCheckCount = 0
-				worker.status.orgEncodedDataInFrameCount = 0
-				worker.status.transcodedYuvDataOutFrameCount = 0
-				worker.status.pushToRtcFrameCount = 0
-				worker.status.pushToRtcFailedCount = 0
+				worker.status.Reset()
 			}
 		case <-worker.stopChan:
 			// received stop signal, exit loop
