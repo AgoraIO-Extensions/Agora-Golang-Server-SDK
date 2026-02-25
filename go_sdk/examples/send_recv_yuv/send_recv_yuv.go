@@ -155,17 +155,20 @@ func main() {
 
 	encoderCfg.Bitrate = 1700
 	encoderCfg.MinBitrate = -1
+
+	encoderCfg.CodecType = agoraservice.VideoCodecTypeAv1
 	
 	con.SetVideoEncoderConfiguration(encoderCfg)
 
 	// enable dual video stream
-	
+	/*
 	con.SetSimulcastStream(true, &agoraservice.SimulcastStreamConfig{
 		Width: 384,
 		Height: 216,
 		Bitrate: 300,
 		Framerate: 10,
 	})
+	*/
 	
 	
 	con.PublishVideo()
@@ -201,15 +204,22 @@ func main() {
 			continue
 		}
 		// senderCon.SendStreamMessage(streamId, data)
-		con.PushVideoFrame(&agoraservice.ExternalVideoFrame{
+		frame := &agoraservice.ExternalVideoFrame{
 			Type:      agoraservice.VideoBufferRawData,
 			Format:    agoraservice.VideoPixelI420,
 			Buffer:    data,
 			Stride:    w,
 			Height:    h,
 			Timestamp: 0,
-			MetadataBuffer: []byte("Hello, Agora!"),
-		})
+			MetadataBuffer: nil, //[]byte("Hello, Agora!"),
+			ColorSpace: agoraservice.ColorSpaceType{
+				MatrixId:    2,
+				PrimariesId: 2,
+				RangeId:     5, //or 2,
+				TransferId:  1,
+			},
+		}
+		con.PushVideoFrame(frame)
 		time.Sleep(33 * time.Millisecond)
 	}
 	
