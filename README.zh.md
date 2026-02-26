@@ -221,7 +221,49 @@ make advanced-examples
 
 
 ### 如何使用videoEncodedFrameObserver?
-1. 在 `connection configure` 中设置：`videoEncodedFrameObserver = true`
+1. 在 `subvideoopt := &agoraservice.VideoSubscriptionOptions{
+		StreamType:       agoraservice.VideoStreamHigh,
+		EncodedFrameOnly: true,
+	}`
+
+### 如何用 AV1 编码，并兼容 Web 端解码？
+
+> **注意：** 使用 AV1 编码时，如果需要确保 Web 端可以正常解码，请按照以下最佳实践操作。
+
+1. **设置 colorspace 为推荐值：** `(2, 2, 5, 1)`，否则 Web 端无法解码 AV1 视频流。
+2. **目前的rtc版本tag=163，不要携带 SEI 信息：**  
+   如果 MetadataBuffer 不为 `nil`，且 AV1 编码中包含 SEI，则 Web 端同样无法解码。
+
+#### 推荐示例代码
+
+```go
+frame := &agoraservice.ExternalVideoFrame{
+    Type:      agoraservice.VideoBufferRawData,
+    Format:    agoraservice.VideoPixelI420,
+    Buffer:    data,
+    Stride:    w,
+    Height:    h,
+    Timestamp: 0,
+    MetadataBuffer: nil, // 注意：AV1 下如 MetadataBuffer(带 SEI) 不为 nil，Web 端无法解码
+    ColorSpace: agoraservice.ColorSpaceType{
+        MatrixId:    2,
+        PrimariesId: 2,
+        RangeId:     5,
+        TransferId:  1,
+    },
+}
+con.PushVideoFrame(frame)
+```
+
+> 备注：MetadataBuffer 留空（即传 nil），对 Android/iOS 没有限制，但是 Web 必须为空；ColorSpace 推荐四元组为 `(2,2,5,1)`。
+
+## 2026.02.26 发布 2.4.10 版本
+- **新更新**：增加mac os下对av1编码/解码的支持。
+- **更新av1编码的最佳实践**：参考上面的说明。
+- **新更新**：默认设置
+parameterHandler.SetParameters("{\"rtc.video.enable_minor_stream_intra_request\":true}")
+私有参数，用于开启小流请求关键帧，默认是开启的。
+
 
 ## 2026.02.13 发布 2.4.9  版本
 - **新更新**：增加统计转码信息。

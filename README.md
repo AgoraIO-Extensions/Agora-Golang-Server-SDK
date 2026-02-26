@@ -197,9 +197,64 @@ make advanced-examples
    - `localUser.SetPlaybackAudioFrameBeforeMixingParameters(1, 16000)`
    - `conn.RegisterAudioFrameObserver(audioObserver, 0, nil)`
 
-### How to use videoEncodedFrameObserver?
 
-1. Set `videoEncodedFrameObserver = true` in the `connection configure` step.
+### How to use `videoEncodedFrameObserver`?
+
+1. Set the video subscription options as follows:
+
+```go
+subvideoopt := &agoraservice.VideoSubscriptionOptions{
+    StreamType:       agoraservice.VideoStreamHigh,
+    EncodedFrameOnly: true,
+}
+```
+
+---
+
+### How to Encode with AV1 and Remain Compatible with Web Decoding?
+
+> **Note:** When using AV1 encoding, please follow these best practices to ensure the Web client can properly decode the video stream.
+
+1. **Set the colorspace to the recommended value:** `(2, 2, 5, 1)`  
+   Without this, Web decoding of AV1 video stream will not work.
+2. **With RTC SDK tag=163, do NOT include SEI information:**  
+   If `MetadataBuffer` is not `nil` and the AV1 encoded stream contains SEI, the Web client will also fail to decode.
+
+#### Recommended Example Code
+
+```go
+frame := &agoraservice.ExternalVideoFrame{
+    Type:      agoraservice.VideoBufferRawData,
+    Format:    agoraservice.VideoPixelI420,
+    Buffer:    data,
+    Stride:    w,
+    Height:    h,
+    Timestamp: 0,
+    MetadataBuffer: nil, // Note: For AV1, if MetadataBuffer (with SEI) is not nil, Web cannot decode
+    ColorSpace: agoraservice.ColorSpaceType{
+        MatrixId:    2,
+        PrimariesId: 2,
+        RangeId:     5,
+        TransferId:  1,
+    },
+}
+con.PushVideoFrame(frame)
+```
+
+> **Reminder:**  
+> - Leave `MetadataBuffer` empty (i.e., pass `nil`). This is required for Web, though Android/iOS have no such restriction.
+> - The recommended ColorSpace tuple is `(2,2,5,1)`.
+
+---
+
+## 2026.02.26 Release 2.4.10
+
+- **New**: Added AV1 encode/decode support for macOS.
+- **AV1 Encoding Best Practices Update**: See instructions above for Web compatibility.
+- **Default Setting Update**:  
+  `parameterHandler.SetParameters("{\"rtc.video.enable_minor_stream_intra_request\":true}")`  
+  (This private parameter enables keyframe requests for minor/sub-streams. It is enabled by default.)
+
 
 ## 2026.02.13 Release Version 2.4.9
 - **New Feature**: Added `transcode status` information.
