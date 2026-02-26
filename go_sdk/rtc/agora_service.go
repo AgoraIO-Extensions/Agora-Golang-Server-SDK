@@ -1,7 +1,7 @@
 package agoraservice
 
 // #cgo darwin CFLAGS: -I../../agora_sdk/include/c/api2 -I../../agora_sdk/include/c/base
-// #cgo darwin LDFLAGS: -Wl,-rpath,${SRCDIR}/../../agora_sdk_mac -L../../agora_sdk_mac -lAgoraRtcKit -lAgorafdkaac -lAgoraffmpeg -lAgoraAiNoiseSuppressionExtension
+// #cgo darwin LDFLAGS: -Wl,-rpath,${SRCDIR}/../../agora_sdk_mac -L../../agora_sdk_mac -lAgoraRtcKit -lAgorafdkaac -lAgoraffmpeg -lAgoraAiNoiseSuppressionExtension -lAgoraVideoAv1DecoderExtension  -lAgoraVideoAv1EncoderExtension
 // #cgo linux CFLAGS: -D__linux__=1 -I../../agora_sdk/include/c/api2 -I../../agora_sdk/include/c/base
 // #cgo linux LDFLAGS: -Wl,-rpath,${SRCDIR}/../../agora_sdk -L../../agora_sdk/ -lagora_rtc_sdk -lagora-fdkaac -laosl
 // #include "agora_local_user.h"
@@ -245,6 +245,9 @@ func Initialize(cfg *AgoraServiceConfig) int {
 	// to disable av1 resolution limitation: for any resolution, 
 	// it will be encoded as av1 if config is av1 or it only work for resolution >= 360p
 	agoraParam.SetParameters("{\"che.video.min_enc_level\": 0}")
+
+	// date: 2026-02-26, default set the minor stream intra request to true
+	agoraParam.SetParameters("{\"rtc.video.enable_minor_stream_intra_request\":true}")
 
 	agoraService.mediaFactory = newMediaNodeFactory()
 
