@@ -246,6 +246,9 @@ func Initialize(cfg *AgoraServiceConfig) int {
 	// it will be encoded as av1 if config is av1 or it only work for resolution >= 360p
 	agoraParam.SetParameters("{\"che.video.min_enc_level\": 0}")
 
+	// date: 2026-02-26, default set the minor stream intra request to true
+	agoraParam.SetParameters("{\"rtc.video.enable_minor_stream_intra_request\":true}")
+
 	agoraService.mediaFactory = newMediaNodeFactory()
 
 	agoraService.inited = true
