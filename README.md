@@ -247,6 +247,10 @@ con.PushVideoFrame(frame)
 
 ---
 
+## 2026.03.02 Release 2.4.11
+
+- **Update**: update rtc sdk to 164 tag, to fix when web join room, the minor stream  is not displayed immediately when switch to the minor stream.
+
 ## 2026.02.26 Release 2.4.10
 
 - **New**: Added AV1 encode/decode support for macOS.
