@@ -285,6 +285,11 @@ type LocalUserObserver struct {
 	OnAudioTrackPublishSuccess func(localUser *LocalUser, audioTrack *LocalAudioTrack)
 	OnAudioTrackUnpublished    func(localUser *LocalUser, audioTrack *LocalAudioTrack)
 	OnIntraRequestReceived     func(localUser *LocalUser)
+	// added on 2026-03-05
+	OnVideoTrackPublishSuccess func(localUser *LocalUser, localVideoTrack *LocalVideoTrack)
+	OnVideoTrackUnpublished    func(localUser *LocalUser, localVideoTrack *LocalVideoTrack)
+
+	
 }
 
 type AudioFrameObserver struct {

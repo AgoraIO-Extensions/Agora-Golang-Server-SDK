@@ -157,3 +157,14 @@ extern void goOnIntraRequestReceived(void* agora_local_user);
 void cgo_on_intra_request_received(AGORA_HANDLE agora_local_user) {
   goOnIntraRequestReceived(agora_local_user);
 }
+
+
+extern void goOnVideoTrackPublishSuccess(void* agora_local_user, void* agora_local_video_track);
+void cgo_on_video_track_publish_success(AGORA_HANDLE agora_local_user, AGORA_HANDLE agora_local_video_track) {
+  goOnVideoTrackPublishSuccess(agora_local_user, agora_local_video_track);
+}
+
+extern void goOnVideoTrackUnpublished(void* agora_local_user, void* agora_local_video_track);
+void cgo_on_video_track_unpublished(AGORA_HANDLE agora_local_user, AGORA_HANDLE agora_local_video_track) {
+  goOnVideoTrackUnpublished(agora_local_user, agora_local_video_track);
+}
