@@ -83,6 +83,10 @@ arm_sdk="https://download.agora.io/sdk/release/agora_rtc_sdk_aarch64-linux-gnu-v
 mac_sdk="https://download.agora.io/sdk/release/agora_sdk_mac_v4.4.32.164_27011_FULL_20260228_1856_1017201_20251021_1427-3a.zip"
 linux_sdk="https://download.agora.io/sdk/release/agora_rtc_sdk_x86_64-linux-gnu-v4.4.32.164_27464_SERVER_20260228_1031_1017176_20251021_1427-3a.zip"
 
+#date: 20260306 update sdk to 165 for 2.4.12
+linux_sdk="https://download.agora.io/sdk/release/agora_rtc_sdk_x86_64-linux-gnu-v4.4.32.165_27499_SERVER_20260305_1556_1019231_20251021_1427-3a.zip"
+mac_sdk="https://download.agora.io/sdk/release/agora_sdk_mac_v4.4.32.165_27049_FULL_20260305_1611_1019233_20251021_1427-3a.zip"
+
 if [[ $UNAME_S == Linux ]]; then
     OS=linux
 elif [[ $UNAME_S == Darwin ]]; then
