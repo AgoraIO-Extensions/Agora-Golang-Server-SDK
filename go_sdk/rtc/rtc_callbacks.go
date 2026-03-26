@@ -562,3 +562,32 @@ func goOnEncodedAudioFrameReceived(cObserverHandle unsafe.Pointer, packet *C.uin
 	con.encodedAudioFrameObserver.OnEncodedAudioFrameReceived(item.Uid, packetBytes, 
 		int64(encodedAudioFrameInfo.sendTs), int(encodedAudioFrameInfo.codec))
 }
+//export goOnVideoTrackPublishSuccess
+func goOnVideoTrackPublishSuccess(cLocalUser unsafe.Pointer, cLocalVideoTrack unsafe.Pointer) {
+	//validity check
+	fmt.Printf("goOnVideoTrackPublishSuccess: %v\n", cLocalUser)
+	if cLocalUser == nil {
+		return
+	}
+	// get conn from handle
+	con := agoraService.getConFromHandle(cLocalUser, ConTypeCLocalUser)
+	if con == nil || con.localUserObserver == nil || con.localUserObserver.OnVideoTrackPublishSuccess == nil {
+		return
+	}
+	con.localUserObserver.OnVideoTrackPublishSuccess(con.GetLocalUser(), nil)
+}
+
+//export goOnVideoTrackUnpublished
+func goOnVideoTrackUnpublished(cLocalUser unsafe.Pointer, cLocalVideoTrack unsafe.Pointer) {
+	fmt.Printf("goOnVideoTrackUnpublished: %v\n", cLocalUser)
+	//validity check
+	if cLocalUser == nil {
+		return
+	}
+	// get conn from handle
+	con := agoraService.getConFromHandle(cLocalUser, ConTypeCLocalUser)
+	if con == nil || con.localUserObserver == nil || con.localUserObserver.OnVideoTrackUnpublished == nil {
+		return
+	}
+	con.localUserObserver.OnVideoTrackUnpublished(con.GetLocalUser(), nil)
+}

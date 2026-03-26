@@ -231,21 +231,28 @@ frame := &agoraservice.ExternalVideoFrame{
     Height:    h,
     Timestamp: 0,
     MetadataBuffer: nil, // Note: For AV1, if MetadataBuffer (with SEI) is not nil, Web cannot decode
+
     ColorSpace: agoraservice.ColorSpaceType{
-        MatrixId:    2,
-        PrimariesId: 2,
-        RangeId:     5,
-        TransferId:  1,
-    },
+				RangeId: 1,
+				MatrixId:    5,
+				PrimariesId: 2,
+				TransferId: 2,
+			},
 }
 con.PushVideoFrame(frame)
 ```
 
 > **Reminder:**  
 > - Leave `MetadataBuffer` empty (i.e., pass `nil`). This is required for Web, though Android/iOS have no such restriction.
-> - The recommended ColorSpace tuple is `(2,2,5,1)`.
+> - The recommended ColorSpace tuple is `(1,5,2,2)`.
 
 ---
+
+
+## 2026.03.26 Release Version 2.4.12
+- **Update**: Upgraded RTC SDK to version 165 to resolve the issue where AV1 codec priority must be configured from the backend for overseas (international) settings.
+- **AV1 Encoding Best Practices Update**: Please refer to the instructions above.
+- **New Feature**: Added `onVideoTrackPublished` and `onVideoTrackUnpublishSuccess` callbacks to notify users whether the video stream was published successfully.
 
 ## 2026.03.02 Release 2.4.11
 

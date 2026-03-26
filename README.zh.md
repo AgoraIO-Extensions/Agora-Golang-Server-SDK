@@ -238,28 +238,34 @@ make advanced-examples
 
 ```go
 frame := &agoraservice.ExternalVideoFrame{
-    Type:      agoraservice.VideoBufferRawData,
-    Format:    agoraservice.VideoPixelI420,
-    Buffer:    data,
-    Stride:    w,
-    Height:    h,
-    Timestamp: 0,
-    MetadataBuffer: nil, // 注意：AV1 下如 MetadataBuffer(带 SEI) 不为 nil，Web 端无法解码
-    ColorSpace: agoraservice.ColorSpaceType{
-        MatrixId:    2,
-        PrimariesId: 2,
-        RangeId:     5,
-        TransferId:  1,
-    },
-}
+			Type:      agoraservice.VideoBufferRawData,
+			Format:    agoraservice.VideoPixelI420,
+			Buffer:    data,
+			Stride:    w,
+			Height:    h,
+			Timestamp: 0,
+			MetadataBuffer: nil, //[]byte("Hello, Agora!"),
+			ColorSpace: agoraservice.ColorSpaceType{
+				RangeId: 1,
+				MatrixId:    5,
+				PrimariesId: 2,
+				TransferId: 2,
+			},
+		}
 con.PushVideoFrame(frame)
 ```
 
-> 备注：MetadataBuffer 留空（即传 nil），对 Android/iOS 没有限制，但是 Web 必须为空；ColorSpace 推荐四元组为 `(2,2,5,1)`。
+> 备注：MetadataBuffer 留空（即传 nil），对 Android/iOS 没有限制，但是 Web 必须为空；ColorSpace 推荐四元组为 `(1,5,2,2)`。
+
+
+## 2026.03.26 发布 2.4.12 版本
+- **新更新**：更新rtc sdk到165，解决海外设置av1需要从后台最codec优先级配置下发的问题。
+- **更新av1编码的最佳实践**：参考上面的说明。
+- **新功能**：增加'onVideoTrackPublished'和'onVideoTrackUnpublishSuccess'回调，用于通知用户是否成功发布发布视频流。
+
 
 ## 2026.03.02 发布 2.4.11 版本
 - **新更新**：更新rtc sdk到164，解决web加入会议的时候，小流切换黑屏的问题。
-
 
 ## 2026.02.26 发布 2.4.10 版本
 - **新更新**：增加mac os下对av1编码/解码的支持。
