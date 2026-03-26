@@ -63,7 +63,6 @@ func main() {
 
 	agoraservice.Initialize(svcCfg)
 	scenario := agoraservice.AudioScenarioDefault
-	
 
 	conCfg := agoraservice.RtcConnectionConfig{
 		AutoSubscribeAudio: true,
@@ -71,7 +70,7 @@ func main() {
 		ClientRole:         agoraservice.ClientRoleBroadcaster,
 		ChannelProfile:     agoraservice.ChannelProfileLiveBroadcasting,
 	}
-	
+
 	publishConfig := agoraservice.NewRtcConPublishConfig()
 	publishConfig.AudioPublishType = agoraservice.AudioPublishTypePcm
 	publishConfig.AudioScenario = scenario
@@ -113,6 +112,37 @@ func main() {
 			fmt.Println("user left, " + uid)
 		},
 	}
+	// LocalUserObserver for video track callbacks
+	localUserObserver := &agoraservice.LocalUserObserver{
+		OnVideoTrackPublishSuccess: func(localUser *agoraservice.LocalUser, localVideoTrack *agoraservice.LocalVideoTrack) {
+			fmt.Println("✓ Video track published successfully!")
+		},
+		OnVideoTrackUnpublished: func(localUser *agoraservice.LocalUser, localVideoTrack *agoraservice.LocalVideoTrack) {
+			fmt.Println("✗ Video track unpublished")
+		},
+		OnAudioTrackPublishSuccess: func(localUser *agoraservice.LocalUser, localAudioTrack *agoraservice.LocalAudioTrack) {
+			fmt.Println("✓ Audio track published successfully!")
+		},
+		OnAudioTrackUnpublished: func(localUser *agoraservice.LocalUser, localAudioTrack *agoraservice.LocalAudioTrack) {
+			fmt.Println("✗ Audio track unpublished")
+		},
+		OnUserAudioTrackSubscribed: func(localUser *agoraservice.LocalUser, userId string, remoteAudioTrack *agoraservice.RemoteAudioTrack) {
+			fmt.Printf("→ User %s audio track subscribed\n", userId)
+		},
+		OnUserVideoTrackSubscribed: func(localUser *agoraservice.LocalUser, userId string, videoTrackInfo *agoraservice.VideoTrackInfo, remoteVideoTrack *agoraservice.RemoteVideoTrack) {
+			fmt.Printf("→ User %s video track subscribed\n", userId)
+		},
+		OnUserAudioTrackStateChanged: func(localUser *agoraservice.LocalUser, userId string, remoteAudioTrack *agoraservice.RemoteAudioTrack, state int, reason int, elapsed int) {
+			fmt.Printf("→ User %s audio track state changed: state=%d, reason=%d\n", userId, state, reason)
+		},
+		OnUserVideoTrackStateChanged: func(localUser *agoraservice.LocalUser, userId string, remoteVideoTrack *agoraservice.RemoteVideoTrack, state int, reason int, elapsed int) {
+			fmt.Printf("→ User %s video track state changed: state=%d, reason=%d\n", userId, state, reason)
+		},
+		OnUserInfoUpdated: func(localUser *agoraservice.LocalUser, userId string, msg int, val int) {
+			fmt.Printf("→ User %s info updated: msg=%d, val=%d\n", userId, msg, val)
+		},
+	}
+
 	// for calling onFrame
 	frameCount := 0
 	frameLastRecvTime := time.Now().UnixMilli()
@@ -120,11 +150,11 @@ func main() {
 		OnFrame: func(channelId string, userId string, frame *agoraservice.VideoFrame) bool {
 			if frame == nil {
 				return true
-			    
+
 			}
 			frameCount++
 			Now := time.Now().UnixMilli()
-			if Now -frameLastRecvTime > 1000 {
+			if Now-frameLastRecvTime > 1000 {
 				fps := int64(frameCount*1000) / (Now - frameLastRecvTime)
 				fmt.Printf("fps, %d fps, %d\n", frameCount, fps)
 				frameCount = 0
@@ -135,14 +165,13 @@ func main() {
 			return true
 		},
 	}
-	
+
 	con := agoraservice.NewRtcConnection(&conCfg, publishConfig)
 
-	
+	// Register observers
 	con.RegisterObserver(conHandler)
+	con.RegisterLocalUserObserver(localUserObserver)
 	con.RegisterVideoFrameObserver(videoObserver)
-
-
 
 	con.Connect(token, channelName, userId)
 	<-conSignal
@@ -157,23 +186,22 @@ func main() {
 	encoderCfg.MinBitrate = -1
 
 	encoderCfg.CodecType = agoraservice.VideoCodecTypeAv1
-	
+
 	con.SetVideoEncoderConfiguration(encoderCfg)
 
 	// enable dual video stream
 	/*
-	con.SetSimulcastStream(true, &agoraservice.SimulcastStreamConfig{
-		Width: 384,
-		Height: 216,
-		Bitrate: 300,
-		Framerate: 10,
-	})
+		con.SetSimulcastStream(true, &agoraservice.SimulcastStreamConfig{
+			Width: 384,
+			Height: 216,
+			Bitrate: 300,
+			Framerate: 10,
+		})
 	*/
-	
-	
+
 	con.PublishVideo()
 
-	// for yuv 
+	// for yuv
 	w := 960
 	h := 720
 	//file, err := os.Open("../test_data/send_video_cif.yuv")
@@ -189,13 +217,11 @@ func main() {
 		EncodedFrameOnly: true,
 	})
 
-	
 	// for yuv test
-	
+
 	dataSize := w * h * 3 / 2
 	data := make([]byte, dataSize)
 	// read yuv from file 103_RaceHorses_416x240p30_300.yuv
-	
 
 	for !*bStop {
 		dataLen, err := file.Read(data)
@@ -205,88 +231,80 @@ func main() {
 		}
 		// senderCon.SendStreamMessage(streamId, data)
 		frame := &agoraservice.ExternalVideoFrame{
-			Type:      agoraservice.VideoBufferRawData,
-			Format:    agoraservice.VideoPixelI420,
-			Buffer:    data,
-			Stride:    w,
-			Height:    h,
-			Timestamp: 0,
+			Type:           agoraservice.VideoBufferRawData,
+			Format:         agoraservice.VideoPixelI420,
+			Buffer:         data,
+			Stride:         w,
+			Height:         h,
+			Timestamp:      0,
 			MetadataBuffer: nil, //[]byte("Hello, Agora!"),
 			ColorSpace: agoraservice.ColorSpaceType{
-				MatrixId:    2,
+				RangeId:     1,
+				MatrixId:    5,
 				PrimariesId: 2,
-				RangeId:     5, //or 2,
-				TransferId:  1,
+				TransferId:  2,
 			},
 		}
+
 		con.PushVideoFrame(frame)
 		time.Sleep(33 * time.Millisecond)
 	}
-	
-	
-	/*
-	// rgag colos space type test
-	w := 360
-	h := 720
-	// for rgba
-	dataSize := w * h * 4
-	data := make([]byte, dataSize)
-	// read yuv from file 103_RaceHorses_416x240p30_300.yuv
-	file, err := os.Open("../test_data/rgba_360_720.data")
-	if err != nil {
-		fmt.Println("Error opening file:", err)
-		return
-	}
-	defer file.Close()
 
-	for !*bStop {
-		dataLen, err := file.Read(data)
-		if err != nil || dataLen < dataSize {
-			file.Seek(0, 0)
-			continue
+	/*
+		// rgag colos space type test
+		w := 360
+		h := 720
+		// for rgba
+		dataSize := w * h * 4
+		data := make([]byte, dataSize)
+		// read yuv from file 103_RaceHorses_416x240p30_300.yuv
+		file, err := os.Open("../test_data/rgba_360_720.data")
+		if err != nil {
+			fmt.Println("Error opening file:", err)
+			return
 		}
-		// senderCon.SendStreamMessage(streamId, data)
-		con.PushVideoFrame(&agoraservice.ExternalVideoFrame{
-			Type:      agoraservice.VideoBufferRawData,
-			Format:    agoraservice.VideoPixelRGBA,
-			Buffer:    data,
-			Stride:    w,
-			Height:    h,
-			Timestamp: 0,
-			
-			
-			// for rgba with pure background color test
-			ColorSpace: agoraservice.ColorSpaceType{
-				MatrixId:    1,
-				PrimariesId: 1,
-				RangeId:     2, //or 2,
-				TransferId:  1,
-			},
-		})
-		time.Sleep(33 * time.Millisecond)
-	}
+		defer file.Close()
+
+		for !*bStop {
+			dataLen, err := file.Read(data)
+			if err != nil || dataLen < dataSize {
+				file.Seek(0, 0)
+				continue
+			}
+			// senderCon.SendStreamMessage(streamId, data)
+			con.PushVideoFrame(&agoraservice.ExternalVideoFrame{
+				Type:      agoraservice.VideoBufferRawData,
+				Format:    agoraservice.VideoPixelRGBA,
+				Buffer:    data,
+				Stride:    w,
+				Height:    h,
+				Timestamp: 0,
+
+
+				// for rgba with pure background color test
+				ColorSpace: agoraservice.ColorSpaceType{
+					MatrixId:    1,
+					PrimariesId: 1,
+					RangeId:     2, //or 2,
+					TransferId:  1,
+				},
+			})
+			time.Sleep(33 * time.Millisecond)
+		}
 	*/
-	
-	
 
 	//release now
-	
-
-	
 
 	start_disconnect := time.Now().UnixMilli()
 	con.Disconnect()
 	//<-OnDisconnectedSign
-	
 
 	con.Release()
 
-	
 	agoraservice.Release()
 
-	
 	videoObserver = nil
-	
+
 	conHandler = nil
 	con = nil
 
