@@ -1085,6 +1085,7 @@ type EncryptionConfig struct {
 	EncryptionMode    int
 	EncryptionKey     string
 	EncryptionKdfSalt []byte
+	DatastreamEncryptionEnabled bool
 }
 
 // EnableEncryption enables or disables encryption for the RTC connection.
@@ -1120,6 +1121,9 @@ func (conn *RtcConnection) EnableEncryption(enable int, config *EncryptionConfig
 		}
 		C.memcpy(unsafe.Pointer(&cConfig.encryption_kdf_salt[0]), unsafe.Pointer(&config.EncryptionKdfSalt[0]), C.size_t(saltlen))
 	}
+
+	// set datastream encryption enabled
+	cConfig.datastream_encryption_enabled = C.bool(config.DatastreamEncryptionEnabled)
 
 	ret := C.agora_rtc_conn_enable_encryption(conn.cConnection, C.int(enable), &cConfig)
 	return int(ret)
