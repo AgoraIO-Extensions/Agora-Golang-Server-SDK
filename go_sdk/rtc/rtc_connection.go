@@ -617,8 +617,8 @@ func NewRtcConnection(cfg *RtcConnectionConfig, publishConfig *RtcConnectionPubl
 		}
 	}
 
-	// auto create data stream
-	ret.dataStreamId, _ = ret.createDataStream(false, false)
+	// auto create data stream:move to connect function from 0331 for datastream encryption support
+	//ret.dataStreamId, _ = ret.createDataStream(false, false)
 
 	ret.setExtraSendFrameSpeed(publishConfig.SendExternalAudioParameters)
 	fmt.Printf("______auto create data stream, id: %d\n", ret.dataStreamId)
@@ -783,6 +783,11 @@ func (conn *RtcConnection) Connect(token string, channel string, uid string) int
 	if conn.cConnection == nil {
 		return -1
 	}
+	// auto create data stream: from 0331 for datastream encryption support
+	conn.dataStreamId, _ = conn.createDataStream(false, false)
+	
+
+
 	conn.connInfo.ChannelId = channel
 	conn.connInfo.LocalUserId = uid
 	uidInt, _ := strconv.Atoi(uid)
