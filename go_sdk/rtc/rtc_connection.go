@@ -617,8 +617,8 @@ func NewRtcConnection(cfg *RtcConnectionConfig, publishConfig *RtcConnectionPubl
 		}
 	}
 
-	// auto create data stream
-	ret.dataStreamId, _ = ret.createDataStream(false, false)
+	// auto create data stream:move to connect function from 0331 for datastream encryption support
+	//ret.dataStreamId, _ = ret.createDataStream(false, false)
 
 	ret.setExtraSendFrameSpeed(publishConfig.SendExternalAudioParameters)
 	fmt.Printf("______auto create data stream, id: %d\n", ret.dataStreamId)
@@ -783,6 +783,11 @@ func (conn *RtcConnection) Connect(token string, channel string, uid string) int
 	if conn.cConnection == nil {
 		return -1
 	}
+	// auto create data stream: from 0331 for datastream encryption support
+	conn.dataStreamId, _ = conn.createDataStream(false, false)
+	
+
+
 	conn.connInfo.ChannelId = channel
 	conn.connInfo.LocalUserId = uid
 	uidInt, _ := strconv.Atoi(uid)
@@ -1085,6 +1090,7 @@ type EncryptionConfig struct {
 	EncryptionMode    int
 	EncryptionKey     string
 	EncryptionKdfSalt []byte
+	DatastreamEncryptionEnabled bool
 }
 
 // EnableEncryption enables or disables encryption for the RTC connection.
@@ -1120,6 +1126,9 @@ func (conn *RtcConnection) EnableEncryption(enable int, config *EncryptionConfig
 		}
 		C.memcpy(unsafe.Pointer(&cConfig.encryption_kdf_salt[0]), unsafe.Pointer(&config.EncryptionKdfSalt[0]), C.size_t(saltlen))
 	}
+
+	// set datastream encryption enabled
+	cConfig.datastream_encryption_enabled = C.bool(config.DatastreamEncryptionEnabled)
 
 	ret := C.agora_rtc_conn_enable_encryption(conn.cConnection, C.int(enable), &cConfig)
 	return int(ret)

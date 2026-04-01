@@ -258,6 +258,11 @@ con.PushVideoFrame(frame)
 > 备注：MetadataBuffer 留空（即传 nil），对 Android/iOS 没有限制，但是 Web 必须为空；ColorSpace 推荐四元组为 `(1,5,2,2)`。
 
 
+
+## 2026.04.01 发布 2.4.13 版本
+- **新更新**：更新rtc sdk到168。
+- **新功能**：支持'datastream'消息的加密；更新'onvolumeindication'回调。
+
 ## 2026.03.26 发布 2.4.12 版本
 - **新更新**：更新rtc sdk到165，解决海外设置av1需要从后台最codec优先级配置下发的问题。
 - **更新av1编码的最佳实践**：参考上面的说明。

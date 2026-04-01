@@ -247,7 +247,9 @@ con.PushVideoFrame(frame)
 > - The recommended ColorSpace tuple is `(1,5,2,2)`.
 
 ---
-
+## 2026.04.01 Release Version 2.4.13
+- **Update**: Updated RTC SDK to version 168.
+- **New Features**: Added encryption support for 'datastream' messages;  update 'onvolumeindication' callback.
 
 ## 2026.03.26 Release Version 2.4.12
 - **Update**: Upgraded RTC SDK to version 165 to resolve the issue where AV1 codec priority must be configured from the backend for overseas (international) settings.
