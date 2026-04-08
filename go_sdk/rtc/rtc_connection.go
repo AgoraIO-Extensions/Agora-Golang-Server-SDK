@@ -1844,3 +1844,16 @@ func (conn *RtcConnection) doAudioTrackStateChanged(uid *C.char, cRemoteAudioTra
 	
 	return 0
 }
+//date: 20260408 add get sid api
+// note: only after connection is connected, the sid is valid(not empty string),otherwise return empty string
+func (conn *RtcConnection) GetSid() string {
+	if conn == nil || conn.cConnection == nil {
+		return ""
+	}
+	c_sid := C.agora_rtc_conn_get_sid(conn.cConnection)
+	if c_sid == nil {
+		return ""
+	}
+	//note: do not free the c_sid, it is a const string
+	return C.GoString(c_sid)
+}
