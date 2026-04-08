@@ -246,7 +246,29 @@ con.PushVideoFrame(frame)
 > - Leave `MetadataBuffer` empty (i.e., pass `nil`). This is required for Web, though Android/iOS have no such restriction.
 > - The recommended ColorSpace tuple is `(1,5,2,2)`.
 
+### How to Publish Self-Encoded Simulcast Streams (Simultaneously Sending Both High and Low Bitrate Streams)
+
+1. **Call `SetSimulcastStream(true, (0,0,0,0))`. Otherwise, dual-stream transmission will not work. You can call this at any time.**
+2. **When using `PushVideoEncodedData`, set the `streamtype` field to either `VideoStreamHigh` or `VideoStreamLow` accordingly.**
+
+#### Make sure `SimulcastStreamConfig` is enabled (set to `true`) and all other parameters are set to 0. Otherwise, simulcast will not work!
+
+```go
+	con.SetSimulcastStream(true, &agoraservice.SimulcastStreamConfig{
+		Width: 0,
+		Height: 0,
+		Bitrate: 0,
+		Framerate: 0,
+	})
+```
+
 ---
+## 2026.04.08 Release Version 2.4.14
+- **Update**: Updated RTC SDK to version 169.
+- **New Feature**: Added support for the `connection.GetSid` interface, which allows you to obtain the connection's session ID. Note: Call this after `connect`.
+- **Best Practice**: Added support for self-encoded simulcast mode, enabling the simultaneous transmission of both high and low streams. See "How to publish self-encoded simulcast streams" for reference.
+
+
 ## 2026.04.01 Release Version 2.4.13
 - **Update**: Updated RTC SDK to version 168.
 - **New Features**: Added encryption support for 'datastream' messages;  update 'onvolumeindication' callback.
