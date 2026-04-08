@@ -85,6 +85,47 @@ func (w *VideoFileWriter) CloseUser(username string) error {
 	fmt.Printf("关闭文件: %s.h264\n", username)
 	return err
 }
+// biz layer function: create a connection and start receiving video
+func createConnectionAndStartReceivingVideo(token string, channelName string, userId string, scenario agoraservice.AudioScenario, conHandler *agoraservice.RtcConnectionObserver, localUserObserver *agoraservice.LocalUserObserver, encodedVideoObserver *agoraservice.VideoEncodedFrameObserver) *agoraservice.RtcConnection {
+	conCfg := &agoraservice.RtcConnectionConfig{
+		AutoSubscribeAudio: true,
+		AutoSubscribeVideo: true,
+		ClientRole:         agoraservice.ClientRoleBroadcaster,
+		ChannelProfile:     agoraservice.ChannelProfileLiveBroadcasting,
+	}
+	publishConfig := agoraservice.NewRtcConPublishConfig()
+	publishConfig.AudioScenario = scenario
+	publishConfig.IsPublishAudio = true
+	publishConfig.IsPublishVideo = true
+	publishConfig.AudioProfile = agoraservice.AudioProfileDefault
+	publishConfig.AudioPublishType = agoraservice.AudioPublishTypeNoPublish
+	publishConfig.VideoPublishType = agoraservice.VideoPublishTypeEncodedImage
+
+	publishConfig.AudioPublishType = agoraservice.AudioPublishTypePcm
+
+	con := agoraservice.NewRtcConnection(conCfg, publishConfig)
+	if con == nil {
+		fmt.Println("Failed to create RTC connection")
+		return nil
+	}
+
+	// register observer
+	con.RegisterObserver(conHandler)
+	ret := con.RegisterLocalUserObserver(localUserObserver)
+	if ret != 0 {
+		fmt.Println("RegisterLocalUserObserver failed, ret ", ret)
+	}
+	subvideoopt := &agoraservice.VideoSubscriptionOptions{
+		StreamType:       agoraservice.VideoStreamHigh,
+		EncodedFrameOnly: true,
+	}
+	con.GetLocalUser().SubscribeAllVideo(subvideoopt)
+	con.RegisterVideoEncodedFrameObserver(encodedVideoObserver)
+
+	con.Connect(token, channelName, userId)
+	return con
+	
+}
 
 var videoFileWriter *VideoFileWriter
 func main() {
@@ -134,6 +175,8 @@ func main() {
 	svcCfg := agoraservice.NewAgoraServiceConfig()
 	svcCfg.EnableVideo = true
 	svcCfg.AppId = appid
+	svcCfg.LogPath = "./agora_rtc_log/agrasdk.log"
+	svcCfg.LogSize = 2 * 1024
 
 	agoraservice.Initialize(svcCfg)
 	
@@ -190,7 +233,7 @@ func main() {
 	encodedVideoObserver := &agoraservice.VideoEncodedFrameObserver{
 		OnEncodedVideoFrame: func(uid string, imageBuffer []byte, frameInfo *agoraservice.EncodedVideoFrameInfo) bool {
 			// fmt.Printf("user %s encoded video received\n", uid)
-			//fmt.Printf("user %s encoded video received, frame type %d\n", uid, frameInfo.FrameType)
+			fmt.Printf("user %s encoded video received, frame type %d\n", uid, frameInfo.FrameType)
 			if frameInfo.FrameType == agoraservice.VideoFrameTypeKeyFrame {
 				fmt.Printf("key frame received, time %d, codec type %d\n", time.Now().UnixMilli()-lastKeyFrameTime, frameInfo.CodecType)
 				lastKeyFrameTime = time.Now().UnixMilli()
@@ -230,7 +273,7 @@ func main() {
 	publishConfig.IsPublishVideo = true
 	publishConfig.AudioProfile = agoraservice.AudioProfileDefault
 	publishConfig.AudioPublishType = agoraservice.AudioPublishTypeNoPublish
-	publishConfig.VideoPublishType = agoraservice.VideoPublishTypeNoPublish
+	publishConfig.VideoPublishType = agoraservice.VideoPublishTypeEncodedImage
 
 	publishConfig.AudioPublishType = agoraservice.AudioPublishTypePcm
 
@@ -251,8 +294,30 @@ func main() {
 	con.GetLocalUser().SubscribeAllVideo(subvideoopt)
 	con.RegisterVideoEncodedFrameObserver(encodedVideoObserver)
 
+	sessionSid := con.GetSid()
+	fmt.Printf("session sid: %s\n", sessionSid)
+
 	con.Connect(token, channelName, userId)
+	
 	<-conSignal
+
+	sessionSid = con.GetSid()
+	fmt.Printf("session sid: %s\n", sessionSid)
+
+
+
+	con.PublishVideo()
+	con.PublishAudio()
+
+	// set simulcast stream
+	con.SetSimulcastStream(true, &agoraservice.SimulcastStreamConfig{
+		Width: 0,
+		Height: 0,
+		Bitrate: 0,
+		Framerate: 0,
+	})
+
+
 
 	file, err := os.OpenFile("./recv.264", os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if file == nil {
@@ -273,6 +338,11 @@ func main() {
 			//file.Write(videoData.imageData)
 			videoFileWriter.WriteVideoData(videoData.uid, videoData.imageData)
 			srcUid = videoData.uid
+			// simulate send video data to remote user
+			videoData.frameInfo.StreamType = int(agoraservice.VideoStreamHigh)
+			con.PushVideoEncodedData(videoData.imageData, videoData.frameInfo)
+			videoData.frameInfo.StreamType = int(agoraservice.VideoStreamLow)
+			con.PushVideoEncodedData(videoData.imageData, videoData.frameInfo)
 		case <-ctx.Done():
 			stop = true
 		default:

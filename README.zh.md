@@ -257,7 +257,36 @@ con.PushVideoFrame(frame)
 
 > 备注：MetadataBuffer 留空（即传 nil），对 Android/iOS 没有限制，但是 Web 必须为空；ColorSpace 推荐四元组为 `(1,5,2,2)`。
 
+### 如何发布自编码的大小流（就是对已经编码的视频流同时发大小流）
 
+1. **调用SetSimulcastStream(true, (0,0,0,0))`，否则 不能发出双流，调用时序是任何时刻都可以。
+2. **在PushVideoEncodedData 分别设置streamtype=VideoStreamHigh 或者是 VideoStreamLow**  
+
+#### 必须确保SimulcastStreamConfig为true，并且其余参数都是0，否则不工作！！
+
+```go
+	con.SetSimulcastStream(true, &agoraservice.SimulcastStreamConfig{
+		Width: 0,
+		Height: 0,
+		Bitrate: 0,
+		Framerate: 0,
+	})
+```
+
+todo：
+1、增加get sid
+2、增加自编码流双流模式的sample和验证
+
+## 2026.04.08 发布 2.4.14 版本
+- **新更新**：更新rtc sdk到169。
+- **新功能**：支持'connection.GetSid'接口，可以获取到conneciton 的session ID，需要在connect后调用。
+- **最佳实践**：增加'自编码'大小流模式，可以同时发出大小流，参考'如何发布自编码的大小流（就是对已经编码的视频流同时发大小流）'。
+
+## 2026.04.01 发布 2.4.13 版本
+- **新更新**：更新rtc sdk到168。
+- **新功能**：支持'datastream'消息的加密；更新'onvolumeindication'回调。
+
+## 2026.03.26 发布 2.4.12 版本
 
 ## 2026.04.01 发布 2.4.13 版本
 - **新更新**：更新rtc sdk到168。
