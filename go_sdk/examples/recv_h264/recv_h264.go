@@ -122,7 +122,8 @@ func createConnectionAndStartReceivingVideo(token string, channelName string, us
 	con.GetLocalUser().SubscribeAllVideo(subvideoopt)
 	con.RegisterVideoEncodedFrameObserver(encodedVideoObserver)
 
-	con.Connect(token, channelName, userId)
+	info := ""
+	con.Connect(token, channelName, userId, info)
 	return con
 	
 }
@@ -297,7 +298,8 @@ func main() {
 	sessionSid := con.GetSid()
 	fmt.Printf("session sid: %s\n", sessionSid)
 
-	con.Connect(token, channelName, userId)
+	info := ""
+	con.Connect(token, channelName, userId, info)
 	
 	<-conSignal
 

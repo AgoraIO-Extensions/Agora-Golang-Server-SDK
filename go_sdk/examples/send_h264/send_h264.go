@@ -194,7 +194,8 @@ func main() {
 
 	
 
-	con.Connect(token, channelName, userId)
+	info := ""
+	con.Connect(token, channelName, userId, info)
 	<-conSignal
 
 	con.PublishVideo()

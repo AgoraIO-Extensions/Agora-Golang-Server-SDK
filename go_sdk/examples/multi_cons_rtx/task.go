@@ -622,7 +622,8 @@ func (taskCtx *TaskContext) startTask() {
 	}
 	con.RegisterLocalUserObserver(localUserObs)
 
-	con.Connect(token1, channelName, senderId)
+	info := ""
+	con.Connect(token1, channelName, senderId, info)
 	// defer con.Disconnect()
 
 	select {

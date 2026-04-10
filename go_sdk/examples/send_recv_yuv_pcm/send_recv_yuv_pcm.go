@@ -321,7 +321,8 @@ func main() {
 	//localuserobserver
 	con.RegisterLocalUserObserver(localUserObserver)
 
-	con.Connect(token, channelName, userId)
+	info := ""
+	con.Connect(token, channelName, userId, info)
 	<-conSignal
 
 	con.SetVideoEncoderConfiguration(&agoraservice.VideoEncoderConfiguration{

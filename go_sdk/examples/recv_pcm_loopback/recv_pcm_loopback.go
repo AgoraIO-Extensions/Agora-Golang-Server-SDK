@@ -227,7 +227,8 @@ func main() {
 	fmt.Printf("RegisterEncodedAudioFrameObserver success: %p, localUser: %p\n", audioObserver,localUser)
 
 	//localUser.SetAudioScenario(agoraservice.AudioScenarioChorus)
-	conn.Connect(token, channelName, userId)
+	info := ""
+	conn.Connect(token, channelName, userId, info)
 	<-conSignal
 
 	conn.PublishAudio()

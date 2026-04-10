@@ -89,6 +89,7 @@ func CRtcConnectionConfig(cfg *RtcConnectionConfig) *C.struct__rtc_conn_config {
 	ret.audio_recv_media_packet = CIntFromBool(cfg.AudioRecvMediaPacket)
 	ret.video_recv_media_packet = CIntFromBool(cfg.VideoRecvMediaPacket)
 	ret.audio_recv_encoded_frame = CIntFromBool(cfg.AudioRecvEncodedFrame)
+	ret.channel_type = C.int(cfg.ChannelType)
 	return ret
 }
 

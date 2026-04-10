@@ -534,7 +534,8 @@ func original_main() {
 	// defer sender.Release()
 
 	//localUser.SetAudioScenario(agoraservice.AudioScenarioChorus)
-	con.Connect(token, channelName, userId)
+	info := ""
+	con.Connect(token, channelName, userId, info)
 	//<-conSignal
 
 	// for test AudioConsumer

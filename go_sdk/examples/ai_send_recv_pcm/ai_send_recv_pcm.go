@@ -1670,7 +1670,8 @@ func main() {
 
 	con.RegisterAudioFrameObserver(audioObserver, 1, vadConfig)
 
-	con.Connect(token, channelName, userId)
+	info := ""
+	con.Connect(token, channelName, userId, info)
 	<-conSignal
 
 	end := time.Now().UnixMilli()

@@ -173,7 +173,8 @@ func main() {
 	con.RegisterLocalUserObserver(localUserObserver)
 	con.RegisterVideoFrameObserver(videoObserver)
 
-	con.Connect(token, channelName, userId)
+	info := ""
+	con.Connect(token, channelName, userId, info)
 	<-conSignal
 
 	// can update in session life cycle

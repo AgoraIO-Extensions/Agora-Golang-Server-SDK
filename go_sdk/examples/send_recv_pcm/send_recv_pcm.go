@@ -140,6 +140,7 @@ func main() {
 		AutoSubscribeVideo: false,
 		ClientRole:         agoraservice.ClientRoleBroadcaster,
 		ChannelProfile:     agoraservice.ChannelProfileLiveBroadcasting,
+		ChannelType:        agoraservice.ChannelTypeLargeScale,
 	}
 	start := time.Now().UnixMilli()
 
@@ -263,10 +264,13 @@ func main() {
 	con.RegisterLocalUserObserver(localUserObserver)
 
 	con.RegisterAudioFrameObserver(audioObserver, 0, nil)
+
+
+	con.GetAgoraParameter().SetParameters("{\"rtc.vocs_list\":[\"183.131.160.208\"]}")
 	
 	
-	
-	con.Connect(token, channelName, userId)
+	info := ""
+	con.Connect(token, channelName, userId, info)
 	<-conSignal
 
 	end := time.Now().UnixMilli()

@@ -156,8 +156,8 @@ func main() {
 	con.RegisterObserver(conHandler)
 	con.RegisterAudioFrameObserver(audioObserver, 0, nil)
 
-	
-	con.Connect(token, channelName, userId)
+	info := ""
+	con.Connect(token, channelName, userId, info)
 	<-conSignal
 
 	con.PublishAudio()

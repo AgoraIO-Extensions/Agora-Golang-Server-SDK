@@ -95,6 +95,11 @@ mac_sdk="https://download.agora.io/sdk/release/agora_sdk_mac_v4.4.32.168_27265_F
 linux_sdk="https://download.agora.io/sdk/release/agora_rtc_sdk_x86_64-linux-gnu-v4.4.32.169_27717_SERVER_20260407_1440_1066518_20251021_1427-3a.zip"
 mac_sdk="https://download.agora.io/sdk/release/agora_sdk_mac_v4.4.32.169_27334_FULL_20260407_2130_1066977_20251021_1427-3a.zip"
 
+
+#date: 20260410 update sdk 4.6.x for big-channel support
+linux_sdk="https://download.agora.io/sdk/release/agora_rtc_sdk_x86_64-linux-gnu-v3.0_jira_NMS_27128_release_4_6_3_133_hc_fp_20260410.27738_27738_SERVER_20260410_1538_1071242_20251021_1427-3a.zip"
+mac_sdk="https://download.agora.io/sdk/release/agora_sdk_mac_v3.0_jira_NMS_27128_release_4_6_3_133_hc_fp_20260410.27368_27368_FULL_20260410_1613_1071278_20251021_1427-3a.zip"
+
 if [[ $UNAME_S == Linux ]]; then
     OS=linux
 elif [[ $UNAME_S == Darwin ]]; then

@@ -138,6 +138,7 @@ func main() {
 		AutoSubscribeVideo: false,
 		ClientRole:         agoraservice.ClientRoleBroadcaster, // 设置为观众角色，只接收不发送
 		ChannelProfile:     agoraservice.ChannelProfileLiveBroadcasting,
+		ChannelType:        agoraservice.ChannelTypeLargeScale,
 	}
 
 	con = agoraservice.NewRtcConnection(conCfg, publishConfig)
@@ -189,7 +190,11 @@ func main() {
 	}
 	con.RegisterVideoEncodedFrameObserver(encodedVideoObserver)
 
-	con.Connect(token, channelName, userId)
+	con.GetAgoraParameter().SetParameters("{\"rtc.vocs_list\":[\"183.131.160.208\"]}")
+	
+	
+	info := ""
+	con.Connect(token, channelName, userId, info)
 	<-conSignal
 
 	// set to sub and high video stream,and only recv encoded video frame

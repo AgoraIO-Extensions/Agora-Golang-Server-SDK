@@ -362,6 +362,11 @@ type RtcConnectionConfig struct {
 	 */
 	ClientRole     ClientRole
 	ChannelProfile ChannelProfile
+
+	/**
+	 * The channel type. The default channel type is ChannelTypeStandard.
+	 */
+	ChannelType    ChannelType
 	/**
 	 * Determines whether to receive audio media packet or not.
 	 */
@@ -779,7 +784,7 @@ func (conn *RtcConnection) GetConnectionInfo() *RtcConnectionInfo {
 	return &conn.connInfo
 }
 
-func (conn *RtcConnection) Connect(token string, channel string, uid string) int {
+func (conn *RtcConnection) Connect(token string, channel string, uid string, info string) int {
 	if conn.cConnection == nil {
 		return -1
 	}
@@ -795,10 +800,11 @@ func (conn *RtcConnection) Connect(token string, channel string, uid string) int
 	cChannel := C.CString(channel)
 	cToken := C.CString(token)
 	cUid := C.CString(uid)
+	cInfo := C.CString(info)
 	defer C.free(unsafe.Pointer(cChannel))
 	defer C.free(unsafe.Pointer(cToken))
 	defer C.free(unsafe.Pointer(cUid))
-	return int(C.agora_rtc_conn_connect(conn.cConnection, cToken, cChannel, cUid))
+	return int(C.agora_rtc_conn_connect(conn.cConnection, cToken, cChannel, cInfo, cUid))
 }
 
 // date: 2025-07-04
