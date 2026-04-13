@@ -39,6 +39,15 @@ const (
 	ChannelProfileLiveBroadcasting ChannelProfile = 1
 )
 
+type ChannelType int
+
+const (
+	// ChannelTypeStandard is the standard channel type.
+	ChannelTypeStandard ChannelType = 0
+	// ChannelTypeLargeScale is the large scale channel type.
+	ChannelTypeLargeScale ChannelType = 1
+)
+
 type UserMediaInfo int
 
 const (

@@ -184,9 +184,9 @@ func main() {
 
 	//added by wei for localuser observer
 	localUserObserver := &agoraservice.LocalUserObserver{
-		OnStreamMessage: func(localUser *agoraservice.LocalUser, uid string, streamId int, data []byte) {
+		OnStreamMessage: func(localUser *agoraservice.LocalUser, uid string, streamId int, data []byte, sendTs int64) {
 			// do something
-			fmt.Printf("*****Stream message, from userId %s\n", uid)
+			fmt.Printf("*****Stream message, from userId %s, sendTs %d\n", uid, sendTs)
 		},
 
 		OnAudioVolumeIndication: func(localUser *agoraservice.LocalUser, audioVolumeInfo []*agoraservice.AudioVolumeInfo, speakerNumber int, totalVolume int) {
@@ -227,7 +227,8 @@ func main() {
 	fmt.Printf("RegisterEncodedAudioFrameObserver success: %p, localUser: %p\n", audioObserver,localUser)
 
 	//localUser.SetAudioScenario(agoraservice.AudioScenarioChorus)
-	conn.Connect(token, channelName, userId)
+	info := ""
+	conn.Connect(token, channelName, userId, info)
 	<-conSignal
 
 	conn.PublishAudio()

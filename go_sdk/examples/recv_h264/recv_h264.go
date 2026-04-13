@@ -122,7 +122,8 @@ func createConnectionAndStartReceivingVideo(token string, channelName string, us
 	con.GetLocalUser().SubscribeAllVideo(subvideoopt)
 	con.RegisterVideoEncodedFrameObserver(encodedVideoObserver)
 
-	con.Connect(token, channelName, userId)
+	info := ""
+	con.Connect(token, channelName, userId, info)
 	return con
 	
 }
@@ -231,9 +232,9 @@ func main() {
 	lastKeyFrameTime := time.Now().UnixMilli()
 	parseSei := false
 	encodedVideoObserver := &agoraservice.VideoEncodedFrameObserver{
-		OnEncodedVideoFrame: func(uid string, imageBuffer []byte, frameInfo *agoraservice.EncodedVideoFrameInfo) bool {
+		OnEncodedVideoFrame: func(channelId string, uid string, imageBuffer []byte, frameInfo *agoraservice.EncodedVideoFrameInfo) bool {
 			// fmt.Printf("user %s encoded video received\n", uid)
-			fmt.Printf("user %s encoded video received, frame type %d\n", uid, frameInfo.FrameType)
+			fmt.Printf("channel %s, user %s encoded video received, frame type %d\n", channelId, uid, frameInfo.FrameType)
 			if frameInfo.FrameType == agoraservice.VideoFrameTypeKeyFrame {
 				fmt.Printf("key frame received, time %d, codec type %d\n", time.Now().UnixMilli()-lastKeyFrameTime, frameInfo.CodecType)
 				lastKeyFrameTime = time.Now().UnixMilli()
@@ -297,7 +298,8 @@ func main() {
 	sessionSid := con.GetSid()
 	fmt.Printf("session sid: %s\n", sessionSid)
 
-	con.Connect(token, channelName, userId)
+	info := ""
+	con.Connect(token, channelName, userId, info)
 	
 	<-conSignal
 

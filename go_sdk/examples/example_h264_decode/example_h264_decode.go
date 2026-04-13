@@ -50,7 +50,7 @@ func main() {
 
 	//cert := os.Getenv("AGORA_APP_CERTIFICATE")
 
-	userId := "0"
+	userId := "100"
 	if appid == "" {
 		fmt.Println("Please set AGORA_APP_ID environment variable, and AGORA_APP_CERTIFICATE if needed")
 		return
@@ -138,6 +138,7 @@ func main() {
 		AutoSubscribeVideo: false,
 		ClientRole:         agoraservice.ClientRoleBroadcaster, // 设置为观众角色，只接收不发送
 		ChannelProfile:     agoraservice.ChannelProfileLiveBroadcasting,
+		ChannelType:        agoraservice.ChannelTypeLargeScale,
 	}
 
 	con = agoraservice.NewRtcConnection(conCfg, publishConfig)
@@ -161,9 +162,9 @@ func main() {
 
 	// 注册视频编码帧观察者，用于接收编码的视频帧
 	encodedVideoObserver := &agoraservice.VideoEncodedFrameObserver{
-		OnEncodedVideoFrame: func(uid string, imageBuffer []byte, frameInfo *agoraservice.EncodedVideoFrameInfo) bool {
-			fmt.Printf("Received encoded video from uid: %s, size: %d, width: %d, height: %d, frameType: %d, codecType: %d\n",
-				uid, len(imageBuffer), frameInfo.Width, frameInfo.Height, frameInfo.FrameType, frameInfo.CodecType)
+		OnEncodedVideoFrame: func(channelId string, uid string, imageBuffer []byte, frameInfo *agoraservice.EncodedVideoFrameInfo) bool {
+			fmt.Printf("Received encoded video from channel %s, uid: %s, size: %d, width: %d, height: %d, frameType: %d, codecType: %d\n",
+				channelId, uid, len(imageBuffer), frameInfo.Width, frameInfo.Height, frameInfo.FrameType, frameInfo.CodecType)
 
 			//update encoder configuration
 			width := frameInfo.Width
@@ -189,12 +190,16 @@ func main() {
 	}
 	con.RegisterVideoEncodedFrameObserver(encodedVideoObserver)
 
-	con.Connect(token, channelName, userId)
+	con.GetAgoraParameter().SetParameters("{\"rtc.vocs_list\":[\"81.70.100.39\"]}")
+	
+	
+	info := ""
+	con.Connect(token, channelName, userId, info)
 	<-conSignal
 
 	// set to sub and high video stream,and only recv encoded video frame
 	// do not do decoding in sdk!
-	con.GetLocalUser().SubscribeAllVideo(&agoraservice.VideoSubscriptionOptions{
+	con.GetLocalUser().SubscribeVideo("200", &agoraservice.VideoSubscriptionOptions{
 		StreamType:       agoraservice.VideoStreamHigh,
 		EncodedFrameOnly: true,
 	})

@@ -273,20 +273,22 @@ con.PushVideoFrame(frame)
 	})
 ```
 
-todo：
-1、增加get sid
-2、增加自编码流双流模式的sample和验证
+
+## 2026.04.14 发布 2.6.0 版本
+- **新更新**：更新rtc sdk到4.6.x, 支持LargeScale 频道。
+- **新功能**：在'connectionconfigure中增加了ChannelType字段'，用来设置是大频道还是普通频道，值位'LargeScale'频道和'Standard'频道。
+- **修改**：增加'OnEncodedVideoFrame'接口中，增加chanleID string 字段
+- **修改**：增加'OnStreamMessage'接口中，增加sendTs uint64 。
+- **修改**：增加'Connection.Connect'接口中，增加info string，默认是“”空字符串
+- **备注**：如果是'LargeScale'频道模式，不能设置订阅模式为'auto'，否则会订阅不成功
+- **备注**：基于4.6.x的分支，都用 2.6.0版本来做标识；开发分支为46dev/46main
+
+
 
 ## 2026.04.08 发布 2.4.14 版本
 - **新更新**：更新rtc sdk到169。
 - **新功能**：支持'connection.GetSid'接口，可以获取到conneciton 的session ID，需要在connect后调用。
 - **最佳实践**：增加'自编码'大小流模式，可以同时发出大小流，参考'如何发布自编码的大小流（就是对已经编码的视频流同时发大小流）'。
-
-## 2026.04.01 发布 2.4.13 版本
-- **新更新**：更新rtc sdk到168。
-- **新功能**：支持'datastream'消息的加密；更新'onvolumeindication'回调。
-
-## 2026.03.26 发布 2.4.12 版本
 
 ## 2026.04.01 发布 2.4.13 版本
 - **新更新**：更新rtc sdk到168。

@@ -68,9 +68,9 @@ void cgo_on_stream_message_error(AGORA_HANDLE agora_rtc_conn, user_id_t user_id,
   goOnStreamMessageError(agora_rtc_conn, user_id, stream_id, code, missed, cached);
 }
 
-extern void goOnStreamMessage(void* agora_local_user, user_id_t user_id, int stream_id, const char* data, size_t length);
-void cgo_on_stream_message(AGORA_HANDLE agora_local_user, user_id_t user_id, int stream_id, const char* data, size_t length) {
-  goOnStreamMessage(agora_local_user, user_id, stream_id, data, length);
+extern void goOnStreamMessage(void* agora_local_user, user_id_t user_id, int stream_id, const char* data, size_t length, uint64_t send_ts);
+void cgo_on_stream_message(AGORA_HANDLE agora_local_user, user_id_t user_id, int stream_id, const char* data, size_t length, uint64_t send_ts) {
+  goOnStreamMessage(agora_local_user, user_id, stream_id, data, length, send_ts);
 }
 
 extern void goOnUserInfoUpdated(void* agora_local_user, user_id_t user_id, int msg, int val);

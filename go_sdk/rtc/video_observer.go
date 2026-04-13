@@ -10,7 +10,6 @@ package agoraservice
 */
 import "C"
 import (
-	"strconv"
 	"unsafe"
 )
 
@@ -42,7 +41,7 @@ func goOnVideoFrame(cObserver unsafe.Pointer, channelId *C.char, uid *C.char, fr
 }
 
 //export goOnEncodedVideoFrame
-func goOnEncodedVideoFrame(observer unsafe.Pointer, uid C.uint32_t, imageBuffer *C.uint8_t, length C.size_t,
+func goOnEncodedVideoFrame(observer unsafe.Pointer, channelId *C.char, uid *C.char, imageBuffer *C.uint8_t, length C.size_t,
 	video_encoded_frame_info *C.struct__encoded_video_frame_info) C.int {
 	// validity check
 	if observer == nil {
@@ -52,7 +51,10 @@ func goOnEncodedVideoFrame(observer unsafe.Pointer, uid C.uint32_t, imageBuffer 
 	if con == nil || con.encodedVideoObserver == nil || con.encodedVideoObserver.OnEncodedVideoFrame == nil {
 		return C.int(0)
 	}
-	goUid := strconv.FormatUint(uint64(uid), 10)
+	goUid := C.GoString(uid)
+	goChannelId := C.GoString(channelId)
+	//fmt.Printf("goOnEncodedVideoFrame, uid: %s, length: %d, uid: %d\n", goUid, length, uid)
+	//fmt.Printf("goOnEncodedVideoFrame, video_encoded_frame_info: %v\n", video_encoded_frame_info)
 	goImageBuffer := C.GoBytes(unsafe.Pointer(imageBuffer), C.int(length))
 	// GoEncodedVideoFrameInfo(video_encoded_frame_info)
 	goFrameInfo := &EncodedVideoFrameInfo{
@@ -69,7 +71,7 @@ func goOnEncodedVideoFrame(observer unsafe.Pointer, uid C.uint32_t, imageBuffer 
 		StreamType:      int(video_encoded_frame_info.stream_type),
 		PresentTimeMs:   int64(video_encoded_frame_info.presentation_ms),
 	}
-	if con.encodedVideoObserver.OnEncodedVideoFrame(goUid, goImageBuffer, goFrameInfo) {
+	if con.encodedVideoObserver.OnEncodedVideoFrame(goChannelId, goUid, goImageBuffer, goFrameInfo) {
 		return C.int(1)
 	}
 	return C.int(0)
