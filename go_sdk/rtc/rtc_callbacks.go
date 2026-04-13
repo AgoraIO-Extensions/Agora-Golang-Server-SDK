@@ -220,7 +220,7 @@ func goOnStreamMessageError(cCon unsafe.Pointer, uid *C.char, streamId C.int, er
 }
 
 //export goOnStreamMessage
-func goOnStreamMessage(cLocalUser unsafe.Pointer, uid *C.char, streamId C.int, data *C.char, length C.size_t) {
+func goOnStreamMessage(cLocalUser unsafe.Pointer, uid *C.char, streamId C.int, data *C.char, length C.size_t, sendTs C.uint64_t) {
 	//validity check
 	if cLocalUser == nil {
 		return
@@ -231,7 +231,7 @@ func goOnStreamMessage(cLocalUser unsafe.Pointer, uid *C.char, streamId C.int, d
 		return
 	}
 	// note： best practise is never reelase handler until app is exiting
-	con.localUserObserver.OnStreamMessage(con.GetLocalUser(), C.GoString(uid), int(streamId), C.GoBytes(unsafe.Pointer(data), C.int(length)))
+	con.localUserObserver.OnStreamMessage(con.GetLocalUser(), C.GoString(uid), int(streamId), C.GoBytes(unsafe.Pointer(data), C.int(length)), int64(sendTs))
 }
 
 //export goOnUserInfoUpdated

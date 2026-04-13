@@ -57,7 +57,7 @@ extern void cgo_on_user_left(AGORA_HANDLE agora_rtc_conn, user_id_t user_id, int
 
 //steam message 
 extern void cgo_on_stream_message_error(AGORA_HANDLE agora_rtc_conn, user_id_t user_id, int stream_id, int code, int missed, int cached);
-extern void cgo_on_stream_message(AGORA_HANDLE agora_local_user, user_id_t user_id, int stream_id, const char* data, size_t length);
+extern void cgo_on_stream_message(AGORA_HANDLE agora_local_user, user_id_t user_id, int stream_id, const char* data, size_t length, uint64_t send_ts);
 
   // /**
   //  * The media information of a specified user.
