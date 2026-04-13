@@ -7,9 +7,9 @@ int cgo_on_video_frame(AGORA_HANDLE agora_video_frame_observer2, const char* cha
   return goOnVideoFrame(agora_video_frame_observer2, channelId, uid, frame);
 }
 
-extern int goOnEncodedVideoFrame(void* agora_video_encoded_frame_observer, uint32_t uid, const uint8_t* image_buffer, size_t length,
+extern int goOnEncodedVideoFrame(void* agora_video_encoded_frame_observer, const char* channelId, const char* uid, const uint8_t* image_buffer, size_t length,
                                 const struct _encoded_video_frame_info* video_encoded_frame_info);
-int cgo_on_encoded_video_frame(AGORA_HANDLE agora_video_encoded_frame_observer, uint32_t uid, const uint8_t* image_buffer, size_t length,
+int cgo_on_encoded_video_frame(AGORA_HANDLE agora_video_encoded_frame_observer, const char* channelId, const char* uid, const uint8_t* image_buffer, size_t length,
                                 const encoded_video_frame_info* video_encoded_frame_info) {
-  return goOnEncodedVideoFrame(agora_video_encoded_frame_observer, uid, image_buffer, length, video_encoded_frame_info);
+  return goOnEncodedVideoFrame(agora_video_encoded_frame_observer, channelId, uid, image_buffer, length, video_encoded_frame_info);
 }
