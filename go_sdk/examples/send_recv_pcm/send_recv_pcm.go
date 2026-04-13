@@ -106,7 +106,7 @@ func main() {
 
 	cert := os.Getenv("AGORA_APP_CERTIFICATE")
 
-	userId := "0"
+	userId := "100"
 	if appid == "" {
 		fmt.Println("Please set AGORA_APP_ID environment variable, and AGORA_APP_CERTIFICATE if needed")
 		return
@@ -136,7 +136,7 @@ func main() {
 	
 	
 	conCfg := &agoraservice.RtcConnectionConfig{
-		AutoSubscribeAudio: true,
+		AutoSubscribeAudio: false,
 		AutoSubscribeVideo: false,
 		ClientRole:         agoraservice.ClientRoleBroadcaster,
 		ChannelProfile:     agoraservice.ChannelProfileLiveBroadcasting,
@@ -209,9 +209,9 @@ func main() {
 
 	//added by wei for localuser observer
 	localUserObserver := &agoraservice.LocalUserObserver{
-		OnStreamMessage: func(localUser *agoraservice.LocalUser, uid string, streamId int, data []byte) {
+		OnStreamMessage: func(localUser *agoraservice.LocalUser, uid string, streamId int, data []byte, sendTs int64) {
 			// do something
-			fmt.Printf("*****Stream message, from userId %s\n", uid)
+			fmt.Printf("*****Stream message, from userId %s, sendTs %d\n", uid, sendTs)
 			//con.SendStreamMessage(streamId, data)
 			con.SendStreamMessage(data)
 		},
@@ -266,7 +266,7 @@ func main() {
 	con.RegisterAudioFrameObserver(audioObserver, 0, nil)
 
 
-	con.GetAgoraParameter().SetParameters("{\"rtc.vocs_list\":[\"183.131.160.208\"]}")
+	con.GetAgoraParameter().SetParameters("{\"rtc.vocs_list\":[\"81.70.100.39\"]}")
 	
 	
 	info := ""
@@ -275,6 +275,8 @@ func main() {
 
 	end := time.Now().UnixMilli()
 	fmt.Printf("Connect cost %d ms\n", end-start)
+
+	con.GetLocalUser().SubscribeAudio("200")
 
 	
 

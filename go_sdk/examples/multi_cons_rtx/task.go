@@ -589,11 +589,11 @@ func (taskCtx *TaskContext) startTask() {
 			fmt.Printf("task %d user %s video subscribed\n", id, uid)
 		}
 		encodedVideoObserver := &agoraservice.VideoEncodedFrameObserver{
-			OnEncodedVideoFrame: func(uid string, imageBuffer []byte, frameInfo *agoraservice.EncodedVideoFrameInfo) bool {
+			OnEncodedVideoFrame: func(channelId string, uid string, imageBuffer []byte, frameInfo *agoraservice.EncodedVideoFrameInfo) bool {
 				if uid == senderId {
 					return true
 				}
-				// fmt.Printf("user %s encoded video received, frame len %d\n", uid, len(imageBuffer))
+				fmt.Printf("channel %s, user %s encoded video received, frame len %d\n", channelId, uid, len(imageBuffer))
 				if cfg.dumpEncodedVideo {
 					if taskCtx.dumpEncodedVideoFile == nil {
 						var err error
@@ -616,8 +616,8 @@ func (taskCtx *TaskContext) startTask() {
 		con.RegisterVideoEncodedFrameObserver(encodedVideoObserver)
 	}
 	if cfg.recvData {
-		localUserObs.OnStreamMessage = func(localUser *agoraservice.LocalUser, uid string, streamId int, data []byte) {
-			fmt.Printf("task %d recv stream message: %s, channel %s, uid %s\n", id, string(data), channelName, uid)
+		localUserObs.OnStreamMessage = func(localUser *agoraservice.LocalUser, uid string, streamId int, data []byte, sendTs int64) {
+			fmt.Printf("task %d recv stream message: %s, channel %s, uid %s, sendTs %d\n", id, string(data), channelName, uid, sendTs)
 		}
 	}
 	con.RegisterLocalUserObserver(localUserObs)
