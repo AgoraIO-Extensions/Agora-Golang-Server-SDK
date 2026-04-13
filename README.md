@@ -263,6 +263,18 @@ con.PushVideoFrame(frame)
 ```
 
 ---
+## 2026.04.14 Release Version 2.6.0
+- **Update**: Upgraded RTC SDK to 4.6.x, supporting LargeScale channel.
+- **New Feature**: Added `ChannelType` field in `connectionConfig`. You can set either LargeScale or Standard channel.
+- **Interface Changes**:
+  - The `OnEncodedVideoFrame` callback interface now includes an additional `channelID string` parameter.
+  - The `OnStreamMessage` callback interface now includes an additional `sendTs uint64` parameter.
+  - The `Connection.Connect` interface now includes an `info string` parameter, with a default value of `""` (empty string).
+- **Note**: For `LargeScale` channel mode, the `auto` subscription mode is not available; otherwise, the subscription will fail.
+- **Version Info**: This version is based on the 4.6.x branch and uses version number `2.6.0`. Development branches are `46dev/46main`.
+
+
+
 ## 2026.04.08 Release Version 2.4.14
 - **Update**: Updated RTC SDK to version 169.
 - **New Feature**: Added support for the `connection.GetSid` interface, which allows you to obtain the connection's session ID. Note: Call this after `connect`.
@@ -289,6 +301,7 @@ con.PushVideoFrame(frame)
 - **Default Setting Update**:  
   `parameterHandler.SetParameters("{\"rtc.video.enable_minor_stream_intra_request\":true}")`  
   (This private parameter enables keyframe requests for minor/sub-streams. It is enabled by default.)
+
 
 
 ## 2026.02.13 Release Version 2.4.9
