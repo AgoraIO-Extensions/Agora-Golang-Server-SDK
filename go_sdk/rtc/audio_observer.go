@@ -22,16 +22,17 @@ func goOnRecordAudioFrame(cLocalUser unsafe.Pointer, channelId *C.char, frame *C
 	}
 	// get conn from handle
 	con := agoraService.getConFromHandle(cLocalUser, ConTypeCLocalUser)
-	if con == nil || con.audioObserver == nil || con.audioObserver.OnRecordAudioFrame == nil {
+	if con == nil || con.audioObserver == nil {
 		return C.int(0)
 	}
 	goChannelId := C.GoString(channelId)
-	goFrame := GoPcmAudioFrame(frame)
-	ret := con.audioObserver.OnRecordAudioFrame(con.GetLocalUser(), goChannelId, goFrame)
-	if ret {
-		return C.int(1)
-	}
-	return C.int(0)
+	return dispatchAudioFrameWithChannel(
+		con.GetLocalUser(),
+		goChannelId,
+		frame,
+		con.audioObserver.OnReusedRecordAudioFrame,
+		con.audioObserver.OnRecordAudioFrame,
+	)
 }
 
 //export goOnPlaybackAudioFrame
@@ -43,16 +44,17 @@ func goOnPlaybackAudioFrame(cLocalUser unsafe.Pointer, channelId *C.char, frame 
 	// get conn from handle
 	con := agoraService.getConFromHandle(cLocalUser, ConTypeCLocalUser)
 
-	if con == nil || con.audioObserver == nil || con.audioObserver.OnPlaybackAudioFrame == nil {
+	if con == nil || con.audioObserver == nil {
 		return C.int(0)
 	}
 	goChannelId := C.GoString(channelId)
-	goFrame := GoPcmAudioFrame(frame)
-	ret := con.audioObserver.OnPlaybackAudioFrame(con.GetLocalUser(), goChannelId, goFrame)
-	if ret {
-		return C.int(1)
-	}
-	return C.int(0)
+	return dispatchAudioFrameWithChannel(
+		con.GetLocalUser(),
+		goChannelId,
+		frame,
+		con.audioObserver.OnReusedPlaybackAudioFrame,
+		con.audioObserver.OnPlaybackAudioFrame,
+	)
 }
 
 //export goOnMixedAudioFrame
@@ -64,16 +66,17 @@ func goOnMixedAudioFrame(cLocalUser unsafe.Pointer, channelId *C.char, frame *C.
 	// get conn from handle
 	con := agoraService.getConFromHandle(cLocalUser, ConTypeCLocalUser)
 
-	if con == nil || con.audioObserver == nil || con.audioObserver.OnMixedAudioFrame == nil {
+	if con == nil || con.audioObserver == nil {
 		return C.int(0)
 	}
 	goChannelId := C.GoString(channelId)
-	goFrame := GoPcmAudioFrame(frame)
-	ret := con.audioObserver.OnMixedAudioFrame(con.GetLocalUser(), goChannelId, goFrame)
-	if ret {
-		return C.int(1)
-	}
-	return C.int(0)
+	return dispatchAudioFrameWithChannel(
+		con.GetLocalUser(),
+		goChannelId,
+		frame,
+		con.audioObserver.OnReusedMixedAudioFrame,
+		con.audioObserver.OnMixedAudioFrame,
+	)
 }
 
 //export goOnEarMonitoringAudioFrame
@@ -85,15 +88,15 @@ func goOnEarMonitoringAudioFrame(cLocalUser unsafe.Pointer, frame *C.struct__aud
 	// get conn from handle
 	con := agoraService.getConFromHandle(cLocalUser, ConTypeCLocalUser)
 
-	if con == nil || con.audioObserver == nil || con.audioObserver.OnEarMonitoringAudioFrame == nil {
+	if con == nil || con.audioObserver == nil {
 		return C.int(0)
 	}
-	goFrame := GoPcmAudioFrame(frame)
-	ret := con.audioObserver.OnEarMonitoringAudioFrame(con.GetLocalUser(), goFrame)
-	if ret {
-		return C.int(1)
-	}
-	return C.int(0)
+	return dispatchAudioFrame(
+		con.GetLocalUser(),
+		frame,
+		con.audioObserver.OnReusedEarMonitoringAudioFrame,
+		con.audioObserver.OnEarMonitoringAudioFrame,
+	)
 }
 
 //export goOnPlaybackAudioFrameBeforeMixing
@@ -114,14 +117,13 @@ func goOnPlaybackAudioFrameBeforeMixing(cLocalUser unsafe.Pointer, channelId *C.
 	var ret bool = false
 	var vadResultFrame *AudioFrame = nil
 	var vadResultStat VadState = VadStateInvalid
-	
+
 	if con.audioVadManager != nil {
 		vadResultFrame, vadResultStat = con.audioVadManager.Process(goChannelId, goUid, goFrame)
 	}
 	ret = con.audioObserver.OnPlaybackAudioFrameBeforeMixing(con.GetLocalUser(), goChannelId, goUid, goFrame, vadResultStat, vadResultFrame)
 
-	
-	if ret  {
+	if ret {
 		return C.int(1)
 	}
 	return C.int(0)
@@ -231,4 +233,47 @@ func goOnGetEarMonitoringAudioFrameParam(cLocalUser unsafe.Pointer) C.struct__au
 	cAudioParam.mode = C.RAW_AUDIO_FRAME_OP_MODE_TYPE(goAudioParam.Mode)
 	cAudioParam.samples_per_call = C.int(goAudioParam.SamplesPerCall)
 	return cAudioParam
+}
+
+func dispatchAudioFrameWithChannel(
+	localUser *LocalUser,
+	channelId string,
+	frame *C.struct__audio_frame,
+	reused func(localUser *LocalUser, channelId string, frame *AudioFrame) bool,
+	copied func(localUser *LocalUser, channelId string, frame *AudioFrame) bool,
+) C.int {
+	if reused == nil && copied == nil {
+		return C.int(0)
+	}
+	if reused != nil {
+		if reused(localUser, channelId, GoPcmAudioFrameReused(frame)) {
+			return C.int(1)
+		}
+		return C.int(0)
+	}
+	if copied(localUser, channelId, GoPcmAudioFrame(frame)) {
+		return C.int(1)
+	}
+	return C.int(0)
+}
+
+func dispatchAudioFrame(
+	localUser *LocalUser,
+	frame *C.struct__audio_frame,
+	reused func(localUser *LocalUser, frame *AudioFrame) bool,
+	copied func(localUser *LocalUser, frame *AudioFrame) bool,
+) C.int {
+	if reused == nil && copied == nil {
+		return C.int(0)
+	}
+	if reused != nil {
+		if reused(localUser, GoPcmAudioFrameReused(frame)) {
+			return C.int(1)
+		}
+		return C.int(0)
+	}
+	if copied(localUser, GoPcmAudioFrame(frame)) {
+		return C.int(1)
+	}
+	return C.int(0)
 }

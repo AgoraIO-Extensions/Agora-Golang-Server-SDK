@@ -26,13 +26,24 @@ func goOnVideoFrame(cObserver unsafe.Pointer, channelId *C.char, uid *C.char, fr
 	if goUid == "0" {
 		return C.int(0)
 	}
-	
+
 	con := agoraService.getConFromHandle(cObserver, ConTypeCVideoObserver)
-	if con == nil || con.videoObserver == nil || con.videoObserver.OnFrame == nil {
+	if con == nil || con.videoObserver == nil {
+		return C.int(0)
+	}
+	if con.videoObserver.OnReusedFrame == nil && con.videoObserver.OnFrame == nil {
 		return C.int(0)
 	}
 	goChannelId := C.GoString(channelId)
-	
+
+	if con.videoObserver.OnReusedFrame != nil {
+		goFrame := GoVideoFrameReused(frame)
+		if con.videoObserver.OnReusedFrame(goChannelId, goUid, goFrame) {
+			return C.int(1)
+		}
+		return C.int(0)
+	}
+
 	goFrame := GoVideoFrame(frame)
 	ret := con.videoObserver.OnFrame(goChannelId, goUid, goFrame)
 	if ret {
@@ -49,11 +60,13 @@ func goOnEncodedVideoFrame(observer unsafe.Pointer, uid C.uint32_t, imageBuffer 
 		return C.int(0)
 	}
 	con := agoraService.getConFromHandle(observer, ConTypeCEncodedVideoObserver)
-	if con == nil || con.encodedVideoObserver == nil || con.encodedVideoObserver.OnEncodedVideoFrame == nil {
+	if con == nil || con.encodedVideoObserver == nil {
+		return C.int(0)
+	}
+	if con.encodedVideoObserver.OnReusedEncodedVideoFrame == nil && con.encodedVideoObserver.OnEncodedVideoFrame == nil {
 		return C.int(0)
 	}
 	goUid := strconv.FormatUint(uint64(uid), 10)
-	goImageBuffer := C.GoBytes(unsafe.Pointer(imageBuffer), C.int(length))
 	// GoEncodedVideoFrameInfo(video_encoded_frame_info)
 	goFrameInfo := &EncodedVideoFrameInfo{
 		CodecType:       VideoCodecType(video_encoded_frame_info.codec_type),
@@ -69,6 +82,14 @@ func goOnEncodedVideoFrame(observer unsafe.Pointer, uid C.uint32_t, imageBuffer 
 		StreamType:      int(video_encoded_frame_info.stream_type),
 		PresentTimeMs:   int64(video_encoded_frame_info.presentation_ms),
 	}
+	if con.encodedVideoObserver.OnReusedEncodedVideoFrame != nil {
+		goImageBuffer := cUint8SliceFromSize(imageBuffer, length)
+		if con.encodedVideoObserver.OnReusedEncodedVideoFrame(goUid, goImageBuffer, goFrameInfo) {
+			return C.int(1)
+		}
+		return C.int(0)
+	}
+	goImageBuffer := C.GoBytes(unsafe.Pointer(imageBuffer), C.int(length))
 	if con.encodedVideoObserver.OnEncodedVideoFrame(goUid, goImageBuffer, goFrameInfo) {
 		return C.int(1)
 	}
