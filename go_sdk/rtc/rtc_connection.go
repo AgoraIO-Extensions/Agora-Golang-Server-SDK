@@ -259,7 +259,7 @@ type RemoteVideoTrackStats struct {
 }
 
 type LocalUserObserver struct {
-	OnStreamMessage func(localUser *LocalUser, uid string, streamId int, data []byte)
+	OnStreamMessage func(localUser *LocalUser, uid string, streamId int, data []byte, sendTs int64)
 	// userMediaInfo: UserMediaInfoXxx
 	// val: 0 for false, 1 for true
 	OnUserInfoUpdated          func(localUser *LocalUser, uid string, userMediaInfo int, val int)
@@ -310,7 +310,7 @@ type VideoFrameObserver struct {
 }
 
 type VideoEncodedFrameObserver struct {
-	OnEncodedVideoFrame func(uid string, imageBuffer []byte,
+	OnEncodedVideoFrame func(channelId string, uid string, imageBuffer []byte,
 		frameInfo *EncodedVideoFrameInfo) bool
 }
 
