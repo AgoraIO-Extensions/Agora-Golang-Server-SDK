@@ -157,6 +157,7 @@ func CLocalUserObserver() *C.struct__local_user_observer {
 	// Video track publish callbacks
 	ret.on_video_track_publish_success = (*[0]byte)(C.cgo_on_video_track_publish_success)
 	ret.on_video_track_unpublished = (*[0]byte)(C.cgo_on_video_track_unpublished)
+	ret.on_intra_request_received = (*[0]byte)(C.cgo_on_intra_request_received)
 
 	return ret
 }
