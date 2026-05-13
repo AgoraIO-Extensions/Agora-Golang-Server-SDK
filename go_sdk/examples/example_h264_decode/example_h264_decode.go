@@ -62,7 +62,7 @@ func main() {
 	//cert := os.Getenv("AGORA_APP_CERTIFICATE")
 	subUserId := "200"
 
-	userId := "0"
+	userId := "100"
 	if appid == "" {
 		fmt.Println("Please set AGORA_APP_ID environment variable, and AGORA_APP_CERTIFICATE if needed")
 		return
@@ -85,8 +85,8 @@ func main() {
 	// whether sending or receiving video, we need to set EnableVideo to true!!
 	svcCfg.EnableVideo = true
 	svcCfg.LogPath = "./agora_rtc_log/agorasdk.log"
-	svcCfg.ConfigDir = "./agora_rtc_log"
-	svcCfg.DataDir = "./agora_rtc_log"
+	svcCfg.ConfigDir = "./agora_rtc_log_conf"
+	svcCfg.DataDir = "./agora_rtc_log_data"
 	
 
 	agoraservice.Initialize(svcCfg)
@@ -110,11 +110,12 @@ func main() {
 	
 	
 	conSignal := make(chan struct{})
+//	userJoined := make(chan struct{})
 	conHandler := agoraservice.RtcConnectionObserver{
 		OnConnected: func(con *agoraservice.RtcConnection, info *agoraservice.RtcConnectionInfo, reason int) {
 			// do something
 			fmt.Println("Connected")
-			conSignal <- struct{}{}
+			
 		},
 		OnDisconnected: func(con *agoraservice.RtcConnection, info *agoraservice.RtcConnectionInfo, reason int) {
 			// do something
@@ -123,10 +124,8 @@ func main() {
 		OnUserJoined: func(con *agoraservice.RtcConnection, uid string) {
 			fmt.Println("user joined, " + uid)
 			subUserId = uid
-			con.GetLocalUser().SubscribeVideo(subUserId, &agoraservice.VideoSubscriptionOptions{
-				StreamType:       agoraservice.VideoStreamHigh,
-				EncodedFrameOnly: true,
-			})
+			//userJoined <- struct{}{}
+			conSignal <- struct{}{}
 		},
 		OnUserLeft: func(con *agoraservice.RtcConnection, uid string, reason int) {
 			fmt.Println("user left, " + uid)
@@ -249,15 +248,24 @@ func main() {
 	if currentChannelType == agoraservice.ChannelTypeLargeScale {
 		con.GetAgoraParameter().SetParameters("{\"rtc.stream_sub_remote_stats\":false}")
 		con.GetAgoraParameter().SetParameters("{\"rtc.stream_pub_local_stats\":false}")
-
-		// NOTE: after 0421, MUST remove this parameter, otherwise will cause subscription failed.
-		con.GetAgoraParameter().SetParameters("{\"rtc.vocs_list\":[\"81.70.100.39\"]}")
 	}
 	
 	
 	info := ""
 	con.Connect(token, channelName, userId, info)
+	fmt.Println("waiting for connected")
 	<-conSignal
+
+	//<-userJoined
+	fmt.Println("user joined")
+	time.Sleep(5000 * time.Millisecond)
+
+
+	
+	con.GetLocalUser().SubscribeVideo(subUserId, &agoraservice.VideoSubscriptionOptions{
+				StreamType:       agoraservice.VideoStreamHigh,
+				EncodedFrameOnly: true,
+	})
 
 	// set to sub and high video stream,and only recv encoded video frame
 	// do not do decoding in sdk!

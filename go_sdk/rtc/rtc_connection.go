@@ -626,6 +626,8 @@ func NewRtcConnection(cfg *RtcConnectionConfig, publishConfig *RtcConnectionPubl
 	//ret.dataStreamId, _ = ret.createDataStream(false, false)
 
 	ret.setExtraSendFrameSpeed(publishConfig.SendExternalAudioParameters)
+	// add best practice for large scale channel on 2026-05-11
+	//ret.setBestPractice(cfg.ChannelType)
 	fmt.Printf("______auto create data stream, id: %d\n", ret.dataStreamId)
 
 	return ret
@@ -1863,3 +1865,212 @@ func (conn *RtcConnection) GetSid() string {
 	//note: do not free the c_sid, it is a const string
 	return C.GoString(c_sid)
 }
+func (conn *RtcConnection) setBestPractice(channel_type ChannelType) int {
+	if conn == nil || conn.cConnection == nil {
+		return -2000
+	}
+	if channel_type == ChannelTypeLargeScale {
+		return conn.setBestPracticeForLargeScale(channel_type)
+	}
+	if channel_type == ChannelTypeStandard {
+		return conn.setBestPracticeForStandard(channel_type)
+	}
+	return -2002
+}
+func (conn *RtcConnection) setBestPracticeForLargeScale(channel_type ChannelType) int {
+	if conn == nil || conn.cConnection == nil {
+		return -2000
+	}
+	// only for large scale channel
+	if channel_type != ChannelTypeLargeScale {
+		return -2001
+	}
+	
+	conn.GetAgoraParameter().SetParameters("{\"rtc.stream_sub_remote_stats\":false}")
+	conn.GetAgoraParameter().SetParameters("{\"rtc.stream_pub_local_stats\":false}")
+	// set {"rtc.max_sub_peers":100}
+	conn.GetAgoraParameter().SetParameters("{\"rtc.max_sub_peers\":50}")
+	// vos topN : "rtc.audio.filter_streams":4
+	conn.GetAgoraParameter().SetParameters("{\"rtc.audio.filter_streams\":4}")
+
+	// ack flow control:
+	// rtc.use_const_ack_delay: true	
+	// rtc.const_ack_delay: 100
+	conn.GetAgoraParameter().SetParameters("{\"rtc.use_const_ack_delay\":true}")
+	conn.GetAgoraParameter().SetParameters("{\"rtc.ack_delay\":100}")
+
+	// api tracer report: rtc.metadata.enable_report: false
+	conn.GetAgoraParameter().SetParameters("{\"rtc.metadata.enable_report\":false}")
+
+	// rtc report configure:"rtc.report_config": {
+	reportConfig := `{
+		"rtc.report_config": {
+			"data.report.event.19": {
+				"id": 19,
+				"report_count": 0,
+				"report_interval": 6,
+				"type": "event"
+			},
+			"data.report.event.20": {
+				"id": 20,
+				"report_count": 0,
+				"report_interval": 6,
+				"type": "event"
+			},
+			"data.report.event.5": {
+				"id": 5,
+				"report_count": 0,
+				"report_interval": 6,
+				"type": "event"
+			},
+			"data.report.event.6": {
+				"id": 6,
+				"report_count": 0,
+				"report_interval": 6,
+				"type": "event"
+			},
+			"data.report.event.262": {
+				"id": 262,
+				"report_count": 0,
+				"report_interval": 6,
+				"type": "event"
+			},
+			"data.report.event.263": {
+				"id": 263,
+				"report_count": 0,
+				"report_interval": 6,
+				"type": "event"
+			},
+			"data.report.event.341": {
+				"id": 341,
+				"report_count": 0,
+				"report_interval": 6,
+				"type": "event"
+			},
+			"data.report.event.342": {
+				"id": 342,
+				"report_count": 0,
+				"report_interval": 6,
+				"type": "event"
+			},
+			"data.report.event.8": {
+				"id": 8,
+				"report_count": 0,
+				"report_interval": 6,
+				"type": "event"
+			},
+			"data.report.event.13": {
+				"id": 13,
+				"report_count": 0,
+				"report_interval": 6,
+				"type": "event"
+			},
+			"data.report.event.136": {
+				"id": 136,
+				"report_count": 0,
+				"report_interval": 6,
+				"type": "event"
+			}
+		}
+	}`
+	conn.GetAgoraParameter().SetParameters(reportConfig)
+	
+	return 0
+}
+func (conn *RtcConnection) setBestPracticeForStandard(channel_type ChannelType) int {
+	if conn == nil || conn.cConnection == nil {
+		return -2000
+	}
+	if channel_type != ChannelTypeStandard {
+		return -2001
+	}
+
+	conn.GetAgoraParameter().SetParameters("{\"rtc.max_sub_peers\":1000}")
+	// vos topN : "rtc.audio.filter_streams":4
+	conn.GetAgoraParameter().SetParameters("{\"rtc.audio.filter_streams\":4}")
+
+	// ack flow control:
+	// rtc.use_const_ack_delay: true	
+	// rtc.const_ack_delay: 100
+	conn.GetAgoraParameter().SetParameters("{\"rtc.use_const_ack_delay\":false}")
+	conn.GetAgoraParameter().SetParameters("{\"rtc.ack_delay\":16}")
+
+	// api tracer report: rtc.metadata.enable_report: false
+	conn.GetAgoraParameter().SetParameters("{\"rtc.metadata.enable_report\":true}")
+
+	// rtc report configure:"rtc.report_config": {
+	reportConfig := `{
+		"rtc.report_config": {
+			"data.report.event.19": {
+				"id": 19,
+				"report_count": 1,
+				"report_interval": 0,
+				"type": "event"
+			},
+			"data.report.event.20": {
+				"id": 20,
+				"report_count": 1,
+				"report_interval": 0,
+				"type": "event"
+			},
+			"data.report.event.5": {
+				"id": 5,
+				"report_count": 1,
+				"report_interval": 0,
+				"type": "event"
+			},
+			"data.report.event.6": {
+				"id": 6,
+				"report_count": 1,
+				"report_interval": 0,
+				"type": "event"
+			},
+			"data.report.event.262": {
+				"id": 262,
+				"report_count": 1,
+				"report_interval": 0,
+				"type": "event"
+			},
+			"data.report.event.263": {
+				"id": 263,
+				"report_count": 1,
+				"report_interval": 0,
+				"type": "event"
+			},
+			"data.report.event.341": {
+				"id": 341,
+				"report_count": 1,
+				"report_interval": 0,
+				"type": "event"
+			},
+			"data.report.event.342": {
+				"id": 342,
+				"report_count": 1,
+				"report_interval": 0,
+				"type": "event"
+			},
+			"data.report.event.8": {
+				"id": 8,
+				"report_count": 1,
+				"report_interval": 0,
+				"type": "event"
+			},
+			"data.report.event.13": {
+				"id": 13,
+				"report_count": 1,
+				"report_interval": 0,
+				"type": "event"
+			},
+			"data.report.event.136": {
+				"id": 136,
+				"report_count": 1,
+				"report_interval": 0,
+				"type": "event"
+			}
+		}
+	}`
+	conn.GetAgoraParameter().SetParameters(reportConfig)
+	
+	return 0
+}
+

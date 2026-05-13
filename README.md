@@ -263,6 +263,9 @@ con.PushVideoFrame(frame)
 ```
 
 ---
+## 2026.05.13 Release Version 2.6.1
+- **Update**: Upgraded RTC SDK to 4.6.x.172. Fixed an issue where switching to the low stream could cause prolonged black screens due to an intra request bug for the low stream.
+
 ## 2026.04.14 Release Version 2.6.0
 - **Update**: Upgraded RTC SDK to 4.6.x, supporting LargeScale channel.
 - **New Feature**: Added `ChannelType` field in `connectionConfig`. You can set either LargeScale or Standard channel.
