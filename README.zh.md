@@ -273,7 +273,8 @@ con.PushVideoFrame(frame)
 	})
 ```
 
-
+## 2026.05.13 发布 2.6.1 版本
+- **新更新**：更新rtc sdk到4.6.x.172, 修改切换到小流的时候，因为小流intra request的bug，导致长时间黑屏幕的问题。
 ## 2026.04.14 发布 2.6.0 版本
 - **新更新**：更新rtc sdk到4.6.x, 支持LargeScale 频道。
 - **新功能**：在'connectionconfigure中增加了ChannelType字段'，用来设置是大频道还是普通频道，值位'LargeScale'频道和'Standard'频道。

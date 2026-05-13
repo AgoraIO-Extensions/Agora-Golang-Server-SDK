@@ -100,6 +100,10 @@ mac_sdk="https://download.agora.io/sdk/release/agora_sdk_mac_v4.4.32.169_27334_F
 linux_sdk="https://download.agora.io/sdk/release/agora_rtc_sdk_x86_64-linux-gnu-v3.0_jira_NMS_27128_release_4_6_3_133_hc_fp_20260410.27738_27738_SERVER_20260410_1538_1071242_20251021_1427-3a.zip"
 mac_sdk="https://download.agora.io/sdk/release/agora_sdk_mac_v3.0_jira_NMS_27128_release_4_6_3_133_hc_fp_20260410.27368_27368_FULL_20260410_1613_1071278_20251021_1427-3a.zip"
 
+#date: 20260513 update sdk to 170 for 2.4.15
+linux_sdk="https://download.agora.io/sdk/release/agora_rtc_sdk_x86_64-linux-gnu-v4.6.3.133_27885_SERVER_20260513_1453_1115703_20251021_1427-3a.zip"
+mac_sdk="https://download.agora.io/sdk/release/agora_sdk_mac_v4.6.3.133_27645_FULL_20260513_1453_1115702_external_20251021_1427-3a.zip"
+
 if [[ $UNAME_S == Linux ]]; then
     OS=linux
 elif [[ $UNAME_S == Darwin ]]; then

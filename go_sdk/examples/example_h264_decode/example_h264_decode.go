@@ -38,17 +38,29 @@ func main() {
 	}
 	appid := argus[1]
 	channelName := argus[2]
+
+	// channel type: standard or large scale
+	currentChannelType := agoraservice.ChannelTypeStandard
+	if len(argus) >= 4 {
+		strInputtype := argus[3]
+		if strInputtype == "1" {
+			currentChannelType = agoraservice.ChannelTypeLargeScale
+		} else {
+			currentChannelType = agoraservice.ChannelTypeStandard
+		}
+	}
 	
 	// 输出文件路径，支持用户自定义或使用默认值
 	outputFile := "./received_video.yuv"
-	if len(argus) >= 4 {
-		outputFile = argus[3]
+	if len(argus) >= 5 {
+		outputFile = argus[4]
 	}
-	fmt.Printf("Output YUV file: %s\n", outputFile)
+	fmt.Printf("Output YUV file: %s, channel type: %d\n", outputFile, currentChannelType)
 
 	// get environment variable
 
 	//cert := os.Getenv("AGORA_APP_CERTIFICATE")
+	subUserId := "200"
 
 	userId := "100"
 	if appid == "" {
@@ -73,8 +85,8 @@ func main() {
 	// whether sending or receiving video, we need to set EnableVideo to true!!
 	svcCfg.EnableVideo = true
 	svcCfg.LogPath = "./agora_rtc_log/agorasdk.log"
-	svcCfg.ConfigDir = "./agora_rtc_log"
-	svcCfg.DataDir = "./agora_rtc_log"
+	svcCfg.ConfigDir = "./agora_rtc_log_conf"
+	svcCfg.DataDir = "./agora_rtc_log_data"
 	
 
 	agoraservice.Initialize(svcCfg)
@@ -94,13 +106,16 @@ func main() {
 	parameterHandler.SetParameters("{\"rtc.video.matrixCoefficients\":5}")
 
 	
+
+	
 	
 	conSignal := make(chan struct{})
+//	userJoined := make(chan struct{})
 	conHandler := agoraservice.RtcConnectionObserver{
 		OnConnected: func(con *agoraservice.RtcConnection, info *agoraservice.RtcConnectionInfo, reason int) {
 			// do something
 			fmt.Println("Connected")
-			conSignal <- struct{}{}
+			
 		},
 		OnDisconnected: func(con *agoraservice.RtcConnection, info *agoraservice.RtcConnectionInfo, reason int) {
 			// do something
@@ -108,6 +123,9 @@ func main() {
 		},
 		OnUserJoined: func(con *agoraservice.RtcConnection, uid string) {
 			fmt.Println("user joined, " + uid)
+			subUserId = uid
+			//userJoined <- struct{}{}
+			conSignal <- struct{}{}
 		},
 		OnUserLeft: func(con *agoraservice.RtcConnection, uid string, reason int) {
 			fmt.Println("user left, " + uid)
@@ -132,13 +150,15 @@ func main() {
 	publishConfig.VideoPublishType = agoraservice.VideoPublishTypeYuv
 	publishConfig.AudioProfile = agoraservice.AudioProfileDefault
 
-	// 配置为接收模式，不发布音视频
+	
+
+	// create connection config
 	conCfg := &agoraservice.RtcConnectionConfig{
 		AutoSubscribeAudio: true,
 		AutoSubscribeVideo: false,
 		ClientRole:         agoraservice.ClientRoleBroadcaster, // 设置为观众角色，只接收不发送
 		ChannelProfile:     agoraservice.ChannelProfileLiveBroadcasting,
-		ChannelType:        agoraservice.ChannelTypeLargeScale,
+		ChannelType:        currentChannelType,
 	}
 
 	con = agoraservice.NewRtcConnection(conCfg, publishConfig)
@@ -190,12 +210,62 @@ func main() {
 	}
 	con.RegisterVideoEncodedFrameObserver(encodedVideoObserver)
 
-	con.GetAgoraParameter().SetParameters("{\"rtc.vocs_list\":[\"81.70.100.39\"]}")
+	// add local user observer
+	// LocalUserObserver for video track callbacks
+	localUserObserver := &agoraservice.LocalUserObserver{
+		OnVideoTrackPublishSuccess: func(localUser *agoraservice.LocalUser, localVideoTrack *agoraservice.LocalVideoTrack) {
+			fmt.Println("✓ Video track published successfully!")
+		},
+		OnVideoTrackUnpublished: func(localUser *agoraservice.LocalUser, localVideoTrack *agoraservice.LocalVideoTrack) {
+			fmt.Println("✗ Video track unpublished")
+		},
+		OnAudioTrackPublishSuccess: func(localUser *agoraservice.LocalUser, localAudioTrack *agoraservice.LocalAudioTrack) {
+			fmt.Println("✓ Audio track published successfully!")
+		},
+		OnAudioTrackUnpublished: func(localUser *agoraservice.LocalUser, localAudioTrack *agoraservice.LocalAudioTrack) {
+			fmt.Println("✗ Audio track unpublished")
+		},
+		OnUserAudioTrackSubscribed: func(localUser *agoraservice.LocalUser, userId string, remoteAudioTrack *agoraservice.RemoteAudioTrack) {
+			fmt.Printf("→ User %s audio track subscribed\n", userId)
+		},
+		OnUserVideoTrackSubscribed: func(localUser *agoraservice.LocalUser, userId string, videoTrackInfo *agoraservice.VideoTrackInfo, remoteVideoTrack *agoraservice.RemoteVideoTrack) {
+			fmt.Printf("→ User %s video track subscribed\n", userId)
+		},
+		OnUserAudioTrackStateChanged: func(localUser *agoraservice.LocalUser, userId string, remoteAudioTrack *agoraservice.RemoteAudioTrack, state int, reason int, elapsed int) {
+			fmt.Printf("→ User %s audio track state changed: state=%d, reason=%d\n", userId, state, reason)
+		},
+		OnUserVideoTrackStateChanged: func(localUser *agoraservice.LocalUser, userId string, remoteVideoTrack *agoraservice.RemoteVideoTrack, state int, reason int, elapsed int) {
+			fmt.Printf("→ User %s video track state changed: state=%d, reason=%d\n", userId, state, reason)
+		},
+		OnUserInfoUpdated: func(localUser *agoraservice.LocalUser, userId string, msg int, val int) {
+			fmt.Printf("→ User %s info updated: msg=%d, val=%d\n", userId, msg, val)
+		},
+	}
+
+	con.RegisterLocalUserObserver(localUserObserver)
+
+	//only for large scale channel
+	if currentChannelType == agoraservice.ChannelTypeLargeScale {
+		con.GetAgoraParameter().SetParameters("{\"rtc.stream_sub_remote_stats\":false}")
+		con.GetAgoraParameter().SetParameters("{\"rtc.stream_pub_local_stats\":false}")
+	}
 	
 	
 	info := ""
 	con.Connect(token, channelName, userId, info)
+	fmt.Println("waiting for connected")
 	<-conSignal
+
+	//<-userJoined
+	fmt.Println("user joined")
+	time.Sleep(5000 * time.Millisecond)
+
+
+	
+	con.GetLocalUser().SubscribeVideo(subUserId, &agoraservice.VideoSubscriptionOptions{
+				StreamType:       agoraservice.VideoStreamHigh,
+				EncodedFrameOnly: true,
+	})
 
 	// set to sub and high video stream,and only recv encoded video frame
 	// do not do decoding in sdk!
