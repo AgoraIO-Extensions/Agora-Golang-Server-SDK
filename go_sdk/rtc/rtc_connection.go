@@ -1331,8 +1331,13 @@ func (conn *RtcConnection) PushAudioPcmData(data []byte, sampleRate int, channel
 	return ret
 }
 func (conn *RtcConnection) PushAudioEncodedData(data []byte, frameInfo *EncodedAudioFrameInfo) int {
+	// If captureTimeMs is 0, set it to -1 to avoid audio-video desynchronization.
+	// Otherwise, audio and video may be out of sync.
 	if conn == nil || conn.cConnection == nil || conn.encodedAudioSender == nil {
 		return -2000
+	}
+	if frameInfo != nil && frameInfo.CaptureTimeMs == 0 {
+		frameInfo.CaptureTimeMs = -1
 	}
 	return conn.encodedAudioSender.SendEncodedAudioFrame(data, frameInfo)
 }
