@@ -131,14 +131,23 @@ static int opus_resample(OpusDecoder2 *oc, AVFrame *frame) {
   return 0;
 }
 
-void * open_opus_decoder(int in_channels, int out_sample_rate, int out_channels) {
+void * open_opus_decoder(int in_channels, int out_sample_rate, int out_channels, int *error_code) {
+  *error_code = 0;
   OpusDecoder2 *oc = (OpusDecoder2 *)malloc(sizeof(OpusDecoder2));
   if (!oc) {
+    *error_code = -10001;
     return NULL;
   }
   memset(oc, 0, sizeof(OpusDecoder2));
   oc->out_sample_rate = out_sample_rate;
   oc->out_channels = out_channels;
+
+  // should register all the codecs
+  #if LIBAVCODEC_VERSION_MAJOR < 58
+  // FFmpeg 3.x and earlier versions need to register all the codecs
+      avcodec_register_all();
+  #endif
+  *error_code = -2001;
 
   const AVCodec *codec = avcodec_find_decoder(AV_CODEC_ID_OPUS);
   if (!codec) {
@@ -146,7 +155,7 @@ void * open_opus_decoder(int in_channels, int out_sample_rate, int out_channels)
     free(oc);
     return NULL;
   }
-
+  *error_code = -2002;
   oc->codec_ctx = avcodec_alloc_context3(codec);
   if (!oc->codec_ctx) {
     av_log(NULL, AV_LOG_ERROR, "Can't allocate opus decoder context\n");
@@ -159,6 +168,7 @@ void * open_opus_decoder(int in_channels, int out_sample_rate, int out_channels)
   av_channel_layout_default(&ctx->ch_layout, in_channels > 0 ? in_channels : 1);
   ctx->thread_count = 1;
 
+  *error_code = -2003;
   if (avcodec_open2(ctx, codec, NULL) < 0) {
     av_log(NULL, AV_LOG_ERROR, "Can't open opus decoder\n");
     avcodec_free_context(&oc->codec_ctx);
@@ -166,6 +176,7 @@ void * open_opus_decoder(int in_channels, int out_sample_rate, int out_channels)
     return NULL;
   }
 
+  *error_code = -2004;
   oc->frame = av_frame_alloc();
   if (!oc->frame) {
     av_log(NULL, AV_LOG_ERROR, "Can't allocate opus frame\n");
@@ -173,6 +184,7 @@ void * open_opus_decoder(int in_channels, int out_sample_rate, int out_channels)
     free(oc);
     return NULL;
   }
+  *error_code = 0;
 
   av_log(NULL, AV_LOG_INFO, "opus decoder opened, in_channels %d, out_rate %d, out_channels %d\n",
     ctx->ch_layout.nb_channels, out_sample_rate, out_channels);
