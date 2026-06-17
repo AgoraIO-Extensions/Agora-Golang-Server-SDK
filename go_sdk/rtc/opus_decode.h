@@ -29,12 +29,12 @@ typedef struct _MediaFrame {
 // out_sample_rate: desired output PCM sample rate, e.g. 16000/48000. pass 0 to keep 48000.
 // out_channels:    desired output PCM channel count. pass 0 to keep in_channels.
 // returns an opaque handle, or NULL on error.
-extern void * open_opus_decoder(int in_channels, int out_sample_rate, int out_channels, int *error_code);
+void * open_opus_decoder(int in_channels, int out_sample_rate, int out_channels, int *error_code);
 
 // decode one raw opus packet into a PCM S16 MediaFrame.
 // returns 0 on success (frame filled), AVERROR(EAGAIN) when more data is needed,
 // or a negative error code on failure.
-extern int decode_opus(void *handle, const uint8_t *data, int data_size, MediaFrame *frame);
+int decode_opus(void *handle, const uint8_t *data, int data_size, MediaFrame *frame);
 
 // close opus decoder and free resources.
-extern void close_opus_decoder(void *handle);
+void close_opus_decoder(void *handle);

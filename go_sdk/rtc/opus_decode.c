@@ -1,3 +1,12 @@
+
+#include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
+#include "opus_decode.h"
+
+
+#ifdef USE_AVCODEC
+// standalone opus decoder for raw opus packets, self-contained.
 #include <libavcodec/avcodec.h>
 #include <libavutil/opt.h>
 #include <libavutil/channel_layout.h>
@@ -5,12 +14,6 @@
 #include <libavutil/avutil.h>
 #include <libavutil/error.h>
 #include <libswresample/swresample.h>
-#include <stdint.h>
-#include <stdlib.h>
-#include <string.h>
-#include "opus_decode.h"
-
-// standalone opus decoder for raw opus packets, self-contained.
 
 #define OPUS_MAX_CHANNELS 8
 
@@ -270,3 +273,17 @@ void close_opus_decoder(void *handle) {
   }
   free(oc);
 }
+#else
+void * open_opus_decoder(int in_channels, int out_sample_rate, int out_channels, int *error_code) {
+  *error_code = 0;
+  return NULL;
+}
+
+int decode_opus(void *handle, const uint8_t *data, int data_size, MediaFrame *frame) {
+  return -1;
+}
+
+void close_opus_decoder(void *handle) {
+  return;
+}
+#endif
