@@ -70,6 +70,14 @@ func main() {
 	svcCfg.LogPath = "./agora_rtc_log/agorasdk.log"
 	svcCfg.ConfigDir = "./agora_rtc_log"
 	svcCfg.DataDir = "./agora_rtc_log"
+	svcCfg.APMModel = 1
+	svcCfg.APMConfig = agoraservice.NewAPMConfig()
+	svcCfg.APMConfig.AiAecConfig.Enabled = false
+	svcCfg.APMConfig.BghvsCConfig.Enabled = false
+	svcCfg.APMConfig.AgcConfig.Enabled = true
+	svcCfg.APMConfig.AiNsConfig.AiNSEnabled = false
+	svcCfg.APMConfig.EnableDump = true
+	
 
 	agoraservice.Initialize(svcCfg)
 	defer agoraservice.Release()
@@ -91,8 +99,11 @@ func main() {
 			AudioFrame := pcmQueue.Dequeue()
 			if AudioFrame != nil {
 				fmt.Printf("AudioFrame: %d\n", time.Now().UnixMilli())
-				if frame, ok := AudioFrame.([]byte); ok {
-					pcmData, err := opusDecoder.Decode(frame)
+				if rawAudioData, ok := AudioFrame.([]byte); ok {
+					
+					conn.PushAudioEncodedDataForTranscode(rawAudioData, 1, int(agoraservice.AudioCodecOpus))
+					/*
+					pcmData, err := opusDecoder.Decode(rawAudioData)
 					if err != nil {
 						fmt.Printf("Decode opus failed: %v\n", err)
 						continue
@@ -100,7 +111,7 @@ func main() {
 					ret := conn.PushAudioPcmData(pcmData, 16000, 1, 0)
 					if ret != 0 {
 						fmt.Printf("Send audio pcm data failed, error code %d\n", ret)
-					}	
+					}	*/
 				}
 			}
 		}
@@ -111,7 +122,7 @@ func main() {
 
 	go audioRoutine()
 
-	scenario := agoraservice.AudioScenarioDefault
+	scenario := agoraservice.AudioScenarioAiServer
 	conCfg := agoraservice.RtcConnectionConfig{
 		AutoSubscribeAudio: true,
 		AutoSubscribeVideo: false,
