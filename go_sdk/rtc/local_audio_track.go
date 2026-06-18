@@ -24,10 +24,28 @@ func NewCustomAudioTrackPcm(pcmSender *AudioPcmDataSender, audioScenario_of_conn
 	audioScenario := audioScenario_of_connection
 
 	fmt.Printf("NewCustomAudioTrackPcm, audioScenario: %d, pcmSender.audioScenario: %d\n", audioScenario, pcmSender.audioScenario)
-	if audioScenario == AudioScenarioAiServer && isSendExternalAudioForAI == false {
-		cTrack  = C.agora_service_create_direct_custom_audio_track_pcm(agoraService.service, pcmSender.cSender)
+	// date: 20260618, add local audio track with apm support, default to false
+	if agoraService.serviceConfig.EnableLocalAudioTrackWithAPM {
+		var enable_aec int = 0
+		var enable_ans int = 0
+		var enable_agc int = 0
+		if agoraService.serviceConfig.LocalAudioTrackAPMConfig.AiAecConfig.Enabled {
+			enable_aec = 1
+		}
+		if agoraService.serviceConfig.LocalAudioTrackAPMConfig.AiNsConfig.NsEnabled {
+			enable_ans = 1
+		}
+		if agoraService.serviceConfig.LocalAudioTrackAPMConfig.AgcConfig.Enabled {
+			enable_agc = 1
+		}
+		cTrack = C.agora_service_create_direct_custom_audio_track_pcm_with_apm(agoraService.service, pcmSender.cSender, C.int(enable_aec), C.int(enable_ans), C.int(enable_agc))
+		fmt.Printf("*******create direct custom audio track pcm with apm, enable_aec: %d, enable_ans: %d, enable_agc: %d\n", enable_aec, enable_ans, enable_agc)
 	} else {
-		cTrack = C.agora_service_create_custom_audio_track_pcm(agoraService.service, pcmSender.cSender)
+		if audioScenario == AudioScenarioAiServer && isSendExternalAudioForAI == false {
+			cTrack  = C.agora_service_create_direct_custom_audio_track_pcm(agoraService.service, pcmSender.cSender)
+		} else {
+			cTrack = C.agora_service_create_custom_audio_track_pcm(agoraService.service, pcmSender.cSender)
+		}
 	}
 	
 	if cTrack == nil {
