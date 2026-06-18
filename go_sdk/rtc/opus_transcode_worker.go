@@ -4,6 +4,7 @@ package agoraservice
 import (
 	"fmt"
 	"sync"
+	"os"
 )
 
 
@@ -81,12 +82,31 @@ func (worker *AudioTranscodingWorker) run() {
 	out_channels := worker.out_channels
 	out_sampleRate := worker.out_sampleRate
 
+	// for debug
+	debug := false
+	var debugFile *os.File = nil
+
+	if debug {
+		debugPath := "./opus_transcode_worker_debug.pcm"
+		debugFile, _ = os.OpenFile(debugPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+		if debugFile == nil {
+			debug = false
+		}
+		defer debugFile.Close()
+	}
 	for {
 		select {
 		case inData := <-worker.encodeDataQueue:
 			//should decoding all the data in the queue, Never never drop any data, even if the decoder is busy.
 			rawAudioData, _ := worker.decoder.Decode(inData.data)
 			if rawAudioData != nil  {
+				// for debug
+				if debug {
+					_, err := debugFile.Write(rawAudioData)
+					if err != nil {
+						fmt.Printf("Failed to write debug file: %v\n", err)
+					}
+				}
 				// and call conn.PushAudioPcmData to push the decoded audio data to the RTC
 				worker.conn.PushAudioPcmData(rawAudioData, out_sampleRate, out_channels, 0)
 			} 
