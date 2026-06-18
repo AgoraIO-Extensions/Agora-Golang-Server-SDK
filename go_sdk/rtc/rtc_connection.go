@@ -2109,6 +2109,11 @@ func (conn *RtcConnection) PushAudioEncodedDataForTranscode(data []byte, channel
 		return -2000
 	}
 
+	// only support opus codec
+	if codec != int(AudioCodecOpus) {
+		return -2001
+	}
+
 	
 	if conn.audioTranscodingWorker == nil {
 		conn.startAudioTranscodingWorker(channels)
