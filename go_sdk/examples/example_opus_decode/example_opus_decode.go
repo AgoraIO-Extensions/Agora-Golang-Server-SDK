@@ -70,13 +70,8 @@ func main() {
 	svcCfg.LogPath = "./agora_rtc_log/agorasdk.log"
 	svcCfg.ConfigDir = "./agora_rtc_log"
 	svcCfg.DataDir = "./agora_rtc_log"
-	svcCfg.APMModel = 1
-	svcCfg.APMConfig = agoraservice.NewAPMConfig()
-	svcCfg.APMConfig.AiAecConfig.Enabled = false
-	svcCfg.APMConfig.BghvsCConfig.Enabled = false
-	svcCfg.APMConfig.AgcConfig.Enabled = true
-	svcCfg.APMConfig.AiNsConfig.AiNSEnabled = false
-	svcCfg.APMConfig.EnableDump = true
+	svcCfg.APMModel = 0
+	svcCfg.EnableLocalAudioTrackWithAPM = true
 	
 
 	agoraservice.Initialize(svcCfg)
@@ -98,7 +93,7 @@ func main() {
 		for !*bStop {
 			AudioFrame := pcmQueue.Dequeue()
 			if AudioFrame != nil {
-				fmt.Printf("AudioFrame: %d\n", time.Now().UnixMilli())
+				//fmt.Printf("AudioFrame: %d\n", time.Now().UnixMilli())
 				if rawAudioData, ok := AudioFrame.([]byte); ok {
 					
 					conn.PushAudioEncodedDataForTranscode(rawAudioData, 1, int(agoraservice.AudioCodecOpus))
@@ -122,7 +117,7 @@ func main() {
 
 	go audioRoutine()
 
-	scenario := agoraservice.AudioScenarioAiServer
+	scenario := agoraservice.AudioScenarioDefault
 	conCfg := agoraservice.RtcConnectionConfig{
 		AutoSubscribeAudio: true,
 		AutoSubscribeVideo: false,
@@ -196,7 +191,7 @@ func main() {
 	encaudioObserver := &agoraservice.AudioEncodedFrameObserver{
 		OnEncodedAudioFrameReceived: func(uid string, packet []byte, sendTs int64, codec int) {
 			//fmt.Printf("OnEncodedAudioFrameReceived, from userId %s\n", uid)
-			fmt.Printf("uid: %s, packet len: %d, sendTs: %d, codec: %d\n", uid, len(packet), sendTs, codec)
+			//fmt.Printf("uid: %s, packet len: %d, sendTs: %d, codec: %d\n", uid, len(packet), sendTs, codec)
 			// save to file
 			pcmQueue.Enqueue(packet)
 		},
@@ -206,6 +201,9 @@ func main() {
 	conCfg.AudioRecvEncodedFrame = true
 
 	conn = agoraservice.NewRtcConnection(&conCfg, publishConfig)
+
+	//  set dump to connection levlel befor connect
+	conn.GetAgoraParameter().SetParameters("{\"che.audio.frame_dump\":{\"location\":\"all\",\"action\":\"start\",\"max_size_bytes\":\"100000000\",\"uuid\":\"123456789\", \"duration\": \"150000\"}}")
 
 	//added by wei for localuser observer
 	localUserObserver := &agoraservice.LocalUserObserver{
