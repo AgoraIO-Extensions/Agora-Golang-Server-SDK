@@ -84,6 +84,9 @@ func main() {
 	}
 	svcCfg := agoraservice.NewAgoraServiceConfig()
 	svcCfg.AppId = appid
+	svcCfg.LogPath = "./agora_rtc_log/agorasdk.log"
+	svcCfg.ConfigDir = "./agora_rtc_log"
+	svcCfg.DataDir = "./agora_rtc_log"
 
 	agoraservice.Initialize(svcCfg)
 	defer agoraservice.Release()
@@ -207,13 +210,15 @@ func main() {
 			SamplesPerChannel: int(codecParam.frame_size / codecParam.ch_layout.nb_channels),
 			SendEvenIfEmpty:   true,
 			NumberOfChannels:  int(codecParam.ch_layout.nb_channels),
+			CaptureTimeMs:     int64(-1),
 		})
 		fmt.Printf("SendEncodedAudioFrame %d ret: %d\n", sendAudioDuration, ret)
 		C.av_packet_unref(packet)
 		// }
 		// fmt.Printf("Sent %d frames this time\n", shouldSendMs)
 		//TODO: sleep time should be calculated based on the audio frame duration
-		time.Sleep(21 * time.Millisecond)
+		// old: 21ms, now: duration ms
+		time.Sleep(time.Duration(duration) * time.Millisecond)
 	}
 	
 	con.Disconnect()

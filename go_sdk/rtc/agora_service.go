@@ -85,13 +85,18 @@ type AgoraServiceConfig struct {
 	// version 2.2.9 and later, if not set, use default path
 	DataDir string
 
-	// 20251028 for apm filter related config
+	// date: 20251028 for apm filter related config
 	// apm model: 0: disable apm, default to disable, 1: enable apm. def to int not bool for future extension
+	// note : apmModel is used for remote audio track, not for local audio track!!
 	APMModel int 
 	APMConfig *APMConfig
 
 	// date: 2025-11-03, idle mode, if true, the connection will be released when idle for a period of time
 	IdleMode bool
+
+	// date: 20260618, add local audio track with apm support, default to false
+	EnableLocalAudioTrackWithAPM bool
+	LocalAudioTrackAPMConfig *APMConfig
 }
 
 // const def for map type
@@ -126,6 +131,8 @@ type AgoraService struct {
 	apmModel int
 	// for encoded audio frame received
 	encAudioFrameObserverItemsMap sync.Map
+	// date: 20260618, add field to keep service config
+	serviceConfig *AgoraServiceConfig
 }
 
 // / newAgoraService creates a new instance of AgoraService
@@ -142,6 +149,7 @@ func newAgoraService() *AgoraService {
 		idleQueueMutex: sync.Mutex{},
 		idleMode: false,
 		apmModel: 0,
+		serviceConfig: nil,
 	}
 }
 
@@ -171,6 +179,10 @@ func NewAgoraServiceConfig() *AgoraServiceConfig {
 		APMModel: 0,
 		APMConfig: nil,
 		IdleMode: true, // default to true for  idle mode
+
+		// date: 20260618, add local audio track with apm support, default to false
+		EnableLocalAudioTrackWithAPM: false,
+		LocalAudioTrackAPMConfig: nil,
 	}
 }
 
@@ -195,6 +207,19 @@ func Initialize(cfg *AgoraServiceConfig) int {
 	ret := int(C.agora_service_initialize(agoraService.service, ccfg))
 	if ret != 0 {
 		return ret
+	}
+
+	// save service config
+	agoraService.serviceConfig = cfg
+	// validity check: if local audio track with apm is enabled, but local audio track apm config is not set, set default config
+	if cfg.EnableLocalAudioTrackWithAPM {
+		if cfg.LocalAudioTrackAPMConfig == nil {
+			LocalAudioTrackAPMConfig := NewAPMConfig()
+			LocalAudioTrackAPMConfig.AgcConfig.Enabled = true
+			LocalAudioTrackAPMConfig.AiNsConfig.NsEnabled = false
+			LocalAudioTrackAPMConfig.AiAecConfig.Enabled = false
+			agoraService.serviceConfig.LocalAudioTrackAPMConfig = LocalAudioTrackAPMConfig
+		}
 	}
 
 	// agoraService.mediaFactory = C.agora_service_create_media_node_factory(agoraService.service)
@@ -649,6 +674,7 @@ func isSupportExternalAudioProcessor(model int) bool {
 	}
 	return true
 }
+// check enable or disable remote audio track with apm
 func isEnableAPM(model int) bool {
 	if model < 1 {
 		return false

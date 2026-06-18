@@ -273,8 +273,46 @@ con.PushVideoFrame(frame)
 	})
 ```
 
+## 2026.06.18 发布 2.6.2 版本
+- **新更新**：更新rtc sdk到4.6.x.172, 内部支持direc_audio_track_with_apm parameter
+- **新更新**：增加对自编码音频的transcoding处理:限制条件只支持opus编码的音频
+- **新更新**：增加对上行audiotrack的apm 处理
+- **新更新*：configure 中扩展mode，支持上行audio pipeline的apm处理
+  - **限制条件1**：目前只能用默认的agc效果，不能调节参数
+- **新用法**：
+```go
+  svcCfg := agoraservice.NewAgoraServiceConfig()
+	svcCfg.AppId = appid
+	svcCfg.LogPath = "./agora_rtc_log/agorasdk.log"
+	svcCfg.ConfigDir = "./agora_rtc_log"
+	svcCfg.DataDir = "./agora_rtc_log"
+	svcCfg.EnableLocalAudioTrackWithAPM = true	
+  //推流的时候:
+  conn.PushAudioEncodedDataForTranscode(rawAudioData, 1, int(agoraservice.AudioCodecOpus))
+```
+
 ## 2026.05.13 发布 2.6.1 版本
 - **新更新**：更新rtc sdk到4.6.x.172, 修改切换到小流的时候，因为小流intra request的bug，导致长时间黑屏幕的问题。
+
+## 2026.04.14 发布 2.6.0 版本
+- **新更新**：更新rtc sdk到4.6.x, 支持LargeScale 频道。
+- **新用法**：
+```go
+```
+
+## 2026.05.13 发布 2.6.1 版本
+- **新更新**：更新rtc sdk到4.6.x.172, 修改切换到小流的时候，因为小流intra request的bug，导致长时间黑屏幕的问题。
+
+## 2026.04.14 发布 2.6.0 版本
+- **新更新**：更新rtc sdk到4.6.x, 支持LargeScale 频道。
+- **新用法**：
+```go
+	// 设置apm
+```
+
+## 2026.05.13 发布 2.6.1 版本
+- **新更新**：更新rtc sdk到4.6.x.172, 修改切换到小流的时候，因为小流intra request的bug，导致长时间黑屏幕的问题。
+
 ## 2026.04.14 发布 2.6.0 版本
 - **新更新**：更新rtc sdk到4.6.x, 支持LargeScale 频道。
 - **新功能**：在'connectionconfigure中增加了ChannelType字段'，用来设置是大频道还是普通频道，值位'LargeScale'频道和'Standard'频道。

@@ -466,6 +466,9 @@ type RtcConnection struct {
 
 	// for encoded audio frame observer
 	encodedAudioFrameObserver  *AudioEncodedFrameObserver
+
+	// for audio transcoding
+	audioTranscodingWorker *AudioTranscodingWorker
 }
 
 // for pcm consumption stats
@@ -527,6 +530,7 @@ func NewRtcConnection(cfg *RtcConnectionConfig, publishConfig *RtcConnectionPubl
 		transcodingWorker:           nil,
 		videoEncoderConfiguration:   nil,
 		encodedAudioFrameObserver:   nil,
+		audioTranscodingWorker:      nil,
 	}
 
 	if isSupportExternalAudio(publishConfig) {
@@ -820,6 +824,9 @@ func (conn *RtcConnection) Disconnect() int {
 
 	// for transcoding worker, stop it
 	conn.stopTranscodingWorker()
+
+	// for audio transcoding worker, stop it
+	conn.stopAudioTranscodingWorker()
 	// date: 2025-07-04
 	//1. unpublish all tracks
 	conn.UnpublishAudio()
@@ -1331,8 +1338,13 @@ func (conn *RtcConnection) PushAudioPcmData(data []byte, sampleRate int, channel
 	return ret
 }
 func (conn *RtcConnection) PushAudioEncodedData(data []byte, frameInfo *EncodedAudioFrameInfo) int {
+	// If captureTimeMs is 0, set it to -1 to avoid audio-video desynchronization.
+	// Otherwise, audio and video may be out of sync.
 	if conn == nil || conn.cConnection == nil || conn.encodedAudioSender == nil {
 		return -2000
+	}
+	if frameInfo != nil && frameInfo.CaptureTimeMs == 0 {
+		frameInfo.CaptureTimeMs = -1
 	}
 	return conn.encodedAudioSender.SendEncodedAudioFrame(data, frameInfo)
 }
@@ -2073,4 +2085,41 @@ func (conn *RtcConnection) setBestPracticeForStandard(channel_type ChannelType) 
 	
 	return 0
 }
+func (conn *RtcConnection) startAudioTranscodingWorker(in_channels int) int {
+	if conn.audioTranscodingWorker != nil {
+		return -1000
+	}
+	conn.audioTranscodingWorker = NewAudioTranscodingWorker(conn, in_channels)
+	conn.audioTranscodingWorker.Start()
+	return 0
+}
+func (conn *RtcConnection) stopAudioTranscodingWorker() int {
+	if conn.audioTranscodingWorker == nil {
+		return -1000
+	}
+	conn.audioTranscodingWorker.Stop()
+	conn.audioTranscodingWorker = nil
+	return 0
+}
 
+// push encoded audio data for transcoding
+func (conn *RtcConnection) PushAudioEncodedDataForTranscode(data []byte, channels int, codec int) int {
+
+	if conn == nil || conn.cConnection == nil || conn.audioSender == nil {
+		return -2000
+	}
+
+	// only support opus codec
+	if codec != int(AudioCodecOpus) {
+		return -2001
+	}
+
+	
+	if conn.audioTranscodingWorker == nil {
+		conn.startAudioTranscodingWorker(channels)
+	}
+
+	conn.audioTranscodingWorker.PushEncodedData(data, channels, codec)
+
+	return 0
+}
