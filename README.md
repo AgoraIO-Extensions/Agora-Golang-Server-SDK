@@ -262,6 +262,24 @@ con.PushVideoFrame(frame)
 	})
 ```
 
+## 2026.06.18 Release Version 2.6.2
+- **New Update**: Upgraded RTC SDK to 4.6.x.172 with internal support for the `direc_audio_track_with_apm` parameter.
+- **New Update**: Added transcoding support for self-encoded audio (currently limited to Opus-encoded audio only).
+- **New Update**: Added APM (Audio Processing Module) support for uplink audio tracks.
+- **New Update**: Extended modes in the configuration to support APM processing in the uplink audio pipeline.
+  - **Limitation 1**: Only the default AGC (Automatic Gain Control) effect is supported at this time; parameter adjustment is not currently available.
+- **Usage Example**:
+```go
+  svcCfg := agoraservice.NewAgoraServiceConfig()
+  svcCfg.AppId = appid
+  svcCfg.LogPath = "./agora_rtc_log/agorasdk.log"
+  svcCfg.ConfigDir = "./agora_rtc_log"
+  svcCfg.DataDir = "./agora_rtc_log"
+  svcCfg.EnableLocalAudioTrackWithAPM = true  
+  // While pushing the stream:
+  conn.PushAudioEncodedDataForTranscode(rawAudioData, 1, int(agoraservice.AudioCodecOpus))
+```
+
 ---
 ## 2026.05.13 Release Version 2.6.1
 - **Update**: Upgraded RTC SDK to 4.6.x.172. Fixed an issue where switching to the low stream could cause prolonged black screens due to an intra request bug for the low stream.
