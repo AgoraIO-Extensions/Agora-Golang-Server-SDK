@@ -262,6 +262,10 @@ con.PushVideoFrame(frame)
 	})
 ```
 
+Release Note:
+## 2026.06.22 Release Version 2.6.3
+- **Fix**: Resolved opus decoder compatibility issues across different FFmpeg versions
+
 ## 2026.06.18 Release Version 2.6.2
 - **New Update**: Upgraded RTC SDK to 4.6.x.172 with internal support for the `direc_audio_track_with_apm` parameter.
 - **New Update**: Added transcoding support for self-encoded audio (currently limited to Opus-encoded audio only).

@@ -273,6 +273,10 @@ con.PushVideoFrame(frame)
 	})
 ```
 
+
+## 2026.06.22 发布 2.6.3 版本
+- **新更新**：opus decoder在不同ffmpeg上的兼容性问题
+
 ## 2026.06.18 发布 2.6.2 版本
 - **新更新**：更新rtc sdk到4.6.x.172, 内部支持direc_audio_track_with_apm parameter
 - **新更新**：增加对自编码音频的transcoding处理:限制条件只支持opus编码的音频

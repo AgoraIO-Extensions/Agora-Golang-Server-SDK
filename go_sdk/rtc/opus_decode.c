@@ -17,13 +17,24 @@
 
 #define OPUS_MAX_CHANNELS 8
 
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(59, 37, 100)
+#define OPUS_USE_NEW_CH_LAYOUT 1
+#else
+#define OPUS_USE_NEW_CH_LAYOUT 0
+#endif
+
 typedef struct _OpusDecoder {
   AVCodecContext *codec_ctx;
   AVFrame *frame;
 
   // resample to interleaved S16
   struct SwrContext *swr_ctx;
+#if OPUS_USE_NEW_CH_LAYOUT
   AVChannelLayout dst_ch_layout;
+#else
+  uint64_t dst_channel_layout;
+  int dst_channels;
+#endif
   enum AVSampleFormat dst_sample_fmt;
   int dst_sample_rate;
   int dst_nb_samples;
@@ -40,6 +51,53 @@ typedef struct _OpusDecoder {
   int out_channels;
 } OpusDecoder2;
 
+static int opus_ctx_channels(const AVCodecContext *ctx) {
+#if OPUS_USE_NEW_CH_LAYOUT
+  return ctx->ch_layout.nb_channels;
+#else
+  return ctx->channels;
+#endif
+}
+
+static int opus_dst_channels(const OpusDecoder2 *oc) {
+#if OPUS_USE_NEW_CH_LAYOUT
+  return oc->dst_ch_layout.nb_channels;
+#else
+  return oc->dst_channels;
+#endif
+}
+
+static void opus_set_ctx_channels(AVCodecContext *ctx, int channels) {
+#if OPUS_USE_NEW_CH_LAYOUT
+  av_channel_layout_default(&ctx->ch_layout, channels);
+#else
+  ctx->channels = channels;
+  ctx->channel_layout = av_get_default_channel_layout(channels);
+#endif
+}
+
+static void opus_set_dst_channels(OpusDecoder2 *oc, int channels) {
+#if OPUS_USE_NEW_CH_LAYOUT
+  av_channel_layout_default(&oc->dst_ch_layout, channels);
+#else
+  oc->dst_channels = channels;
+  oc->dst_channel_layout = av_get_default_channel_layout(channels);
+#endif
+}
+
+static int opus_set_swr_chlayout(struct SwrContext *swr_ctx,
+                                 AVCodecContext *ctx,
+                                 OpusDecoder2 *oc) {
+#if OPUS_USE_NEW_CH_LAYOUT
+  av_opt_set_chlayout(swr_ctx, "in_chlayout", &ctx->ch_layout, 0);
+  av_opt_set_chlayout(swr_ctx, "out_chlayout", &oc->dst_ch_layout, 0);
+#else
+  av_opt_set_int(swr_ctx, "in_channel_layout", ctx->channel_layout, 0);
+  av_opt_set_int(swr_ctx, "out_channel_layout", oc->dst_channel_layout, 0);
+#endif
+  return 0;
+}
+
 // init the resampler lazily after the first frame is decoded,
 // because the real sample_fmt is only known once decoding starts.
 static int opus_init_swr(OpusDecoder2 *oc) {
@@ -47,15 +105,15 @@ static int opus_init_swr(OpusDecoder2 *oc) {
 
   oc->dst_sample_fmt = AV_SAMPLE_FMT_S16;
   oc->dst_sample_rate = oc->out_sample_rate > 0 ? oc->out_sample_rate : ctx->sample_rate;
-  int out_ch = oc->out_channels > 0 ? oc->out_channels : ctx->ch_layout.nb_channels;
-  av_channel_layout_default(&oc->dst_ch_layout, out_ch);
+  int out_ch = oc->out_channels > 0 ? oc->out_channels : opus_ctx_channels(ctx);
+  opus_set_dst_channels(oc, out_ch);
 
   oc->swr_inited = 1;
 
   // no conversion needed
   if (ctx->sample_fmt == oc->dst_sample_fmt &&
       ctx->sample_rate == oc->dst_sample_rate &&
-      ctx->ch_layout.nb_channels == oc->dst_ch_layout.nb_channels) {
+      opus_ctx_channels(ctx) == opus_dst_channels(oc)) {
     return 0;
   }
 
@@ -64,8 +122,7 @@ static int opus_init_swr(OpusDecoder2 *oc) {
     av_log(NULL, AV_LOG_ERROR, "Can't allocate opus swr context\n");
     return AVERROR(ENOMEM);
   }
-  av_opt_set_chlayout(swr_ctx, "in_chlayout", &ctx->ch_layout, 0);
-  av_opt_set_chlayout(swr_ctx, "out_chlayout", &oc->dst_ch_layout, 0);
+  opus_set_swr_chlayout(swr_ctx, ctx, oc);
   av_opt_set_int(swr_ctx, "in_sample_rate", ctx->sample_rate, 0);
   av_opt_set_int(swr_ctx, "out_sample_rate", oc->dst_sample_rate, 0);
   av_opt_set_sample_fmt(swr_ctx, "in_sample_fmt", ctx->sample_fmt, 0);
@@ -83,6 +140,7 @@ static int opus_init_swr(OpusDecoder2 *oc) {
 static int opus_resample(OpusDecoder2 *oc, AVFrame *frame) {
   AVCodecContext *ctx = oc->codec_ctx;
   struct SwrContext *swr_ctx = oc->swr_ctx;
+  int dst_channels = opus_dst_channels(oc);
 
   int dst_nb_samples = frame->nb_samples;
   if (swr_ctx) {
@@ -91,7 +149,7 @@ static int opus_resample(OpusDecoder2 *oc, AVFrame *frame) {
         oc->dst_sample_rate, ctx->sample_rate, AV_ROUND_UP);
   }
 
-  int buf_size = av_samples_get_buffer_size(NULL, oc->dst_ch_layout.nb_channels,
+  int buf_size = av_samples_get_buffer_size(NULL, dst_channels,
       dst_nb_samples, oc->dst_sample_fmt, 1);
   if (oc->buffer == NULL || oc->buffer_size < buf_size) {
     if (oc->buffer) {
@@ -103,20 +161,20 @@ static int opus_resample(OpusDecoder2 *oc, AVFrame *frame) {
       oc->buffer_size = 0;
       return AVERROR(ENOMEM);
     }
-    av_samples_fill_arrays(oc->samples, NULL, oc->buffer, oc->dst_ch_layout.nb_channels,
+    av_samples_fill_arrays(oc->samples, NULL, oc->buffer, dst_channels,
         dst_nb_samples, oc->dst_sample_fmt, 1);
   }
 
   if (!swr_ctx) {
     // formats already match, just copy
     int result = av_samples_copy(oc->samples, frame->data, 0, 0, frame->nb_samples,
-        ctx->ch_layout.nb_channels, ctx->sample_fmt);
+        opus_ctx_channels(ctx), ctx->sample_fmt);
     if (result < 0) {
       av_log(NULL, AV_LOG_ERROR, "Can't copy opus samples, %d\n", result);
       return result;
     }
     oc->dst_nb_samples = frame->nb_samples;
-    oc->actual_buffer_size = av_samples_get_buffer_size(NULL, oc->dst_ch_layout.nb_channels,
+    oc->actual_buffer_size = av_samples_get_buffer_size(NULL, dst_channels,
         oc->dst_nb_samples, oc->dst_sample_fmt, 1);
     return 0;
   }
@@ -129,7 +187,7 @@ static int opus_resample(OpusDecoder2 *oc, AVFrame *frame) {
   }
   // actual number of samples written
   oc->dst_nb_samples = converted;
-  oc->actual_buffer_size = av_samples_get_buffer_size(NULL, oc->dst_ch_layout.nb_channels,
+  oc->actual_buffer_size = av_samples_get_buffer_size(NULL, dst_channels,
       converted, oc->dst_sample_fmt, 1);
   return 0;
 }
@@ -152,7 +210,11 @@ void * open_opus_decoder(int in_channels, int out_sample_rate, int out_channels,
   #endif
   *error_code = -2001;
 
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(58, 0, 0)
   const AVCodec *codec = avcodec_find_decoder(AV_CODEC_ID_OPUS);
+#else
+  AVCodec *codec = avcodec_find_decoder(AV_CODEC_ID_OPUS);
+#endif
   if (!codec) {
     av_log(NULL, AV_LOG_ERROR, "Can't find opus decoder, FFmpeg built without opus?\n");
     free(oc);
@@ -168,7 +230,7 @@ void * open_opus_decoder(int in_channels, int out_sample_rate, int out_channels,
   AVCodecContext *ctx = oc->codec_ctx;
   // opus always decodes at 48kHz internally
   ctx->sample_rate = 48000;
-  av_channel_layout_default(&ctx->ch_layout, in_channels > 0 ? in_channels : 1);
+  opus_set_ctx_channels(ctx, in_channels > 0 ? in_channels : 1);
   ctx->thread_count = 1;
 
   *error_code = -2003;
@@ -190,7 +252,7 @@ void * open_opus_decoder(int in_channels, int out_sample_rate, int out_channels,
   *error_code = 0;
 
   av_log(NULL, AV_LOG_INFO, "opus decoder opened, in_channels %d, out_rate %d, out_channels %d\n",
-    ctx->ch_layout.nb_channels, out_sample_rate, out_channels);
+    opus_ctx_channels(ctx), out_sample_rate, out_channels);
   return oc;
 }
 
@@ -201,7 +263,9 @@ int decode_opus(void *handle, const uint8_t *data, int data_size, MediaFrame *fr
   OpusDecoder2 *oc = (OpusDecoder2 *)handle;
   AVCodecContext *ctx = oc->codec_ctx;
   AVFrame *fr = oc->frame;
+  int result;
 
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(58, 0, 0)
   AVPacket *pkt = av_packet_alloc();
   if (!pkt) {
     return AVERROR(ENOMEM);
@@ -210,10 +274,20 @@ int decode_opus(void *handle, const uint8_t *data, int data_size, MediaFrame *fr
   pkt->data = (uint8_t *)data;
   pkt->size = data_size;
 
-  int result = avcodec_send_packet(ctx, pkt);
+  result = avcodec_send_packet(ctx, pkt);
   pkt->data = NULL;
   pkt->size = 0;
   av_packet_free(&pkt);
+#else
+  AVPacket pkt;
+  av_init_packet(&pkt);
+  // wrap the raw opus payload without copying; ffmpeg won't free user buffer
+  pkt.data = (uint8_t *)data;
+  pkt.size = data_size;
+
+  result = avcodec_send_packet(ctx, &pkt);
+  av_packet_unref(&pkt);
+#endif
   if (result < 0) {
     av_log(NULL, AV_LOG_ERROR, "opus send packet error %d\n", result);
     return result;
@@ -246,7 +320,7 @@ int decode_opus(void *handle, const uint8_t *data, int data_size, MediaFrame *fr
   frame->buffer_size = oc->actual_buffer_size;
   frame->format = oc->dst_sample_fmt;
   frame->samples = oc->dst_nb_samples;
-  frame->channels = oc->dst_ch_layout.nb_channels;
+  frame->channels = opus_dst_channels(oc);
   frame->sample_rate = oc->dst_sample_rate;
   frame->bytes_per_sample = av_get_bytes_per_sample(oc->dst_sample_fmt);
   return 0;
