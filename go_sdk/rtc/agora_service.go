@@ -95,6 +95,8 @@ type AgoraServiceConfig struct {
 	IdleMode bool
 
 	// date: 20260618, add local audio track with apm support, default to false
+	// NOTE：Regardless of whether it is set to true, it only applies to non-aiserver audio scenario
+	// for aiserver audio scenario, it will be ignored!
 	EnableLocalAudioTrackWithAPM bool
 	LocalAudioTrackAPMConfig *APMConfig
 }

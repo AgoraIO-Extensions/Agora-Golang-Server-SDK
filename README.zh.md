@@ -273,6 +273,8 @@ con.PushVideoFrame(frame)
 	})
 ```
 
+## 2026.06.23 发布 2.6.4 版本
+- **bug修改**：更新rtc sdk到4.6.x., 解决direc_audio_track_with_apm parameter 在linux 上不工作的问题
 
 ## 2026.06.22 发布 2.6.3 版本
 - **新更新**：opus decoder在不同ffmpeg上的兼容性问题

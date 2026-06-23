@@ -108,6 +108,9 @@ mac_sdk="https://download.agora.io/sdk/release/agora_sdk_mac_v4.6.3.133_27645_FU
 linux_sdk="https://download.agora.io/sdk/release/agora_rtc_sdk_x86_64-linux-gnu-v3.0_jira_NMS_30487_release_4_6_3_133_hc_20260618.28094_28094_SERVER_20260618_1010_1169468_20251021_1427-3a.zip"
 mac_sdk="https://download.agora.io/sdk/release/agora_sdk_mac_v3.0_jira_NMS_30487_release_4_6_3_133_hc_20260618.28001_28001_FULL_20260618_1035_1169494_20251021_1427-3a.zip"
 
+#date: 20260623 update sdk for 2.6.4, with direct audio track with apm support
+linux_sdk="https://download.agora.io/sdk/release/agora_rtc_sdk_x86_64-linux-gnu-v3.0_jira_NMS_30487_release_4_6_3_133_hc_20260623.28108_28108_SERVER_20260623_1530_1177185_20251021_1427-3a.zip"
+
 if [[ $UNAME_S == Linux ]]; then
     OS=linux
 elif [[ $UNAME_S == Darwin ]]; then
