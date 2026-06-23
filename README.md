@@ -263,6 +263,10 @@ con.PushVideoFrame(frame)
 ```
 
 Release Note:
+
+## 2026.06.23 Release Version 2.6.4
+- **Bug Fix**: Upgraded RTC SDK to 4.6.x to resolve the issue where the `direc_audio_track_with_apm` parameter did not work on Linux.
+
 ## 2026.06.22 Release Version 2.6.3
 - **Fix**: Resolved opus decoder compatibility issues across different FFmpeg versions
 
