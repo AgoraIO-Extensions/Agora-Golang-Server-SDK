@@ -7,7 +7,7 @@ package agorartm
 
 //链接AgoraRTM SDK
 #cgo linux LDFLAGS: -L${SRCDIR}/../../agora_sdk -lagora_rtm_sdk -laosl -lagora_rtm_sdk_c
-#cgo darwin LDFLAGS: -L${SRCDIR}/../../agora_sdk_mac -lAgoraRtmKit -laosl -lagora_rtm_sdk_c
+#cgo darwin LDFLAGS: -Wl,-rpath,${SRCDIR}/../../agora_sdk_mac -L${SRCDIR}/../../agora_sdk_mac -lAgoraRtmKit -laosl -lagora_rtm_sdk_c
 #include <stdlib.h>
 #include <string.h>
 #include "C_AgoraRtmBase.h"

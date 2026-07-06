@@ -263,6 +263,13 @@ con.PushVideoFrame(frame)
 ```
 
 ---
+## 2026.07.06 Release Version 2.4.15
+- **Bug Fix**: Fixed an issue where `joinUserList`/`leaveUserList`/`timeoutUserList` in RTM `PresenceEvent` interval mode were not properly converted.
+- **Bug Fix**: Fixed an issue where `OnWhoNowResult`/`OnGetOnlineUsersResult` only returned the first user; now these return the complete user list.
+- **API Change**: The `userStateList` parameter in `OnWhoNowResult`/`OnGetOnlineUsersResult` callbacks has been changed from `*UserState` to `[]*UserState`, and the `count` parameter has been removed. Please use `len(userStateList)` to get the user count.
+- **New Feature**: Added RTM unit tests, run with `make test-rtm`.
+
+
 ## 2026.04.08 Release Version 2.4.14
 - **Update**: Updated RTC SDK to version 169.
 - **New Feature**: Added support for the `connection.GetSid` interface, which allows you to obtain the connection's session ID. Note: Call this after `connect`.

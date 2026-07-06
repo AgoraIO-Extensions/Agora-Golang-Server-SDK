@@ -232,6 +232,26 @@ func CUserStateToUserState(cUserState *C.struct_C_UserState) *UserState {
 	}
 }
 
+// C.struct_C_UserState array to []*UserState
+func CUserStateListToUserStateList(cList *C.struct_C_UserState, count C.size_t) []*UserState {
+	if cList == nil || count == 0 {
+		return nil
+	}
+
+	if !IsValidMemory(unsafe.Pointer(cList)) {
+		return nil
+	}
+
+	result := make([]*UserState, count)
+	for i := 0; i < int(count); i++ {
+		cUserState := (*C.struct_C_UserState)(unsafe.Pointer(
+			uintptr(unsafe.Pointer(cList)) + uintptr(i)*unsafe.Sizeof(C.struct_C_UserState{}),
+		))
+		result[i] = CUserStateToUserState(cUserState)
+	}
+	return result
+}
+
 // C.struct_C_ChannelInfo to ChannelInfo
 func CChannelInfoToChannelInfo(cChannelInfo *C.struct_C_ChannelInfo) *ChannelInfo {
 	if cChannelInfo == nil {
