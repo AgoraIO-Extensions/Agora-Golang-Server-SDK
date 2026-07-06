@@ -54,6 +54,11 @@ clean:
 test:
 	$(GOTEST) -v ./...
 
+# Test RTM package unit tests
+.PHONY: test-rtm
+test-rtm:
+	$(GOTEST) -C $(CURRENT_PATH)/go_sdk/rtm -tags=test -v -count=1
+
 # Install the project
 .PHONY: install
 install: deps

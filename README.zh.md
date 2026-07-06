@@ -125,6 +125,10 @@ import (
 5. **更多用法**  
    可参考源码 `cmd/example` 进行集成和开发。
 
+通用：
+如果在go mod tidy的时候，提示遇到timedout，可以尝试：
+export GOPROXY=https://goproxy.cn
+
 ##  ❗ ❗逻辑关系，非常重要 ❗ ❗
 - 一个进程只能有一个service instance；在进程开始的时候，创建service；在进程结束的时候，销毁service。
 - 一个实例，可以有多个connection，connection可以根据业务需要，随时建立和销毁
@@ -276,6 +280,12 @@ con.PushVideoFrame(frame)
 todo：
 1、增加get sid
 2、增加自编码流双流模式的sample和验证
+
+## 2026.07.06 发布 2.4.15 版本
+- **问题修复**：修复 RTM `PresenceEvent` interval 模式下 `joinUserList`/`leaveUserList`/`timeoutUserList` 未转换的问题。
+- **问题修复**：修复 `OnWhoNowResult`/`OnGetOnlineUsersResult` 仅返回首个用户的问题，现正确返回完整用户列表。
+- **API变更**：`OnWhoNowResult`/`OnGetOnlineUsersResult` 回调中 `userStateList` 由 `*UserState` 改为 `[]*UserState`，移除 `count` 参数，请使用 `len(userStateList)` 获取用户数。
+- **新功能**：新增 RTM 单元测试，运行 `make test-rtm`。
 
 ## 2026.04.08 发布 2.4.14 版本
 - **新更新**：更新rtc sdk到169。

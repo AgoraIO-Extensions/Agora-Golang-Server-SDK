@@ -181,8 +181,8 @@ type RtmEventHandler struct {
 	OnAcquireLockResult           func(requestId uint64, channelName string, channelType RtmChannelType, lockName string, errorCode int, errorDetails string)
 	OnRevokeLockResult            func(requestId uint64, channelName string, channelType RtmChannelType, lockName string, errorCode int)
 	OnGetLocksResult              func(requestId uint64, channelName string, channelType RtmChannelType, lockDetailList *LockDetail, count uint, errorCode int)
-	OnWhoNowResult                func(requestId uint64, userStateList *UserState, count uint, nextPage string, errorCode int)
-	OnGetOnlineUsersResult        func(requestId uint64, userStateList *UserState, count uint, nextPage string, errorCode int)
+	OnWhoNowResult                func(requestId uint64, userStateList []*UserState, nextPage string, errorCode int)
+	OnGetOnlineUsersResult        func(requestId uint64, userStateList []*UserState, nextPage string, errorCode int)
 	OnWhereNowResult              func(requestId uint64, channels *ChannelInfo, count uint, errorCode int)
 	OnGetUserChannelsResult       func(requestId uint64, channels *ChannelInfo, count uint, errorCode int)
 	OnPresenceSetStateResult      func(requestId uint64, errorCode int)
@@ -973,7 +973,10 @@ func cgo_RtmEventHandlerBridge_onWhoNowResult(handler *C.struct_C_IRtmEventHandl
 	}
 
 	client := (*IRtmClient)(handler.userData)
-	goUserState := CUserStateToUserState(userStateList)
+	goUserStateList := CUserStateListToUserStateList(userStateList, count)
+	if goUserStateList == nil {
+		goUserStateList = make([]*UserState, 0)
+	}
 	// 判断client是否为nil
 	if client == nil || client.handler == nil || client.handler.OnWhoNowResult == nil {
 		//fmt.Printf("[DEBUG] 调用Go事件处理器OnWhoNowResult, client值为nil\n")
@@ -982,8 +985,7 @@ func cgo_RtmEventHandlerBridge_onWhoNowResult(handler *C.struct_C_IRtmEventHandl
 
 	client.handler.OnWhoNowResult(
 		uint64(requestId),
-		goUserState,
-		uint(count),
+		goUserStateList,
 		C.GoString(nextPage),
 		int(errorCode),
 	)
@@ -998,7 +1000,10 @@ func cgo_RtmEventHandlerBridge_onGetOnlineUsersResult(handler *C.struct_C_IRtmEv
 	}
 
 	client := (*IRtmClient)(handler.userData)
-	goUserState := CUserStateToUserState(userStateList)
+	goUserStateList := CUserStateListToUserStateList(userStateList, count)
+	if goUserStateList == nil {
+		goUserStateList = make([]*UserState, 0)
+	}
 	// 判断client是否为nil
 	if client == nil || client.handler == nil || client.handler.OnGetOnlineUsersResult == nil {
 		//fmt.Printf("[DEBUG] 调用Go事件处理器OnGetOnlineUsersResult, client值为nil\n")
@@ -1007,8 +1012,7 @@ func cgo_RtmEventHandlerBridge_onGetOnlineUsersResult(handler *C.struct_C_IRtmEv
 
 	client.handler.OnGetOnlineUsersResult(
 		uint64(requestId),
-		goUserState,
-		uint(count),
+		goUserStateList,
 		C.GoString(nextPage),
 		int(errorCode),
 	)

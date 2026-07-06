@@ -284,99 +284,27 @@ func (this_ *PresenceEvent) fromC(cEvent *C.struct_C_PresenceEvent) {
 
 	this_.Interval = NewIntervalInfo()
 	if this_.Interval != nil {
-		if cEvent.interval.userStateList != nil && cEvent.interval.userStateCount > 0 {
-			if IsValidMemory(unsafe.Pointer(cEvent.interval.userStateList)) {
-				userCount := int(cEvent.interval.userStateCount)
-				if userCount > 0 {
-					this_.Interval.UserStateList = make([]*UserState, userCount)
-					this_.Interval.UserStateCount = uint(userCount)
+		if joinList := CUserListToUserList(&cEvent.interval.joinUserList); joinList != nil {
+			this_.Interval.JoinUserList = joinList
+		}
+		if leaveList := CUserListToUserList(&cEvent.interval.leaveUserList); leaveList != nil {
+			this_.Interval.LeaveUserList = leaveList
+		}
+		if timeoutList := CUserListToUserList(&cEvent.interval.timeoutUserList); timeoutList != nil {
+			this_.Interval.TimeoutUserList = timeoutList
+		}
 
-					for i := 0; i < userCount; i++ {
-						cUserState := (*C.struct_C_UserState)(unsafe.Pointer(uintptr(unsafe.Pointer(cEvent.interval.userStateList)) + uintptr(i)*unsafe.Sizeof(C.struct_C_UserState{})))
-						if cUserState != nil && IsValidMemory(unsafe.Pointer(cUserState)) {
-							userState := NewUserState()
-							if userState != nil {
-								if cUserState.userId != nil {
-									userState.UserId = FastSafeCGoString(cUserState.userId)
-								}
-								if cUserState.states != nil && cUserState.statesCount > 0 {
-									if IsValidMemory(unsafe.Pointer(cUserState.states)) {
-										stateCount := int(cUserState.statesCount)
-										if stateCount > 0 {
-											userState.States = make([]StateItem, stateCount)
-											//userState.StatesCount = uint(stateCount)
-
-											for j := 0; j < stateCount; j++ {
-												cState := (*C.struct_C_StateItem)(unsafe.Pointer(uintptr(unsafe.Pointer(cUserState.states)) + uintptr(j)*unsafe.Sizeof(C.struct_C_StateItem{})))
-												if cState != nil && IsValidMemory(unsafe.Pointer(cState)) {
-													stateItem := StateItem{}
-													if cState.key != nil {
-														stateItem.Key = FastSafeCGoString(cState.key)
-													}
-													if cState.value != nil {
-														stateItem.Value = FastSafeCGoString(cState.value)
-													}
-													userState.States[j] = stateItem
-												}
-											}
-										}
-									}
-								}
-								this_.Interval.UserStateList[i] = userState
-							}
-						}
-					}
-				}
-			}
+		if userStateList := CUserStateListToUserStateList(cEvent.interval.userStateList, cEvent.interval.userStateCount); userStateList != nil {
+			this_.Interval.UserStateList = userStateList
+			this_.Interval.UserStateCount = uint(len(userStateList))
 		}
 	}
 
 	this_.Snapshot = NewSnapshotInfo()
 	if this_.Snapshot != nil {
-		if cEvent.snapshot.userStateList != nil && cEvent.snapshot.userCount > 0 {
-			if IsValidMemory(unsafe.Pointer(cEvent.snapshot.userStateList)) {
-				userCount := int(cEvent.snapshot.userCount)
-				if userCount > 0 {
-					this_.Snapshot.UserStateList = make([]*UserState, userCount)
-					this_.Snapshot.UserCount = uint(userCount)
-
-					for i := 0; i < userCount; i++ {
-						cUserState := (*C.struct_C_UserState)(unsafe.Pointer(uintptr(unsafe.Pointer(cEvent.snapshot.userStateList)) + uintptr(i)*unsafe.Sizeof(C.struct_C_UserState{})))
-						if cUserState != nil && IsValidMemory(unsafe.Pointer(cUserState)) {
-							userState := NewUserState()
-							if userState != nil {
-								if cUserState.userId != nil {
-									userState.UserId = FastSafeCGoString(cUserState.userId)
-								}
-								if cUserState.states != nil && cUserState.statesCount > 0 {
-									if IsValidMemory(unsafe.Pointer(cUserState.states)) {
-										stateCount := int(cUserState.statesCount)
-										if stateCount > 0 {
-											userState.States = make([]StateItem, stateCount)
-											//userState.StatesCount = uint(stateCount)
-
-											for j := 0; j < stateCount; j++ {
-												cState := (*C.struct_C_StateItem)(unsafe.Pointer(uintptr(unsafe.Pointer(cUserState.states)) + uintptr(j)*unsafe.Sizeof(C.struct_C_StateItem{})))
-												if cState != nil && IsValidMemory(unsafe.Pointer(cState)) {
-													stateItem := StateItem{}
-													if cState.key != nil {
-														stateItem.Key = FastSafeCGoString(cState.key)
-													}
-													if cState.value != nil {
-														stateItem.Value = FastSafeCGoString(cState.value)
-													}
-													userState.States[j] = stateItem
-												}
-											}
-										}
-									}
-								}
-								this_.Snapshot.UserStateList[i] = userState
-							}
-						}
-					}
-				}
-			}
+		if userStateList := CUserStateListToUserStateList(cEvent.snapshot.userStateList, cEvent.snapshot.userCount); userStateList != nil {
+			this_.Snapshot.UserStateList = userStateList
+			this_.Snapshot.UserCount = uint(len(userStateList))
 		}
 	}
 }
