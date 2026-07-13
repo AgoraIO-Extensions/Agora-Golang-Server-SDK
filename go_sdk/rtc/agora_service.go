@@ -168,7 +168,7 @@ func NewAgoraServiceConfig() *AgoraServiceConfig {
 		EnableSteroEncodeMode: 0, // default to 0,i.e default to mono encode mode
 		ConfigDir: "",   // format like: "./agora_rtc_log"
 		DataDir: "",     // format like: "./agora_rtc_log", should ensure the directory exists
-		APMModel: 0,
+		APMModel: ApmModeOff,
 		APMConfig: nil,
 		IdleMode: true, // default to true for  idle mode
 	}
