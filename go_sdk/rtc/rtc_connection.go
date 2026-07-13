@@ -288,16 +288,38 @@ type LocalUserObserver struct {
 	// added on 2026-03-05
 	OnVideoTrackPublishSuccess func(localUser *LocalUser, localVideoTrack *LocalVideoTrack)
 	OnVideoTrackUnpublished    func(localUser *LocalUser, localVideoTrack *LocalVideoTrack)
-
-	
 }
 
 type AudioFrameObserver struct {
-	OnRecordAudioFrame                func(localUser *LocalUser, channelId string, frame *AudioFrame) bool
-	OnPlaybackAudioFrame              func(localUser *LocalUser, channelId string, frame *AudioFrame) bool
-	OnMixedAudioFrame                 func(localUser *LocalUser, channelId string, frame *AudioFrame) bool
-	OnEarMonitoringAudioFrame         func(localUser *LocalUser, frame *AudioFrame) bool
-	OnPlaybackAudioFrameBeforeMixing  func(localUser *LocalUser, channelId string, uid string, frame *AudioFrame, vadResultStat VadState, vadResultFrame *AudioFrame) bool
+	OnRecordAudioFrame               func(localUser *LocalUser, channelId string, frame *AudioFrame) bool
+	OnPlaybackAudioFrame             func(localUser *LocalUser, channelId string, frame *AudioFrame) bool
+	OnMixedAudioFrame                func(localUser *LocalUser, channelId string, frame *AudioFrame) bool
+	OnEarMonitoringAudioFrame        func(localUser *LocalUser, frame *AudioFrame) bool
+	OnPlaybackAudioFrameBeforeMixing func(localUser *LocalUser, channelId string, uid string, frame *AudioFrame, vadResultStat VadState, vadResultFrame *AudioFrame) bool
+	// OnReusedRecordAudioFrame exposes a zero-copy view of the SDK-owned audio
+	// buffer. The frame and its buffer are only valid during the callback. If
+	// the data is needed after the callback returns or from another goroutine,
+	// copy it inside the callback before returning. The buffer must be treated
+	// as read-only.
+	OnReusedRecordAudioFrame func(localUser *LocalUser, channelId string, frame *AudioFrame) bool
+	// OnReusedPlaybackAudioFrame exposes a zero-copy view of the SDK-owned audio
+	// buffer. The frame and its buffer are only valid during the callback. If
+	// the data is needed after the callback returns or from another goroutine,
+	// copy it inside the callback before returning. The buffer must be treated
+	// as read-only.
+	OnReusedPlaybackAudioFrame func(localUser *LocalUser, channelId string, frame *AudioFrame) bool
+	// OnReusedMixedAudioFrame exposes a zero-copy view of the SDK-owned audio
+	// buffer. The frame and its buffer are only valid during the callback. If
+	// the data is needed after the callback returns or from another goroutine,
+	// copy it inside the callback before returning. The buffer must be treated
+	// as read-only.
+	OnReusedMixedAudioFrame func(localUser *LocalUser, channelId string, frame *AudioFrame) bool
+	// OnReusedEarMonitoringAudioFrame exposes a zero-copy view of the
+	// SDK-owned audio buffer. The frame and its buffer are only valid during
+	// the callback. If the data is needed after the callback returns or from
+	// another goroutine, copy it inside the callback before returning. The
+	// buffer must be treated as read-only.
+	OnReusedEarMonitoringAudioFrame   func(localUser *LocalUser, frame *AudioFrame) bool
 	OnGetAudioFramePosition           func(localUser *LocalUser) int
 	OnGetPlaybackAudioFrameParam      func(localUser *LocalUser) AudioFrameObserverAudioParams
 	OnGetRecordAudioFrameParam        func(localUser *LocalUser) AudioFrameObserverAudioParams
@@ -307,10 +329,23 @@ type AudioFrameObserver struct {
 
 type VideoFrameObserver struct {
 	OnFrame func(channelId string, userId string, frame *VideoFrame) bool
+	// OnReusedFrame exposes a zero-copy view of the SDK-owned frame buffers.
+	// The frame and its byte slices are only valid during the callback. If the
+	// data is needed after the callback returns or from another goroutine, copy
+	// it inside the callback before returning. The buffers must be treated as
+	// read-only.
+	OnReusedFrame func(channelId string, userId string, frame *VideoFrame) bool
 }
 
 type VideoEncodedFrameObserver struct {
 	OnEncodedVideoFrame func(uid string, imageBuffer []byte,
+		frameInfo *EncodedVideoFrameInfo) bool
+	// OnReusedEncodedVideoFrame exposes a zero-copy view of the SDK-owned
+	// encoded frame buffer. The buffer is only valid during the callback. If
+	// the data is needed after the callback returns or from another goroutine,
+	// copy it inside the callback before returning. The buffer must be treated
+	// as read-only.
+	OnReusedEncodedVideoFrame func(uid string, imageBuffer []byte,
 		frameInfo *EncodedVideoFrameInfo) bool
 }
 
@@ -457,10 +492,10 @@ type RtcConnection struct {
 	// for transcoding
 	transcodingWorker *TranscodingWorker
 	// for video encoder configuration
-	videoEncoderConfiguration  *VideoEncoderConfiguration
+	videoEncoderConfiguration *VideoEncoderConfiguration
 
 	// for encoded audio frame observer
-	encodedAudioFrameObserver  *AudioEncodedFrameObserver
+	encodedAudioFrameObserver *AudioEncodedFrameObserver
 }
 
 // for pcm consumption stats
@@ -785,8 +820,6 @@ func (conn *RtcConnection) Connect(token string, channel string, uid string) int
 	}
 	// auto create data stream: from 0331 for datastream encryption support
 	conn.dataStreamId, _ = conn.createDataStream(false, false)
-	
-
 
 	conn.connInfo.ChannelId = channel
 	conn.connInfo.LocalUserId = uid
@@ -1087,9 +1120,9 @@ func (conn *RtcConnection) enableSteroEncodeMode() int {
 }
 
 type EncryptionConfig struct {
-	EncryptionMode    int
-	EncryptionKey     string
-	EncryptionKdfSalt []byte
+	EncryptionMode              int
+	EncryptionKey               string
+	EncryptionKdfSalt           []byte
 	DatastreamEncryptionEnabled bool
 }
 
@@ -1349,7 +1382,6 @@ func (conn *RtcConnection) PushVideoEncodedData(data []byte, frameInfo *EncodedV
 	}
 	return conn.encodedVideoSender.SendEncodedVideoImage(data, frameInfo)
 }
-
 
 // to pudate connction's scenario
 func (conn *RtcConnection) UpdateAudioSenario(scenario AudioScenario) int {
@@ -1716,9 +1748,8 @@ func (conn *RtcConnection) stopTranscodingWorker() int {
 	return 0
 }
 
-
 func (conn *RtcConnection) RegisterAudioEncodedFrameObserver(observer *AudioEncodedFrameObserver) int {
-	if conn == nil || conn.cConnection == nil  {
+	if conn == nil || conn.cConnection == nil {
 		return -2000
 	}
 	if observer == nil {
@@ -1726,7 +1757,7 @@ func (conn *RtcConnection) RegisterAudioEncodedFrameObserver(observer *AudioEnco
 	}
 	// 'hold' the observer
 	conn.encodedAudioFrameObserver = observer
-	
+
 	return 0
 }
 
@@ -1747,7 +1778,6 @@ func (conn *RtcConnection) unregisterAudioEncodedFrameObserver() int {
 		return -2001
 	}
 
-	
 	//iterate agoraService.encAudioFrameObserverItemsMap, when item.Con == conn, delete the item, and free the handle
 	agoraService.encAudioFrameObserverItemsMap.Range(func(key, value interface{}) bool {
 		if item, ok := value.(*EncAudioFrameObserverItem); ok {
@@ -1767,7 +1797,7 @@ func (conn *RtcConnection) unregisterAudioEncodedFrameObserver() int {
 		}
 		return false
 	})
-	return 0 
+	return 0
 }
 
 func (conn *RtcConnection) doUnregisterAudioEncodedFrameObserver(uid string) int {
@@ -1779,7 +1809,7 @@ func (conn *RtcConnection) doUnregisterAudioEncodedFrameObserver(uid string) int
 				conn.unregAudioEncFrameObserverItem(item)
 				// free the item
 				freeAudioEncodedFrameObserverItem(item)
-				
+
 				item.CObserver = nil
 				item.CObserverHandle = nil
 				item.CTrack = nil
@@ -1808,15 +1838,14 @@ func (conn *RtcConnection) initEncodedAudioFrameReceived(uid *C.char, cRemoteAud
 	uidStr := C.GoString(uid)
 
 	// iterate agoraService.encAudioFrameObserverItemsMap, find all items where item.Uid == uidStr, delete the item, and free the handle
-	
+
 	conn.doUnregisterAudioEncodedFrameObserver(uidStr)
-	
+
 	// create a new item
 	item := createAudioEncodedFrameObserverItem(uidStr, cRemoteAudioTrack, conn)
 	if item == nil {
 		return -3001
 	}
-
 
 	agoraService.setAudioEncObserToMap(item)
 
@@ -1826,7 +1855,7 @@ func (conn *RtcConnection) initEncodedAudioFrameReceived(uid *C.char, cRemoteAud
 	ret := C.agora_remote_audio_track_register_encoded_frame_rev_observer(persistTrack, cObserverHandle)
 
 	// store to sync map
-	fmt.Printf("initEncodedAudioFrameReceived, uid: %s, ret: %d, persistTrack: %p, cObserverHandle: %p\n", uidStr, ret, persistTrack, cObserverHandle	)
+	fmt.Printf("initEncodedAudioFrameReceived, uid: %s, ret: %d, persistTrack: %p, cObserverHandle: %p\n", uidStr, ret, persistTrack, cObserverHandle)
 
 	return 0
 }
@@ -1841,10 +1870,10 @@ func (conn *RtcConnection) doAudioTrackStateChanged(uid *C.char, cRemoteAudioTra
 		}
 	}
 
-	
 	return 0
 }
-//date: 20260408 add get sid api
+
+// date: 20260408 add get sid api
 // note: only after connection is connected, the sid is valid(not empty string),otherwise return empty string
 func (conn *RtcConnection) GetSid() string {
 	if conn == nil || conn.cConnection == nil {

@@ -38,10 +38,10 @@ func CAgoraServiceConfig(cfg *AgoraServiceConfig) *C.struct__agora_service_confi
 	if cfg.LogPath != "" {
 		ret.log_file_path = C.CString(cfg.LogPath)
 	}
-	
+
 	ret.log_file_size_kb = C.uint32_t(cfg.LogSize)
 	ret.log_level = C.int(cfg.LogLevel)
-	
+
 	if cfg.ConfigDir != "" {
 		ret.config_dir = C.CString(cfg.ConfigDir)
 	}
@@ -49,14 +49,13 @@ func CAgoraServiceConfig(cfg *AgoraServiceConfig) *C.struct__agora_service_confi
 		ret.data_dir = C.CString(cfg.DataDir)
 	}
 
-
 	return ret
 }
 
 func FreeCAgoraServiceConfig(cfg *C.struct__agora_service_config) {
 	C.free(unsafe.Pointer(cfg.app_id))
 	if cfg.log_file_path != nil {
-	C.free(unsafe.Pointer(cfg.log_file_path))
+		C.free(unsafe.Pointer(cfg.log_file_path))
 	}
 	if cfg.config_dir != nil {
 		C.free(unsafe.Pointer(cfg.config_dir))
@@ -204,6 +203,27 @@ func GoPcmAudioFrame(frame *C.struct__audio_frame) *AudioFrame {
 	return ret
 }
 
+func GoPcmAudioFrameReused(frame *C.struct__audio_frame) *AudioFrame {
+	bufferLen := frame.samples_per_channel * frame.bytes_per_sample * frame.channels
+	ret := &AudioFrame{
+		Type:              AudioFrameType(frame._type),
+		SamplesPerChannel: int(frame.samples_per_channel),
+		BytesPerSample:    int(frame.bytes_per_sample),
+		Channels:          int(frame.channels),
+		SamplesPerSec:     int(frame.samples_per_sec),
+		Buffer:            cByteSlice(frame.buffer, bufferLen),
+		RenderTimeMs:      int64(frame.render_time_ms),
+		AvsyncType:        int(frame.avsync_type),
+		FarFieldFlag:      int(frame.far_filed_flag),
+		Rms:               int(frame.rms),
+		VoiceProb:         int(frame.voice_prob),
+		MusicProb:         int(frame.music_prob),
+		Pitch:             int(frame.pitch),
+		PresentTimeMs:     int64(frame.presentation_ms), // NOTE: next version, should include pts in audio_frame in c api layer!!??
+	}
+	return ret
+}
+
 func GoSinkAudioFrame(frame *C.struct__audio_pcm_frame) *AudioFrame {
 	bufferLen := int(frame.samples_per_channel) * int(frame.bytes_per_sample) * int(frame.num_channels)
 	samplepersec := int(frame.sample_rate_hz) * int(frame.num_channels)
@@ -256,6 +276,27 @@ func Uint8PtrToUintptr(p *C.uint8_t) uintptr {
 	return uintptr(unsafe.Pointer(p))
 }
 
+func cUint8Slice(ptr *C.uint8_t, length C.int) []byte {
+	if ptr == nil || length <= 0 {
+		return nil
+	}
+	return unsafe.Slice((*byte)(unsafe.Pointer(ptr)), int(length))
+}
+
+func cByteSlice(ptr unsafe.Pointer, length C.int) []byte {
+	if ptr == nil || length <= 0 {
+		return nil
+	}
+	return unsafe.Slice((*byte)(ptr), int(length))
+}
+
+func cUint8SliceFromSize(ptr *C.uint8_t, length C.size_t) []byte {
+	if ptr == nil || length == 0 {
+		return nil
+	}
+	return unsafe.Slice((*byte)(unsafe.Pointer(ptr)), int(length))
+}
+
 func GoVideoFrame(frame *C.struct__video_frame) *VideoFrame {
 	// var buf []byte = nil
 	// bufLen := frame.y_stride*frame.height + frame.u_stride*frame.height/2 + frame.v_stride*frame.height/2
@@ -301,6 +342,35 @@ func GoVideoFrame(frame *C.struct__video_frame) *VideoFrame {
 	return ret
 }
 
+func GoVideoFrameReused(frame *C.struct__video_frame) *VideoFrame {
+	yLen := frame.y_stride * frame.height
+	uLen := frame.u_stride * frame.height / 2
+	vLen := frame.v_stride * frame.height / 2
+	ret := &VideoFrame{
+		Type:           VideoBufferType(frame._type),
+		Width:          int(frame.width),
+		Height:         int(frame.height),
+		YStride:        int(frame.y_stride),
+		UStride:        int(frame.u_stride),
+		VStride:        int(frame.v_stride),
+		YBuffer:        cUint8Slice(frame.y_buffer, yLen),
+		UBuffer:        cUint8Slice(frame.u_buffer, uLen),
+		VBuffer:        cUint8Slice(frame.v_buffer, vLen),
+		Rotation:       VideoOrientation(frame.rotation),
+		RenderTimeMs:   int64(frame.render_time_ms),
+		AVSyncType:     int(frame.avsync_type),
+		MetadataBuffer: cUint8Slice(frame.metadata_buffer, frame.metadata_size),
+		SharedContext:  frame.shared_context,
+		TextureID:      int(frame.texture_id),
+		Matrix:         [16]float32{},
+		AlphaBuffer:    cUint8Slice(frame.alpha_buffer, yLen),
+	}
+	for i := 0; i < 16; i++ {
+		ret.Matrix[i] = float32(frame.matrix[i])
+	}
+	return ret
+}
+
 func GoVideoTrackInfo(cInfo *C.struct__video_track_info) *VideoTrackInfo {
 	ret := &VideoTrackInfo{
 		IsLocal:             (int(cInfo.is_local) != 0),
@@ -339,84 +409,82 @@ func GoAudioVolumeInfo(frame *C.struct__audio_volume_info) *AudioVolumeInfo {
 	return ret
 }
 
-
-
 func GoLocalAudioStats(stats *C.struct__local_audio_stats) *LocalAudioTrackStats {
 	ret := &LocalAudioTrackStats{
-		NumChannels: int(stats.num_channels),
+		NumChannels:    int(stats.num_channels),
 		SentSampleRate: int(stats.sent_sample_rate),
-		SentBitrate: int(stats.sent_bitrate),
-		InternalCodec: int(stats.internal_codec),
-		VoicePitch: float64(stats.voice_pitch),
+		SentBitrate:    int(stats.sent_bitrate),
+		InternalCodec:  int(stats.internal_codec),
+		VoicePitch:     float64(stats.voice_pitch),
 	}
 	return ret
 }
 func GoRemoteAudioStats(stats *C.struct__remote_audio_stats) *RemoteAudioTrackStats {
 	ret := &RemoteAudioTrackStats{
-		Uid: uint(stats.uid),
-		Quality: int(stats.quality),
+		Uid:                   uint(stats.uid),
+		Quality:               int(stats.quality),
 		NetworkTransportDelay: int(stats.network_transport_delay),
-		JitterBufferDelay: int(stats.jitter_buffer_delay),
-		AudioLossRate: int(stats.audio_loss_rate),
-		NumChannels: int(stats.num_channels),
-		ReceivedSampleRate: int(stats.received_sample_rate),
-		ReceivedBitrate: int(stats.received_bitrate),
-		TotalFrozenTime: int(stats.total_frozen_time), // ms
-		FrozenRate: int(stats.frozen_rate),
-		MosValue: int(stats.mos_value),
-		TotalActiveTime: int(stats.total_active_time), // ms
-		PublishDuration: int(stats.publish_duration), // ms
+		JitterBufferDelay:     int(stats.jitter_buffer_delay),
+		AudioLossRate:         int(stats.audio_loss_rate),
+		NumChannels:           int(stats.num_channels),
+		ReceivedSampleRate:    int(stats.received_sample_rate),
+		ReceivedBitrate:       int(stats.received_bitrate),
+		TotalFrozenTime:       int(stats.total_frozen_time), // ms
+		FrozenRate:            int(stats.frozen_rate),
+		MosValue:              int(stats.mos_value),
+		TotalActiveTime:       int(stats.total_active_time), // ms
+		PublishDuration:       int(stats.publish_duration),  // ms
 	}
-	return ret	
+	return ret
 }
 func GoLocalVideoStats(stats *C.struct__local_video_track_stats) *LocalVideoTrackStats {
 	ret := &LocalVideoTrackStats{
-		NumberOfStreams: uint64(stats.number_of_streams),
-		BytesMajorStream: uint64(stats.bytes_major_stream),
-		BytesMinorStream: uint64(stats.bytes_minor_stream),
-		FramesEncoded: uint32(stats.frames_encoded),
-		SSRCMajorStream: uint32(stats.ssrc_major_stream),
-		SSRCMinorStream: uint32(stats.ssrc_minor_stream),
-		CaptureFrameRate: int(stats.capture_frame_rate),
+		NumberOfStreams:           uint64(stats.number_of_streams),
+		BytesMajorStream:          uint64(stats.bytes_major_stream),
+		BytesMinorStream:          uint64(stats.bytes_minor_stream),
+		FramesEncoded:             uint32(stats.frames_encoded),
+		SSRCMajorStream:           uint32(stats.ssrc_major_stream),
+		SSRCMinorStream:           uint32(stats.ssrc_minor_stream),
+		CaptureFrameRate:          int(stats.capture_frame_rate),
 		RegulatedCaptureFrameRate: int(stats.regulated_capture_frame_rate),
-		InputFrameRate: int(stats.input_frame_rate),
-		EncodeFrameRate: int(stats.encode_frame_rate),
-		RenderFrameRate: int(stats.render_frame_rate),
-		TargetMediaBitrateBps: int(stats.target_media_bitrate_bps),
-		MediaBitrateBps: int(stats.media_bitrate_bps),
-		TotalBitrateBps: int(stats.total_bitrate_bps),
-		CaptureWidth: int(stats.capture_width),
-		CaptureHeight: int(stats.capture_height),
-		RegulatedCaptureWidth: int(stats.regulated_capture_width),
-		RegulatedCaptureHeight: int(stats.regulated_capture_height),
-		Width: int(stats.width),
-		Height: int(stats.height),
-		EncoderType: uint32(stats.encoder_type),
-		UplinkCostTimeMs: int(stats.uplink_cost_time_ms),
-		QualityAdaptIndication: int(stats.quality_adapt_indication),
+		InputFrameRate:            int(stats.input_frame_rate),
+		EncodeFrameRate:           int(stats.encode_frame_rate),
+		RenderFrameRate:           int(stats.render_frame_rate),
+		TargetMediaBitrateBps:     int(stats.target_media_bitrate_bps),
+		MediaBitrateBps:           int(stats.media_bitrate_bps),
+		TotalBitrateBps:           int(stats.total_bitrate_bps),
+		CaptureWidth:              int(stats.capture_width),
+		CaptureHeight:             int(stats.capture_height),
+		RegulatedCaptureWidth:     int(stats.regulated_capture_width),
+		RegulatedCaptureHeight:    int(stats.regulated_capture_height),
+		Width:                     int(stats.width),
+		Height:                    int(stats.height),
+		EncoderType:               uint32(stats.encoder_type),
+		UplinkCostTimeMs:          int(stats.uplink_cost_time_ms),
+		QualityAdaptIndication:    int(stats.quality_adapt_indication),
 	}
 	return ret
 }
 func GoRemoteVideoStats(stats *C.struct__remote_video_track_stats) *RemoteVideoTrackStats {
 	ret := &RemoteVideoTrackStats{
-		Uid: uint(stats.uid),
-		Delay: int(stats.delay),
-		Width: int(stats.width),
-		Height: int(stats.height),
-		ReceivedBitrate: int(stats.received_bitrate),
-		DecoderOutputFrameRate: int(stats.decoder_output_frame_rate),
+		Uid:                     uint(stats.uid),
+		Delay:                   int(stats.delay),
+		Width:                   int(stats.width),
+		Height:                  int(stats.height),
+		ReceivedBitrate:         int(stats.received_bitrate),
+		DecoderOutputFrameRate:  int(stats.decoder_output_frame_rate),
 		RendererOutputFrameRate: int(stats.renderer_output_frame_rate),
-		FrameLossRate: int(stats.frame_loss_rate),
-		PacketLossRate: int(stats.packet_loss_rate),
-		RxStreamType: int(stats.rx_stream_type),
-		TotalFrozenTime: int(stats.total_frozen_time), // ms
-		FrozenRate: int(stats.frozen_rate),
-		TotalDecodedFrames: uint32(stats.total_decoded_frames),
-		AvSyncTimeMs: int(stats.av_sync_time_ms),
-		DownlinkProcessTimeMs: int(stats.downlink_process_time_ms),
-		FrameRenderDelayMs: int(stats.frame_render_delay_ms),
-		TotalActiveTime: uint64(stats.totalActiveTime), // ms
-		PublishDuration: uint64(stats.publishDuration), // ms
+		FrameLossRate:           int(stats.frame_loss_rate),
+		PacketLossRate:          int(stats.packet_loss_rate),
+		RxStreamType:            int(stats.rx_stream_type),
+		TotalFrozenTime:         int(stats.total_frozen_time), // ms
+		FrozenRate:              int(stats.frozen_rate),
+		TotalDecodedFrames:      uint32(stats.total_decoded_frames),
+		AvSyncTimeMs:            int(stats.av_sync_time_ms),
+		DownlinkProcessTimeMs:   int(stats.downlink_process_time_ms),
+		FrameRenderDelayMs:      int(stats.frame_render_delay_ms),
+		TotalActiveTime:         uint64(stats.totalActiveTime), // ms
+		PublishDuration:         uint64(stats.publishDuration), // ms
 	}
 	return ret
 }
@@ -441,12 +509,13 @@ type AudioEncodedFrameObserver struct {
 }
 
 type EncAudioFrameObserverItem struct {
-	Uid string
-	Con *RtcConnection
-	CObserver *C.struct__audio_encoded_frame_rev_observer
-	CTrack unsafe.Pointer
+	Uid             string
+	Con             *RtcConnection
+	CObserver       *C.struct__audio_encoded_frame_rev_observer
+	CTrack          unsafe.Pointer
 	CObserverHandle unsafe.Pointer
 }
+
 // _audio_encoded_frame_rev_observer
 // on_encoded_audio_frame_received
 func CAudioEncodedFrameObserver() *C.struct__audio_encoded_frame_rev_observer {
@@ -465,7 +534,7 @@ func createAudioEncodedFrameObserverItem(uid string, cTrack unsafe.Pointer, conn
 	// convert c type observer to handle for c api layer
 	cObserverHandle := C.agora_audio_encoded_frame_rev_observer_create(cObserver)
 	// end
-	
+
 	if cObserverHandle == nil {
 		return nil
 	}
@@ -473,11 +542,11 @@ func createAudioEncodedFrameObserverItem(uid string, cTrack unsafe.Pointer, conn
 	cPersistTrack := C.agora_create_remote_audio_track(cTrack)
 
 	item := &EncAudioFrameObserverItem{
-		Uid: uid,
-		Con: conn,
+		Uid:             uid,
+		Con:             conn,
 		CObserverHandle: cObserverHandle,
-		CObserver: cObserver,
-		CTrack: cPersistTrack,
+		CObserver:       cObserver,
+		CTrack:          cPersistTrack,
 	}
 	return item
 }
@@ -494,6 +563,6 @@ func freeAudioEncodedFrameObserverItem(item *EncAudioFrameObserverItem) int {
 	item.CObserverHandle = nil
 
 	item.Con = nil
-	
+
 	return 0
 }
