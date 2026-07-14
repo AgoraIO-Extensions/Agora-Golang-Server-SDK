@@ -281,6 +281,95 @@ todo：
 1、增加get sid
 2、增加自编码流双流模式的sample和验证
 
+How to run ut test:
+// for whole project:
+cd go_sdk/rtc
+CGO_ENABLED=1 go test -vet=off -v .
+
+## 2026.07.13 发布 2.4.16 版本
+
+### 新增
+
+- **Connection 级远端音频 APM 配置**  
+  支持按 `RtcConnection` 单独控制远端音频轨道的 APM（`audio_processing_remote_playback`），不再仅依赖 Service 层的全局配置。
+
+- **新增 API**  
+  `RtcConnection.SetRemoteAudioTrackAPMModel(model, config)`：
+  - **未调用时**：Connection 在创建时继承 `AgoraServiceConfig.APMModel` / `APMConfig`（与原有 Service 级配置行为兼容）。
+  - **调用后**：优先以 Connection 配置为准，忽略 Service 级 APM 设置。
+  - **须在 `Connect()` 之前调用。**
+  - `model` 说明：`ApmModeOn` (1) 开启，`ApmModeOff` (0) 关闭。
+  - `config` 说明：`model=1` 时必填，`model=0` 时请传 `nil`。
+  - 返回值：0 成功，-2000 参数无效，-2002 开启时 config 为空。
+
+- **新增 APM 模式常量**（见 `common_consts.go`）：
+  ```go
+  ApmModeInherit = -1
+  ApmModeOff = 0
+  ApmModeOn = 1
+  ```
+
+- **单元测试**  
+  新增 `go_sdk/rtc/remote_audio_track_apm_test.go`，覆盖 Service 继承、Connection 覆盖、参数校验及 `isEnable3A()` 边界逻辑。
+
+### 优化
+
+- `isEnable3A()` / `setApmFilterProperties()` 逻辑调整为读取 Connection 级 `remoteAudioTrackAPMModel` / `remoteAudioTrackAPMConfig`，不再直接读取 `agoraService.apmConfig`。
+- `NewAgoraServiceConfig()` 默认 `APMModel` 由字面量 0 改为 `ApmModeOff`，语义更清晰。
+
+### 向后兼容
+
+- Service 级 `APMModel` / `APMConfig` 保持不变；已有在 `Initialize()` 时设置 `svcCfg.APMModel = 1` 的代码无需修改。
+- 同一 Service 下可混用部分 Connection 继承 Service 配置，部分通过 `SetRemoteAudioTrackAPMModel` 单独控制开启/关闭 APM。
+
+### 使用示例
+
+#### 场景 1：仅某个 Connection 启用 APM（推荐新方式）
+
+```go
+svcCfg := agoraservice.NewAgoraServiceConfig()
+svcCfg.AppId = appid
+agoraservice.Initialize(svcCfg) // Service 不设置 APMModel
+conCfg := agoraservice.NewRtcConnectionConfig()
+con := agoraservice.NewRtcConnection(conCfg, pubCfg)
+con.SetRemoteAudioTrackAPMModel(agoraservice.ApmModeOn, agoraservice.NewAPMConfig())
+con.Connect(token, channel, uid)
+```
+
+#### 场景 2：向后兼容（Service 全局启用）
+
+```go
+svcCfg.APMModel = agoraservice.ApmModeOn
+svcCfg.APMConfig = agoraservice.NewAPMConfig()
+agoraservice.Initialize(svcCfg)
+con := agoraservice.NewRtcConnection(conCfg, pubCfg) // 自动继承 Service 配置
+con.Connect(token, channel, uid)
+```
+
+#### 场景 3：Service 开启，单个 Connection 显式关闭
+
+```go
+svcCfg.APMModel = agoraservice.ApmModeOn
+svcCfg.APMConfig = agoraservice.NewAPMConfig()
+agoraservice.Initialize(svcCfg)
+con := agoraservice.NewRtcConnection(conCfg, pubCfg)
+con.SetRemoteAudioTrackAPMModel(agoraservice.ApmModeOff, nil)
+con.Connect(token, channel, uid)
+```
+
+### 单元测试
+
+```shell
+cd go_sdk/rtc
+CGO_ENABLED=1 go test -vet=off -v -run 'TestInheritServiceAPM|TestSetRemoteAudioTrackAPMModel|TestIsEnable3A' .
+```
+
+### 说明
+
+- 本次变更仅影响远端音频轨道 APM（Remote Audio Track）；`ExternalAudioProcessor`（本地 PCM 源）仍依赖 Service 级 `APMModel`，不受该 Connection 级控制。
+- `SetRemoteAudioTrackAPMModel` 必须在 `Connect()` 前调用，`Connect` 后调用不会影响已订阅的远端 track。
+
+
 ## 2026.07.06 发布 2.4.15 版本
 - **问题修复**：修复 RTM `PresenceEvent` interval 模式下 `joinUserList`/`leaveUserList`/`timeoutUserList` 未转换的问题。
 - **问题修复**：修复 `OnWhoNowResult`/`OnGetOnlineUsersResult` 仅返回首个用户的问题，现正确返回完整用户列表。

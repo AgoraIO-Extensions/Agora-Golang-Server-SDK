@@ -263,6 +263,92 @@ con.PushVideoFrame(frame)
 ```
 
 ---
+
+## 2026.07.13 Release Version 2.4.16
+
+### New Features
+
+- **Connection-level Remote Audio APM Configuration**  
+  Supports controlling the APM (`audio_processing_remote_playback`) for remote audio tracks on a per-`RtcConnection` basis, no longer relying solely on the global Service-level configuration.
+
+- **New API**  
+  `RtcConnection.SetRemoteAudioTrackAPMModel(model, config)`:
+  - **If not called:** The Connection inherits `AgoraServiceConfig.APMModel` / `APMConfig` at creation (compatible with previous Service-level behavior).
+  - **If called:** The Connection’s own setting takes precedence, overriding the Service-level APM settings.
+  - **Must be called before `Connect()`.**
+  - `model` description: `ApmModeOn` (1) to enable, `ApmModeOff` (0) to disable.
+  - `config` description: Required when `model=1`, must be `nil` when `model=0`.
+  - Return value: 0 for success, -2000 for invalid parameters, -2002 if enabling with a nil config.
+
+- **New APM Mode Constants** (see `common_consts.go`):
+  ```go
+  ApmModeInherit = -1
+  ApmModeOff = 0
+  ApmModeOn = 1
+  ```
+
+- **Unit Tests**  
+  Added `go_sdk/rtc/remote_audio_track_apm_test.go`, covering Service inheritance, Connection override, parameter validation, and `isEnable3A()` edge logic.
+
+### Improvements
+
+- The logic of `isEnable3A()` / `setApmFilterProperties()` has been modified to read the Connection-level `remoteAudioTrackAPMModel` / `remoteAudioTrackAPMConfig`, no longer directly reading `agoraService.apmConfig`.
+- The default `APMModel` in `NewAgoraServiceConfig()` has been changed from the literal `0` to `ApmModeOff` for improved clarity.
+
+### Backward Compatibility
+
+- The Service-level `APMModel` / `APMConfig` remain unchanged; existing code that sets `svcCfg.APMModel = 1` during `Initialize()` does not need modification.
+- Under a single Service, some Connections can inherit the Service configuration while others can independently enable/disable APM using `SetRemoteAudioTrackAPMModel`.
+
+### Usage Examples
+
+#### Scenario 1: Only a Specific Connection Enables APM (Recommended New Way)
+
+```go
+svcCfg := agoraservice.NewAgoraServiceConfig()
+svcCfg.AppId = appid
+agoraservice.Initialize(svcCfg) // Do not set APMModel on Service
+conCfg := agoraservice.NewRtcConnectionConfig()
+con := agoraservice.NewRtcConnection(conCfg, pubCfg)
+con.SetRemoteAudioTrackAPMModel(agoraservice.ApmModeOn, agoraservice.NewAPMConfig())
+con.Connect(token, channel, uid)
+```
+
+#### Scenario 2: Backward Compatibility (Enable APM Globally via Service)
+
+```go
+svcCfg.APMModel = agoraservice.ApmModeOn
+svcCfg.APMConfig = agoraservice.NewAPMConfig()
+agoraservice.Initialize(svcCfg)
+con := agoraservice.NewRtcConnection(conCfg, pubCfg) // Automatically inherits Service settings
+con.Connect(token, channel, uid)
+```
+
+#### Scenario 3: Service-level APM Enabled, Explicitly Disabled for One Connection
+
+```go
+svcCfg.APMModel = agoraservice.ApmModeOn
+svcCfg.APMConfig = agoraservice.NewAPMConfig()
+agoraservice.Initialize(svcCfg)
+con := agoraservice.NewRtcConnection(conCfg, pubCfg)
+con.SetRemoteAudioTrackAPMModel(agoraservice.ApmModeOff, nil)
+con.Connect(token, channel, uid)
+```
+
+### Unit Tests
+
+```shell
+cd go_sdk/rtc
+CGO_ENABLED=1 go test -vet=off -v -run 'TestInheritServiceAPM|TestSetRemoteAudioTrackAPMModel|TestIsEnable3A' .
+```
+
+### Notes
+
+- This change only affects the APM of remote audio tracks; `ExternalAudioProcessor` (local PCM source) still depends on the Service-level `APMModel` and is not controlled by this Connection-level setting.
+- `SetRemoteAudioTrackAPMModel` must be called before `Connect()`. Calling it after `Connect` will not affect tracks that are already subscribed.
+
+
+
 ## 2026.07.06 Release Version 2.4.15
 - **Bug Fix**: Fixed an issue where `joinUserList`/`leaveUserList`/`timeoutUserList` in RTM `PresenceEvent` interval mode were not properly converted.
 - **Bug Fix**: Fixed an issue where `OnWhoNowResult`/`OnGetOnlineUsersResult` only returned the first user; now these return the complete user list.

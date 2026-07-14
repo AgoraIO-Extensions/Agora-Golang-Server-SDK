@@ -59,3 +59,10 @@ const (
 	 */
 	UserMediaInfoEnableLocalVideo UserMediaInfo = 8
 )
+// date 20260713, for apm filter related config
+// ApmMode 枚举
+const (
+    ApmModeInherit = -1   // 继承 Service 默认
+    ApmModeOff     = 0    // 关闭 APM
+    ApmModeOn      = 1    // 开启 APM
+)

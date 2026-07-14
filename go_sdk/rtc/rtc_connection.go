@@ -461,6 +461,10 @@ type RtcConnection struct {
 
 	// for encoded audio frame observer
 	encodedAudioFrameObserver  *AudioEncodedFrameObserver
+
+	// date: 20260713, for apm filter for remoate audio track config, default to inherit from service config
+	remoteAudioTrackAPMModel int // -1: inherit from service config, 0: off, 1: on
+	remoteAudioTrackAPMConfig *APMConfig // nil: inherit from service config, not nil: use the config
 }
 
 // for pcm consumption stats
@@ -522,7 +526,14 @@ func NewRtcConnection(cfg *RtcConnectionConfig, publishConfig *RtcConnectionPubl
 		transcodingWorker:           nil,
 		videoEncoderConfiguration:   nil,
 		encodedAudioFrameObserver:   nil,
+		remoteAudioTrackAPMModel:    ApmModeInherit,
+		remoteAudioTrackAPMConfig:   nil,
 	}
+
+	// date: 20260713, for apm filter for remoate audio track config, default to inherit from service config
+	// for initializing the remote audio track apm model and config to inherit from service config
+	ret.remoteAudioTrackAPMModel = agoraService.apmModel
+	ret.remoteAudioTrackAPMConfig = agoraService.apmConfig
 
 	if isSupportExternalAudio(publishConfig) {
 		ret.sendExternalAudioParameters = &SendExternalAudioParameters{
@@ -1521,9 +1532,10 @@ func (conn *RtcConnection) isEnable3A() bool {
 	if conn == nil || conn.cConnection == nil || conn.localUser == nil || conn.localUser.cLocalUser == nil {
 		return false
 	}
-	if agoraService.apmConfig == nil {
+	if conn.remoteAudioTrackAPMModel < int(ApmModeOn) || conn.remoteAudioTrackAPMConfig == nil {
 		return false
 	}
+	
 	return true
 }
 func (conn *RtcConnection) setApmFilterProperties(uid *C.char, cRemoteAudioTrack unsafe.Pointer) int {
@@ -1543,7 +1555,7 @@ func (conn *RtcConnection) setApmFilterProperties(uid *C.char, cRemoteAudioTrack
 	}
 
 	// Set APM configuration
-	configJSON := agoraService.apmConfig.toJson()
+	configJSON := conn.remoteAudioTrackAPMConfig.toJson()
 	ret = setFilterPropertyByTrack(cRemoteAudioTrack, "audio_processing_remote_playback", "apm_config", configJSON, false)
 	if ret != 0 {
 		fmt.Printf("Failed to set apm_config, error: %d\n", ret)
@@ -1552,7 +1564,7 @@ func (conn *RtcConnection) setApmFilterProperties(uid *C.char, cRemoteAudioTrack
 	fmt.Println("*****APM config set:%s", configJSON)
 
 	// Enable dump
-	if agoraService.apmConfig.EnableDump {
+	if conn.remoteAudioTrackAPMConfig.EnableDump {
 		ret = setFilterPropertyByTrack(cRemoteAudioTrack, "audio_processing_remote_playback", "apm_dump", "true", false)
 		if ret != 0 {
 			fmt.Printf("Failed to enable apm_dump, error: %d\n", ret)
@@ -1856,4 +1868,42 @@ func (conn *RtcConnection) GetSid() string {
 	}
 	//note: do not free the c_sid, it is a const string
 	return C.GoString(c_sid)
+}
+
+// SetRemoteAudioTrackAPMModel configures APM processing for remote audio tracks on this connection.
+//
+// APM resolution rules:
+//   - If this method is NOT called, the connection uses the service-level APMModel and APMConfig
+//     set in AgoraServiceConfig during Initialize.
+//   - If this method IS called, the provided model and config take precedence for this connection,
+//     and the service-level APM settings are ignored.
+//
+// Must be called before RtcConnection.Connect.
+//
+// Parameters:
+//   - model: ApmModeOn (1) to enable APM, ApmModeOff (0) to disable APM.
+//   - config: APM algorithm configuration. Required when model is ApmModeOn; set to nil when
+//     model is ApmModeOff.
+//
+// Returns:
+//   - 0 on success, or a negative error code on failure.
+func (conn *RtcConnection) SetRemoteAudioTrackAPMModel(model int, config *APMConfig) int {
+	if conn == nil || conn.cConnection == nil || conn.localUser == nil || conn.localUser.cLocalUser == nil {
+		return -2000
+	}
+
+	// for apmModeOn, if config is nil, set the config to default config
+	// but never set the config to default, for we do not the what the real algorithmic config the customer wants to set
+
+	if model == int(ApmModeOn)  && config == nil {
+		return -2002
+	}
+	conn.remoteAudioTrackAPMModel = model
+	conn.remoteAudioTrackAPMConfig = config
+
+	if model < int(ApmModeOn)  {
+		conn.remoteAudioTrackAPMConfig = nil
+	}
+
+	return 0
 }
