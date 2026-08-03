@@ -286,6 +286,13 @@ How to run ut test:
 cd go_sdk/rtc
 CGO_ENABLED=1 go test -vet=off -v .
 
+
+## 2026.08.03 发布 2.4.17 版本
+### 新增
+- **新增 API**  
+  `RtcConnection.InterruptAudioWithDelay()`：允许打断的时候，增加一个延迟时间，单位是毫秒，默认是0，即立即打断。用在远端app非常严格依赖OnMutedAudio/OnUnmutedAudio回调来处理业务的场景，可以设置一个延迟，避免远端app的回调混乱。
+
+
 ## 2026.07.13 发布 2.4.16 版本
 
 ### 新增
