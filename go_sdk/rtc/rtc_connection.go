@@ -1907,3 +1907,42 @@ func (conn *RtcConnection) SetRemoteAudioTrackAPMModel(model int, config *APMCon
 
 	return 0
 }
+
+//
+// InterruptAudioWithDelay interrupts the audio track with a delay
+// delayMs: the delay time in milliseconds, the range is 0-20, default is 5
+// return: 0 on success, or a negative error code on failure
+func (conn *RtcConnection) InterruptAudioWithDelay(delayMs int) int {
+	if conn == nil || conn.cConnection == nil || conn.audioTrack == nil {
+		return -2000
+	}
+
+	//check delayMs is valid
+	if delayMs < 0 {
+		delayMs = 0
+	}
+	if delayMs > 20 {
+		delayMs = 20
+	}
+
+	if conn.audioScenario == AudioScenarioAiServer {
+		// for aiServer, we need to unpublish the track
+		conn.UnpublishAudio()
+		// sleep the delayMs
+		if delayMs > 0 {
+			time.Sleep(time.Duration(delayMs) * time.Millisecond)
+		}
+		// and publish the track again
+		conn.PublishAudio()
+
+	} else {
+		// and other scenarios, we need to clear the buffer of the track
+		conn.audioTrack.ClearSenderBuffer()
+	}
+
+	// if has audio consumption, we need to reset the stats
+	if conn.pcmConsumeStats != nil {
+		conn.pcmConsumeStats.reset()
+	}
+	return 0
+}

@@ -264,6 +264,13 @@ con.PushVideoFrame(frame)
 
 ---
 
+
+## 2026.08.03 Release Version 2.4.17
+
+### New Features
+- **New API**  
+  `RtcConnection.InterruptAudioWithDelay()`: Allows interrupting with an additional delay time, specified in milliseconds (default is 0, meaning immediate interruption). This is useful for situations where the remote app strictly relies on the OnMutedAudio/OnUnmutedAudio callbacks to handle business logic. Setting a delay can help prevent callback disorder on the remote app.
+
 ## 2026.07.13 Release Version 2.4.16
 
 ### New Features
