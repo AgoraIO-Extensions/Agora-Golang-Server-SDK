@@ -72,10 +72,22 @@ func main() {
 	svcCfg.DataDir = "./agora_rtc_log"
 	svcCfg.APMModel = 0
 	svcCfg.EnableLocalAudioTrackWithAPM = true
-	
+
+	svcCfg.LocalAudioTrackAPMConfig = agoraservice.NewAPMConfig()
+	svcCfg.LocalAudioTrackAPMConfig.AiNsConfig.NsEnabled = true
+	svcCfg.LocalAudioTrackAPMConfig.AiNsConfig.AiNSEnabled = true
+	svcCfg.LocalAudioTrackAPMConfig.AgcConfig.Enabled = true
+	svcCfg.LocalAudioTrackAPMConfig.BghvsCConfig.Enabled = false
+	svcCfg.LocalAudioTrackAPMConfig.EnableDump = false
+
 
 	agoraservice.Initialize(svcCfg)
 	defer agoraservice.Release()
+
+	// 设置CodecNegotiation: 禁用h265和av1解码
+	agoraParameterHandler := agoraservice.GetAgoraParameter()
+	agoraParameterHandler.SetParameters("{\"che.video.h265_dec_enable\":false}")
+	agoraParameterHandler.SetParameters("{\"che.video.av1_dec_enable\":false}")
 
 	var conn *agoraservice.RtcConnection = nil
 
