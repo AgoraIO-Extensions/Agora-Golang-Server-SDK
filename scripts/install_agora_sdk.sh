@@ -95,6 +95,9 @@ mac_sdk="https://download.agora.io/sdk/release/agora_sdk_mac_v4.4.32.168_27265_F
 linux_sdk="https://download.agora.io/sdk/release/agora_rtc_sdk_x86_64-linux-gnu-v4.4.32.169_27717_SERVER_20260407_1440_1066518_20251021_1427-3a.zip"
 mac_sdk="https://download.agora.io/sdk/release/agora_sdk_mac_v4.4.32.169_27334_FULL_20260407_2130_1066977_20251021_1427-3a.zip"
 
+#date: 20260806 update sdk for arm
+arm_sdk="https://download.agora.io/sdk/release/agora_rtc_sdk_aarch64-linux-gnu-v4.4.32.176_1236367_SERVER_20260803_112821-1236367.zip"
+
 if [[ $UNAME_S == Linux ]]; then
     OS=linux
 elif [[ $UNAME_S == Darwin ]]; then
