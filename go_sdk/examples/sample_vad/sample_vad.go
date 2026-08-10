@@ -1,3 +1,6 @@
+//go:build vad_uap
+// +build vad_uap
+
 package main
 
 import (
