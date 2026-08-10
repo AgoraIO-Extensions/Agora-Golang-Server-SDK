@@ -348,11 +348,17 @@ cd go_sdk/rtc
 CGO_ENABLED=1 go test -vet=off -v .
 
 
+## 2026.08.10 发布 2.4.18 版本
+### 更新
+- **新增**  
+  新增对linux arm64的支持
+- **更改**  
+  对vad v1采用动态编译的方式，在编译的时候，可以指定是否需要vad v1，默认是关闭的。具体编译方法参考readme里面的“可选build tags”
+
 ## 2026.08.03 发布 2.4.17 版本
 ### 新增
 - **新增 API**  
   `RtcConnection.InterruptAudioWithDelay()`：允许打断的时候，增加一个延迟时间，单位是毫秒，默认是0，即立即打断。用在远端app非常严格依赖OnMutedAudio/OnUnmutedAudio回调来处理业务的场景，可以设置一个延迟，避免远端app的回调混乱。
-
 
 ## 2026.07.13 发布 2.4.16 版本
 

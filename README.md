@@ -324,6 +324,13 @@ con.PushVideoFrame(frame)
 ---
 
 
+## 2026.08.10 Release Version 2.4.18
+### Updates
+- **New Feature**  
+  Added support for Linux arm64.
+- **Change**  
+  VAD v1 now uses dynamic compilation. During build, you can specify whether VAD v1 is required. By default, it is disabled. Refer to the "optional build tags" section in the README for detailed compilation instructions.
+
 ## 2026.08.03 Release Version 2.4.17
 
 ### New Features
