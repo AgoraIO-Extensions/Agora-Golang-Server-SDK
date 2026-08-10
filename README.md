@@ -126,15 +126,69 @@ import (
 ```
 - When you run your project, remember to add **agora_sdk directory** (or **agora_sdk_mac directory** for mac) path to your **LD_LIBRARY_PATH** (or **DYLD_LIBRARY_PATH** for mac) environment variable.
 
+## Optional build tags
+
+Some SDK features are compiled in only when the corresponding Go build tag is set. Use `-tags` with `go build`, or set **`TAGS=...`** for `make` / `scripts/build_examples.sh`.
+
+| Tag | Enables | Extra dependency |
+|-----|---------|------------------|
+| `avcodec` | `PushVideoEncodedDataForTranscode`, FFmpeg-based H264 decode in examples | FFmpeg dev libraries |
+| `vad_uap` | UAP VAD v1 (`NewAudioVad`, `NewSteroVad`, example `sample_vad`) | `libagora_uap_aed` (GLIBC 2.27+) |
+
+**Default (no tags):** core RTC works; **VAD v2** (`AudioVadV2`, `RegisterAudioFrameObserver` VAD) does **not** need these tags. No FFmpeg or `libagora_uap_aed` required.
+
+### `go build`
+
+```bash
+# avcodec only
+go build -C go_sdk/rtc -tags avcodec
+
+# vad_uap only
+go build -C go_sdk/rtc -tags vad_uap
+
+# both tags (comma-separated)
+go build -C go_sdk/rtc -tags "avcodec,vad_uap"
+```
+
+### `make` / build examples
+
+`Makefile` and `scripts/build_examples.sh` read the **`TAGS`** environment variable and pass it to `go build -tags`.
+
+```bash
+# avcodec
+make build TAGS=avcodec
+make examples TAGS=avcodec
+make advanced-examples TAGS=avcodec
+
+# vad_uap (required for sample_vad)
+make build TAGS=vad_uap
+make examples TAGS=vad_uap
+
+# both
+make build TAGS=avcodec,vad_uap
+make examples TAGS=avcodec,vad_uap
+make advanced-examples TAGS=avcodec,vad_uap
+```
+
+Build a single example:
+
+```bash
+TAGS=vad_uap ./scripts/build_examples.sh sample_vad
+TAGS=avcodec,vad_uap ./scripts/build_examples.sh example_h264_decode sample_vad
+```
+
+Check at runtime whether UAP VAD v1 was linked: `agoraservice.VadUAPSupported()`.
+
 
 # FAQ
 ## compile error
 ### undefined symbol reference to GLIBC_xxx
 - libagora_rtc_sdk depends on GLIBC 2.16 and above
-- libagora_uap_aed depends on GLIBC 2.27 and above
+- libagora_uap_aed depends on GLIBC 2.27 and above (**UAP VAD v1 only**; not linked by default)
 - solutions are:
   - you can upgrade your glibc if possible, or you will need to upgrade your running system to **required os version**
-  - if you don't use VAD, and your glibc version is between 2.16 and 2.27, you can disable VAD by rename **audio_vad.go** file in go_sdk/agoraserver/ to **audio_vad.go.bak**
+  - if you do not use UAP VAD v1 (`NewAudioVad` / `NewSteroVad`), a normal `go build` does not require `libagora_uap_aed`
+  - to enable UAP VAD v1, build with: `go build -tags vad_uap`, and ensure `LD_LIBRARY_PATH` includes the library
 
 # Change log
 
@@ -171,11 +225,16 @@ go build -C /*/work/Agora-Golang-Server-SDK/go_sdk/rtc -tags avcodec
 That is, when compiling, you need to use:  
 `go build -C <your_code_path> -tags avcodec`
 
-Example of using with make:
+Example of using with make (see [Optional build tags](#optional-build-tags) for details):
+
 ```bash
-make build TAGS=avcodec  
-make example TAGS=avcodec
+make build TAGS=avcodec
+make examples TAGS=avcodec
 make advanced-examples TAGS=avcodec
+
+# both avcodec and vad_uap
+make build TAGS=avcodec,vad_uap
+make examples TAGS=avcodec,vad_uap
 ```
 With this, you can use the `PushVideoEncodedDataForTranscode` API for transcoding.
 
@@ -185,7 +244,7 @@ If you don't need the transcoding API above, just build and run in the regular w
 
 ```bash
 make build
-make example
+make examples
 make advanced-examples
 ```
 

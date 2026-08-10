@@ -140,14 +140,68 @@ export GOPROXY=https://goproxy.cn
   - VP8： 编码/解码都支持
   - VP9： 编码/解码都支持
 
+## 可选 build tags
+
+部分能力通过 Go build tag 按需编译。`go build` 使用 `-tags`；`make` 与 `scripts/build_examples.sh` 使用环境变量 **`TAGS=...`**。
+
+| Tag | 作用 | 额外依赖 |
+|-----|------|----------|
+| `avcodec` | `PushVideoEncodedDataForTranscode`、示例中 FFmpeg H264 解码 | FFmpeg 开发库 |
+| `vad_uap` | UAP VAD v1（`NewAudioVad`、`NewSteroVad`、示例 `sample_vad`） | `libagora_uap_aed`（GLIBC 2.27+） |
+
+**默认（不带 tag）：** 核心 RTC 可用；**VAD v2**（`AudioVadV2`、`RegisterAudioFrameObserver` 里的 VAD）无需上述 tag，也无需 FFmpeg / `libagora_uap_aed`。
+
+### `go build`
+
+```bash
+# 仅 avcodec
+go build -C go_sdk/rtc -tags avcodec
+
+# 仅 vad_uap
+go build -C go_sdk/rtc -tags vad_uap
+
+# 同时启用（逗号分隔）
+go build -C go_sdk/rtc -tags "avcodec,vad_uap"
+```
+
+### `make` / 编译 examples
+
+`Makefile` 与 `scripts/build_examples.sh` 会读取 **`TAGS`** 并传给 `go build -tags`。
+
+```bash
+# avcodec
+make build TAGS=avcodec
+make examples TAGS=avcodec
+make advanced-examples TAGS=avcodec
+
+# vad_uap（编译 sample_vad 必须）
+make build TAGS=vad_uap
+make examples TAGS=vad_uap
+
+# 同时启用
+make build TAGS=avcodec,vad_uap
+make examples TAGS=avcodec,vad_uap
+make advanced-examples TAGS=avcodec,vad_uap
+```
+
+编译单个 example：
+
+```bash
+TAGS=vad_uap ./scripts/build_examples.sh sample_vad
+TAGS=avcodec,vad_uap ./scripts/build_examples.sh example_h264_decode sample_vad
+```
+
+运行时判断是否链入了 UAP VAD v1：`agoraservice.VadUAPSupported()`。
+
 # 常见问题
 ## 编译错误
 ### 未定义符号引用 GLIBC_xxx
 - libagora_rtc_sdk 依赖 GLIBC 2.16 及以上版本
-- libagora_uap_aed 依赖 GLIBC 2.27 及以上版本
+- libagora_uap_aed 依赖 GLIBC 2.27 及以上版本（**仅 UAP VAD v1**，默认构建不链接）
 - 解决方案:
   - 如果可能，你可以升级你的 glibc，或者你需要将运行系统升级到 **所需的操作系统版本**
-  - 如果你不使用 VAD，并且你的 glibc 版本在 2.16 和 2.27 之间，你可以通过将 go_sdk/agoraserver/ 中的 **audio_vad.go** 文件重命名为 **audio_vad.go.bak** 来禁用 VAD
+  - 若不需要 UAP VAD v1（`NewAudioVad` / `NewSteroVad`），默认 `go build` 即可，无需 `libagora_uap_aed`
+  - 若需要 UAP VAD v1，编译时加 build tag：`go build -tags vad_uap`，并确保 `LD_LIBRARY_PATH` 包含对应 so
 
 #todo
 - [ ] 增加对agora_local_user_send_intra_request的支持
@@ -195,12 +249,19 @@ todo：
 
 ``````bash
 go build -C /*/work/Agora-Golang-Server-SDK/go_sdk/rtc -tags avcodec
-也就是说：开发者自己编译的时候需要用: go build -C <代码路径> -tags avcodec
+``````
+也就是说：开发者自己编译的时候需要用: `go build -C <代码路径> -tags avcodec`
 
-``` example 的使用方式如下：
-make build TAGS=avcodec  
-make example TAGS=avcodec
+`make` 用法（详见上文 [可选 build tags](#可选-build-tags)）：
+
+```bash
+make build TAGS=avcodec
+make examples TAGS=avcodec
 make advanced-examples TAGS=avcodec
+
+# 同时启用 avcodec 与 vad_uap
+make build TAGS=avcodec,vad_uap
+make examples TAGS=avcodec,vad_uap
 ```
 这样即可使用 `PushVideoEncodedDataForTranscode` 接口完成转码。
 
@@ -210,7 +271,7 @@ make advanced-examples TAGS=avcodec
 
 ```bash
 make build
-make example
+make examples
 make advanced-examples
 ```
 
