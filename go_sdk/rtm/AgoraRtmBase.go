@@ -22,6 +22,29 @@ import "unsafe"
 const DEFAULT_LOG_SIZE_IN_KB = 1024
 
 /**
+ * Rtm token event type.
+ */
+type RtmTokenEventType C.enum_C_RTM_TOKEN_EVENT_TYPE
+
+const (
+	RtmTokenEventTypeWillExpire            RtmTokenEventType = C.RTM_TOKEN_EVENT_TYPE_WILL_EXPIRE
+	RtmTokenEventTypeReadPermissionRevoked RtmTokenEventType = C.RTM_TOKEN_EVENT_TYPE_READ_PERMISSION_REVOKED
+)
+
+const (
+	RtmErrorDuplicateUserID                   = -10027
+	RtmErrorChannelSubscribePermissionDenied  = -11038
+	RtmErrorChannelPublishPermissionDenied    = -11039
+	RtmErrorChannelSubscribeCanceled          = -11040
+	RtmErrorStoragePermissionDenied           = -12020
+	RtmErrorPresenceInactive                  = -13014
+	RtmErrorPresencePendingRequestCanceled    = -13015
+	RtmErrorPresencePendingRequestExceedLimit = -13016
+	RtmErrorLockPermissionDenied              = -14010
+	RtmErrorHistoryPermissionDenied           = -15006
+)
+
+/**
  * IP areas.
  */
 type RtmAreaCode C.enum_C_RTM_AREA_CODE

@@ -88,9 +88,6 @@ func main() {
 			fmt.Printf("onSubscribeResult: requestId=%d, channelName=%s, errorCode=%d\n", requestId, channelName, errorCode)
 			sign <- struct{}{}
 		},
-		OnConnectionStateChanged: func(channelName string, state int, reason int) {
-			fmt.Printf("onConnectionStateChanged: channelName=%s, state=%d, reason=%d\n", channelName, state, reason)
-		},
 	}
 
 	logConfig := agrtm.NewRtmLogConfig()

@@ -4,8 +4,9 @@ import (
 	//"fmt"
 	"unsafe"
 )
+
 //note: MUST dec cgo_xxx_xxx in this file and include C_IAgoraRtmClient.h, or the callback will not be called
-//like the following: 
+//like the following:
 
 /*
 #include "C_IAgoraRtmClient.h"
@@ -24,6 +25,9 @@ void cgo_RtmEventHandlerBridge_onLockEvent(struct C_IRtmEventHandler *this,
 void cgo_RtmEventHandlerBridge_onStorageEvent(struct C_IRtmEventHandler *this,
 	struct C_StorageEvent *event);
 
+void cgo_RtmEventHandlerBridge_onTokenEvent(struct C_IRtmEventHandler *this,
+	struct C_TokenEvent *event);
+
 void cgo_RtmEventHandlerBridge_onJoinResult(struct C_IRtmEventHandler *this,
 	uint64_t requestId, char *channelName, char *userId, enum C_RTM_ERROR_CODE errorCode);
 
@@ -38,9 +42,6 @@ void cgo_RtmEventHandlerBridge_onLeaveTopicResult(struct C_IRtmEventHandler *thi
 
 void cgo_RtmEventHandlerBridge_onSubscribeTopicResult(struct C_IRtmEventHandler *this,
 	uint64_t requestId, char *channelName, char *userId, char *topic, struct C_UserList succeedUsers, struct C_UserList failedUsers, enum C_RTM_ERROR_CODE errorCode);
-
-void cgo_RtmEventHandlerBridge_onConnectionStateChanged(struct C_IRtmEventHandler *this,
-	char *channelName, enum C_RTM_CONNECTION_STATE state, enum C_RTM_CONNECTION_CHANGE_REASON reason);
 
 void cgo_RtmEventHandlerBridge_onTokenPrivilegeWillExpire(struct C_IRtmEventHandler *this,
 	char *channelName);
@@ -156,12 +157,12 @@ type RtmEventHandler struct {
 	OnTopicEvent                  func(event *TopicEvent)
 	OnLockEvent                   func(event *LockEvent)
 	OnStorageEvent                func(event *StorageEvent)
+	OnTokenEvent                  func(event *TokenEvent)
 	OnJoinResult                  func(requestId uint64, channelName string, userId string, errorCode int)
 	OnLeaveResult                 func(requestId uint64, channelName string, userId string, errorCode int)
 	OnJoinTopicResult             func(requestId uint64, channelName string, userId string, topic string, meta string, errorCode int)
 	OnLeaveTopicResult            func(requestId uint64, channelName string, userId string, topic string, meta string, errorCode int)
 	OnSubscribeTopicResult        func(requestId uint64, channelName string, userId string, topic string, succeedUsers UserList, failedUsers UserList, errorCode int)
-	OnConnectionStateChanged      func(channelName string, state int, reason int)
 	OnTokenPrivilegeWillExpire    func(channelName string)
 	OnSubscribeResult             func(requestId uint64, channelName string, errorCode int)
 	OnPublishResult               func(requestId uint64, errorCode int)
@@ -211,12 +212,12 @@ func CRtmEventHandler() *C.struct_C_IRtmEventHandler {
 	ret.onTopicEvent = (*[0]byte)(C.cgo_RtmEventHandlerBridge_onTopicEvent)
 	ret.onLockEvent = (*[0]byte)(C.cgo_RtmEventHandlerBridge_onLockEvent)
 	ret.onStorageEvent = (*[0]byte)(C.cgo_RtmEventHandlerBridge_onStorageEvent)
+	ret.onTokenEvent = (*[0]byte)(C.cgo_RtmEventHandlerBridge_onTokenEvent)
 	ret.onJoinResult = (*[0]byte)(C.cgo_RtmEventHandlerBridge_onJoinResult)
 	ret.onLeaveResult = (*[0]byte)(C.cgo_RtmEventHandlerBridge_onLeaveResult)
 	ret.onJoinTopicResult = (*[0]byte)(C.cgo_RtmEventHandlerBridge_onJoinTopicResult)
 	ret.onLeaveTopicResult = (*[0]byte)(C.cgo_RtmEventHandlerBridge_onLeaveTopicResult)
 	ret.onSubscribeTopicResult = (*[0]byte)(C.cgo_RtmEventHandlerBridge_onSubscribeTopicResult)
-	ret.onConnectionStateChanged = (*[0]byte)(C.cgo_RtmEventHandlerBridge_onConnectionStateChanged)
 	ret.onTokenPrivilegeWillExpire = (*[0]byte)(C.cgo_RtmEventHandlerBridge_onTokenPrivilegeWillExpire)
 	ret.onSubscribeResult = (*[0]byte)(C.cgo_RtmEventHandlerBridge_onSubscribeResult)
 	ret.onPublishResult = (*[0]byte)(C.cgo_RtmEventHandlerBridge_onPublishResult)
@@ -363,6 +364,23 @@ func cgo_RtmEventHandlerBridge_onStorageEvent(handler *C.struct_C_IRtmEventHandl
 	}
 }
 
+//export cgo_RtmEventHandlerBridge_onTokenEvent
+func cgo_RtmEventHandlerBridge_onTokenEvent(handler *C.struct_C_IRtmEventHandler,
+	event *C.struct_C_TokenEvent) {
+	if handler == nil {
+		return
+	}
+
+	client := (*IRtmClient)(handler.userData)
+	if client == nil || client.handler == nil || client.handler.OnTokenEvent == nil {
+		return
+	}
+
+	goEvent := NewTokenEvent()
+	goEvent.fromC(event)
+	client.handler.OnTokenEvent(goEvent)
+}
+
 //export cgo_RtmEventHandlerBridge_onJoinResult
 func cgo_RtmEventHandlerBridge_onJoinResult(handler *C.struct_C_IRtmEventHandler,
 	requestId C.uint64_t, channelName *C.char, userId *C.char, errorCode C.enum_C_RTM_ERROR_CODE) {
@@ -497,28 +515,6 @@ func cgo_RtmEventHandlerBridge_onSubscribeTopicResult(handler *C.struct_C_IRtmEv
 		safeSucceedUsers,
 		safeFailedUsers,
 		int(errorCode),
-	)
-}
-
-//export cgo_RtmEventHandlerBridge_onConnectionStateChanged
-func cgo_RtmEventHandlerBridge_onConnectionStateChanged(handler *C.struct_C_IRtmEventHandler,
-	channelName *C.char, state C.enum_C_RTM_CONNECTION_STATE, reason C.enum_C_RTM_CONNECTION_CHANGE_REASON) {
-
-	if handler == nil {
-		return
-	}
-
-	client := (*IRtmClient)(handler.userData)
-	// 判断client是否为nil
-	if client == nil || client.handler == nil || client.handler.OnConnectionStateChanged == nil {
-		//fmt.Printf("[DEBUG] 调用Go事件处理器OnConnectionStateChanged, client值为nil\n")
-		return
-	}
-
-	client.handler.OnConnectionStateChanged(
-		C.GoString(channelName),
-		int(state),
-		int(reason),
 	)
 }
 

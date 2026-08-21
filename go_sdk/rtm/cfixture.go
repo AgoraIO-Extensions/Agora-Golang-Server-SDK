@@ -186,6 +186,82 @@ func newCTestPresenceEvent(t *testing.T) *C.struct_C_PresenceEvent {
 	return ev
 }
 
+func newCTestTokenEvent(t *testing.T) *C.struct_C_TokenEvent {
+	t.Helper()
+
+	ev := (*C.struct_C_TokenEvent)(C.malloc(C.size_t(unsafe.Sizeof(C.struct_C_TokenEvent{}))))
+	if ev == nil {
+		t.Fatal("malloc failed for token event")
+	}
+	*ev = C.struct_C_TokenEvent{}
+	ev.eventType = C.RTM_TOKEN_EVENT_TYPE_READ_PERMISSION_REVOKED
+	ev.reason = C.CString("permission revoked")
+	ev.timestamp = 123456789
+
+	channelNames := []string{"alpha", "beta"}
+	channelRaw := C.malloc(C.size_t(len(channelNames)) * C.size_t(unsafe.Sizeof(uintptr(0))))
+	if channelRaw == nil {
+		t.Fatal("malloc failed for token event channels")
+	}
+	channelPtrs := (**C.char)(channelRaw)
+	channelSlice := unsafe.Slice(channelPtrs, len(channelNames))
+	for i, channelName := range channelNames {
+		channelSlice[i] = C.CString(channelName)
+	}
+	ev.affectedResources.messageChannels.channels = channelPtrs
+	ev.affectedResources.messageChannels.channelCount = C.size_t(len(channelNames))
+
+	t.Cleanup(func() {
+		for _, channel := range channelSlice {
+			C.free(unsafe.Pointer(channel))
+		}
+		C.free(channelRaw)
+		C.free(unsafe.Pointer(ev.reason))
+		C.free(unsafe.Pointer(ev))
+	})
+
+	return ev
+}
+
+func newCTestEmptyTokenEvent(t *testing.T) *C.struct_C_TokenEvent {
+	t.Helper()
+
+	ev := (*C.struct_C_TokenEvent)(C.malloc(C.size_t(unsafe.Sizeof(C.struct_C_TokenEvent{}))))
+	if ev == nil {
+		t.Fatal("malloc failed for empty token event")
+	}
+	*ev = C.struct_C_TokenEvent{}
+	t.Cleanup(func() { C.free(unsafe.Pointer(ev)) })
+	return ev
+}
+
+func readCTestRtmConfigOptions(t *testing.T, config *RtmConfig) (uint32, string) {
+	t.Helper()
+
+	cConfig := C.C_RtmConfig_New()
+	if cConfig == nil {
+		t.Fatal("C_RtmConfig_New returned nil")
+	}
+	cleanup := applyRtmConfigOptions(cConfig, config)
+	t.Cleanup(func() {
+		cleanup()
+		C.C_RtmConfig_Delete(cConfig)
+	})
+
+	return uint32(cConfig.reconnectTimeout), C.GoString(cConfig.parameters)
+}
+
+func cTestEventHandlerHasTokenCallback(t *testing.T) bool {
+	t.Helper()
+
+	handler := CRtmEventHandler()
+	if handler == nil {
+		t.Fatal("CRtmEventHandler returned nil")
+	}
+	t.Cleanup(func() { C.C_IRtmEventHandler_Delete(handler) })
+	return handler.onTokenEvent != nil
+}
+
 func newCTestEventHandler(t *testing.T, client *IRtmClient) *C.struct_C_IRtmEventHandler {
 	t.Helper()
 

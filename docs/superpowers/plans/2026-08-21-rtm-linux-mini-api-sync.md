@@ -29,7 +29,7 @@ Add a test that calls the fixture, converts the C pointer through `NewTokenEvent
 Run:
 
 ```bash
-go test -C go_sdk/rtm -run 'TestTokenEventFromC' -count=1
+go test -C go_sdk/rtm -tags=test -run 'TestTokenEventFromC' -count=1
 ```
 
 Expected result before implementation: compile failure because `TokenEvent` and its conversion do not yet exist.
@@ -88,7 +88,7 @@ In `type_convert.go`, add a helper that accepts `*C.struct_C_ChannelList`, valid
 Run:
 
 ```bash
-go test -C go_sdk/rtm -run 'TestTokenEventFromC' -count=1
+go test -C go_sdk/rtm -tags=test -run 'TestTokenEventFromC' -count=1
 ```
 
 Expected result: both conversion tests pass.
@@ -116,7 +116,7 @@ Set `cConfig.reconnectTimeout = C.uint32_t(config.ReconnectTimeout)`. Allocate `
 Run:
 
 ```bash
-go test -C go_sdk/rtm -run 'TestRtmConfig' -count=1
+go test -C go_sdk/rtm -tags=test -run 'TestRtmConfig' -count=1
 ```
 
 Expected result: the new mapping test passes without leaking the temporary C string.
@@ -126,6 +126,9 @@ Expected result: the new mapping test passes without leaking the temporary C str
 **Files:**
 - Modify: `go_sdk/rtm/RtmEventHandlerBridge.go`
 - Modify: `go_sdk/rtm/rtm_event_handler_bridge_test.go`
+- Modify: `cmd/example/main.go`
+- Modify: `go_sdk/rtm/presence_event_test.go`
+- Modify: `go_sdk/rtm/type_convert_test.go`
 
 - [ ] **Step 1: Write the failing callback test**
 
@@ -148,10 +151,14 @@ Delete `OnConnectionStateChanged` from `RtmEventHandler`, remove its cgo declara
 Run:
 
 ```bash
-go test -C go_sdk/rtm -run 'TestRtmEventHandlerBridge' -count=1
+go test -C go_sdk/rtm -tags=test -run 'TestRtmEventHandlerBridge' -count=1
 ```
 
 Expected result: token callback and existing callback tests pass with the synchronized Linux headers and libraries.
+
+- [ ] **Step 6: Update affected example and RTM test build tags**
+
+Remove the obsolete `OnConnectionStateChanged` initializer from `cmd/example/main.go`. Add the existing `test` build tag to the three RTM tests that depend on `cfixture.go` (`presence_event_test.go`, `type_convert_test.go`, and `rtm_event_handler_bridge_test.go`) so the repository's default package build does not compile fixture-dependent tests without their cgo helpers.
 
 ### Task 5: Format, compile, and run the complete RTM suite
 
@@ -171,7 +178,7 @@ gofmt -w go_sdk/rtm/AgoraRtmBase.go go_sdk/rtm/IAgoraRtmClient.go go_sdk/rtm/Rtm
 Run:
 
 ```bash
-go test -C go_sdk/rtm -run '^$'
+go test -C go_sdk/rtm -tags=test -run '^$'
 ```
 
 Expected result: package compiles and links against the user-installed matching Linux RTM `.so` files.
