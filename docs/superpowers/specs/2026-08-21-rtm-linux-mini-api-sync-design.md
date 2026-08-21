@@ -7,17 +7,17 @@ Adapt the repository's Go RTM binding to the Linux MINI RTM C API supplied in:
 - `/Users/weihognqin/Documents/work/agorartmsdkforc/include`
 - `/Users/weihognqin/Documents/work/agorartmsdkforc/Shengwang_Native_SDK_for_Linux_MINI_RTM/rtm/sdk/high_level_api/include`
 
-The Go package must target the latest Linux C API. Existing Mac RTM support remains separate.
+The Go package must target the latest Linux C API. Existing Mac RTM support remains separate. The
+caller is responsible for synchronizing the matching Linux headers and shared libraries into the
+repository before building or running the Linux RTM package.
 
 ## Scope
 
-### C headers
+### SDK resource prerequisite
 
-Synchronize the Linux C RTM headers and bridge header into the repository's Linux RTM include tree, preserving the existing cgo include layout and library names. The synchronization includes the new token event declarations, configuration fields, error codes, and any header split required by the Linux API. `.DS_Store` and other filesystem metadata are excluded.
-
-### Binary policy
-
-Do not copy or replace any `.so` file. The existing repository Linux binaries remain unchanged. The implementation and validation must therefore distinguish source-level/cgo compatibility from runtime behavior: the unchanged binaries may not implement the newer ABI even though the headers and Go binding do.
+The caller updates the repository's Linux RTM C headers and matching `.so` files before using this
+binding. The existing cgo include and library paths remain the source of truth. This task does not
+copy, replace, or otherwise edit SDK headers, bridge headers, or binaries.
 
 ### Go binding
 
@@ -46,11 +46,13 @@ Add focused tests before implementation for:
 2. new config fields being represented and passed through the C config conversion path;
 3. callback registration and dispatch using `OnTokenEvent`.
 
-Run `gofmt`, `make test-rtm`, and a Linux cgo package build/compile check. Verify header symbol references against the synchronized C headers. Do not claim runtime support for the new API unless matching Linux MINI `.so` files are supplied separately.
+After the caller has installed matching Linux MINI headers and `.so` files, run `gofmt`,
+`make test-rtm`, and a Linux cgo package build/compile check. Verify header symbol references
+against the installed C headers. Runtime behavior is in scope only with those matching binaries.
 
 ## Non-goals
 
-- Replacing Linux `.so` files in this repository.
+- Copying or replacing Linux `.so` files or C headers in this repository.
 - Changing Mac RTM headers, libraries, or cgo behavior.
 - Retaining the removed `OnConnectionStateChanged` Go API.
 - Unrelated RTM or RTC refactors.
