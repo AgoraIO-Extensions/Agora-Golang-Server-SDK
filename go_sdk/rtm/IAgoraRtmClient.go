@@ -25,6 +25,8 @@ type RtmConfig struct {
 	PresenceTimeout   uint32
 	HeartbeatInterval uint32
 	Context           unsafe.Pointer
+	ReconnectTimeout  uint32
+	Parameters        string
 	UseStringUserId   bool
 	Multipath         bool
 	EventHandler      *RtmEventHandler
@@ -48,9 +50,11 @@ func NewRtmConfig() *RtmConfig {
 		ProtocolType:      0,
 		HeartbeatInterval: 0,
 		Context:           nil,
+		ReconnectTimeout:  0,
+		Parameters:        "",
 		UseStringUserId:   false,
 		Multipath:         false,
-		EventHandler: nil,
+		EventHandler:      nil,
 		LogConfig:         nil,
 		ProxyConfig:       nil,
 		EncryptionConfig:  nil,
@@ -101,11 +105,6 @@ func NewRtmConfig() *RtmConfig {
 //	        // handle login result
 //	    },
 //	}
-
-
-
-
-
 
 // #region MessageEvent
 type MessageEvent struct {
@@ -484,6 +483,41 @@ type StorageEvent struct {
 	Data        *IMetadata
 }
 
+type AffectedResources struct {
+	MessageChannels []string
+}
+
+func NewAffectedResources() AffectedResources {
+	return AffectedResources{MessageChannels: make([]string, 0)}
+}
+
+type TokenEvent struct {
+	EventType         RtmTokenEventType
+	Reason            string
+	AffectedResources AffectedResources
+	Timestamp         uint64
+}
+
+func NewTokenEvent() *TokenEvent {
+	return &TokenEvent{
+		EventType:         RtmTokenEventTypeWillExpire,
+		Reason:            "",
+		AffectedResources: NewAffectedResources(),
+		Timestamp:         0,
+	}
+}
+
+func (this_ *TokenEvent) fromC(cEvent *C.struct_C_TokenEvent) {
+	if cEvent == nil || !IsValidMemory(unsafe.Pointer(cEvent)) {
+		return
+	}
+
+	this_.EventType = RtmTokenEventType(cEvent.eventType)
+	this_.Reason = FastSafeCGoString(cEvent.reason)
+	this_.AffectedResources.MessageChannels = CChannelListToStrings(&cEvent.affectedResources.messageChannels)
+	this_.Timestamp = uint64(cEvent.timestamp)
+}
+
 func NewStorageEvent() *StorageEvent {
 	event := &StorageEvent{
 		ChannelType: RtmChannelTypeNONE,
@@ -519,14 +553,29 @@ func (this_ *StorageEvent) fromC(cEvent *C.struct_C_StorageEvent) {
 }
 
 type IRtmClient struct {
-	rtmClient  unsafe.Pointer
-	handler     *RtmEventHandler
-	history    *IRtmHistory
-	presence   *IRtmPresence
-	lock       *IRtmLock
-	storage    *IRtmStorage
-	isLoggedIn bool
+	rtmClient     unsafe.Pointer
+	handler       *RtmEventHandler
+	history       *IRtmHistory
+	presence      *IRtmPresence
+	lock          *IRtmLock
+	storage       *IRtmStorage
+	isLoggedIn    bool
 	cEventHandler *C.struct_C_IRtmEventHandler
+}
+
+func applyRtmConfigOptions(cConfig *C.struct_C_RtmConfig, config *RtmConfig) func() {
+	if cConfig == nil || config == nil {
+		return func() {}
+	}
+
+	cConfig.reconnectTimeout = C.uint32_t(config.ReconnectTimeout)
+	cConfig.parameters = C.CString(config.Parameters)
+	return func() {
+		if cConfig.parameters != nil {
+			C.free(unsafe.Pointer(cConfig.parameters))
+			cConfig.parameters = nil
+		}
+	}
 }
 
 /**
@@ -565,6 +614,7 @@ func NewRtmClient(config *RtmConfig) *IRtmClient {
 	cConfig.multipath = C.bool(config.Multipath)
 	cConfig.context = config.Context
 	cConfig.useStringUserId = C.bool(config.UseStringUserId)
+	defer applyRtmConfigOptions(cConfig, config)()
 
 	// add log config
 	cLogConfig := (*C.struct_C_RtmLogConfig)(nil)
@@ -606,7 +656,6 @@ func NewRtmClient(config *RtmConfig) *IRtmClient {
 	}
 	defer freeRtmPrivateConfig(unsafe.Pointer(cPrivateConfig))
 
-	
 	var cEventHandler *C.struct_C_IRtmEventHandler = nil
 	if config.EventHandler != nil {
 		// allocate a c event handler, and keep it alive
@@ -618,18 +667,17 @@ func NewRtmClient(config *RtmConfig) *IRtmClient {
 	}
 
 	client := &IRtmClient{
-		rtmClient:  nil,
-		handler:    config.EventHandler,
+		rtmClient:     nil,
+		handler:       config.EventHandler,
 		cEventHandler: cEventHandler,
-		history:    nil,
-		presence:   nil,
-		lock:       nil,
-		storage:    nil,
-		isLoggedIn: false,
+		history:       nil,
+		presence:      nil,
+		lock:          nil,
+		storage:       nil,
+		isLoggedIn:    false,
 	}
 
 	cEventHandler.userData = unsafe.Pointer(client)
-
 
 	var errorCode C.int
 	rtmClient := C.agora_rtm_client_create(cConfig, &errorCode)
@@ -642,8 +690,6 @@ func NewRtmClient(config *RtmConfig) *IRtmClient {
 
 	//note : cEventHandler.userData will be equal to client!!
 	// assign userdata
-	
-
 
 	// get storage
 	cStorage := C.agora_rtm_client_get_storage(client.rtmClient)

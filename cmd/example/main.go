@@ -88,9 +88,6 @@ func main() {
 			fmt.Printf("onSubscribeResult: requestId=%d, channelName=%s, errorCode=%d\n", requestId, channelName, errorCode)
 			sign <- struct{}{}
 		},
-		OnConnectionStateChanged: func(channelName string, state int, reason int) {
-			fmt.Printf("onConnectionStateChanged: channelName=%s, state=%d, reason=%d\n", channelName, state, reason)
-		},
 	}
 
 	logConfig := agrtm.NewRtmLogConfig()
@@ -160,6 +157,10 @@ waitSignal:
 		case <-msgChan:
 			rtmClient.SendChannelMessage(channelName, data)
 			logWithTime("send channel message send: %s", string(data))
+
+		case <-time.After(time.Second * 2):
+			ret, requestId = rtmClient.SendChannelMessage(channelName, []byte("heartbeat"))
+			logWithTime("SendChannelMessage channel: %s, ret: %d, requestId: %d\n", channelName, ret, requestId)
 		}
 	}
 

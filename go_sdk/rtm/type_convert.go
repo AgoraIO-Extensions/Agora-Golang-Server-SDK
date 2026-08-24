@@ -8,6 +8,7 @@ package agorartm
 #include <setjmp.h>
 #include <string.h>
 #include <stdint.h>
+#include "C_IAgoraRtmClient.h"
 
 int is_valid_memory(const void* ptr) {
     if (ptr == NULL) return 0;
@@ -125,6 +126,24 @@ func CUserListToUserList(cUserList *C.struct_C_UserList) *UserList {
 	return &UserList{
 		Users: users,
 	}
+}
+
+func CChannelListToStrings(cChannelList *C.struct_C_ChannelList) []string {
+	if cChannelList == nil || cChannelList.channels == nil || cChannelList.channelCount == 0 {
+		return make([]string, 0)
+	}
+
+	if !IsValidMemory(unsafe.Pointer(cChannelList.channels)) {
+		return make([]string, 0)
+	}
+
+	count := int(cChannelList.channelCount)
+	channels := unsafe.Slice((**C.char)(unsafe.Pointer(cChannelList.channels)), count)
+	result := make([]string, count)
+	for i, channel := range channels {
+		result[i] = FastSafeCGoString(channel)
+	}
+	return result
 }
 
 // C.struct_C_Metadata to IMetadata

@@ -1,6 +1,39 @@
+//go:build test
+
 package agorartm
 
 import "testing"
+
+func TestOnTokenEvent(t *testing.T) {
+	var got *TokenEvent
+	client := &IRtmClient{
+		handler: &RtmEventHandler{
+			OnTokenEvent: func(event *TokenEvent) {
+				got = event
+			},
+		},
+	}
+
+	handler := newCTestEventHandler(t, client)
+	ev := newCTestTokenEvent(t)
+	cgo_RtmEventHandlerBridge_onTokenEvent(handler, ev)
+
+	if got == nil {
+		t.Fatal("token event callback was not invoked")
+	}
+	if got.Reason != "permission revoked" || got.Timestamp != 123456789 {
+		t.Fatalf("event=%#v", got)
+	}
+	if len(got.AffectedResources.MessageChannels) != 2 {
+		t.Fatalf("MessageChannels=%v", got.AffectedResources.MessageChannels)
+	}
+}
+
+func TestCRtmEventHandlerRegistersTokenEvent(t *testing.T) {
+	if !cTestEventHandlerHasTokenCallback(t) {
+		t.Fatal("onTokenEvent callback is not registered")
+	}
+}
 
 func TestOnWhoNowResult_UserStateList(t *testing.T) {
 	var gotRequestID uint64
