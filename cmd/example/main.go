@@ -157,6 +157,10 @@ waitSignal:
 		case <-msgChan:
 			rtmClient.SendChannelMessage(channelName, data)
 			logWithTime("send channel message send: %s", string(data))
+
+		case <-time.After(time.Second * 2):
+			ret, requestId = rtmClient.SendChannelMessage(channelName, []byte("heartbeat"))
+			logWithTime("SendChannelMessage channel: %s, ret: %d, requestId: %d\n", channelName, ret, requestId)
 		}
 	}
 
