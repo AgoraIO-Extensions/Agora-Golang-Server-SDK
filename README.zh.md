@@ -348,6 +348,12 @@ cd go_sdk/rtc
 CGO_ENABLED=1 go test -vet=off -v .
 
 
+## 2026.08.24 发布 2.4.19 版本
+### 更新
+- **RTM SDK 更新**：Linux 和 macOS 安装包中的 RTM SDK 更新到 2.3.1。
+- **RTM Linux MINI API 同步**：同步 RTM Linux MINI API，完善事件回调、Presence/Token 类型转换及相关单元测试。
+- **示例与文档更新**：更新 参考RTM的代码示例，完善文档。
+
 ## 2026.08.10 发布 2.4.18 版本
 ### 更新
 - **新增**  
@@ -1141,4 +1147,3 @@ s->setParameters("{\"rtc.local_ap_list\":[\"10.62.0.95\"]}");
 -- playbackbeforemixing 和playbackAudioFrame是可以同时触发的，但不建议这样使用，因为这样会导致回调的频率很高，从而影响性能。
 -- onMixed 不会触发：因为server sdk并没有采集，所以不会触发。在sever sdk可以用onPlaybackAudioFrame来获取。
 			
-

@@ -324,6 +324,12 @@ con.PushVideoFrame(frame)
 ---
 
 
+## 2026.08.24 Release Version 2.4.19
+### Updates
+- **RTM SDK Update**: The RTM SDK in the Linux and macOS installation packages has been upgraded to version 2.3.1.
+- **RTM Linux MINI API Synchronization**: The RTM Linux MINI API is now up to date, with improved event callbacks, Presence/Token type conversions, and related unit tests.
+- **Example & Documentation Updates**: Updated RTM code examples and enhanced documentation.
+
 ## 2026.08.10 Release Version 2.4.18
 ### Updates
 - **New Feature**  
