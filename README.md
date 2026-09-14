@@ -323,6 +323,11 @@ con.PushVideoFrame(frame)
 
 ---
 
+## 2026.09.14 Release Version 2.4.20
+### Updates
+- **RTC SDK Update**: rtc sdk for linux and arm updated to 179 tag
+- **Example & Documentation Updates**: no updated
+
 
 ## 2026.08.24 Release Version 2.4.19
 ### Updates

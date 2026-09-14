@@ -348,6 +348,11 @@ cd go_sdk/rtc
 CGO_ENABLED=1 go test -vet=off -v .
 
 
+## 2026.09.14 发布 2.4.20 版本
+### 更新
+- **RTC SDK 更新**：Linux 和 ARM rtc sdk版本更新到179
+- **示例与文档更新**：无。
+
 ## 2026.08.24 发布 2.4.19 版本
 ### 更新
 - **RTM SDK 更新**：Linux 和 macOS 安装包中的 RTM SDK 更新到 2.3.1。
