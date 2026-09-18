@@ -264,6 +264,9 @@ con.PushVideoFrame(frame)
 
 Release Note:
 
+## 2026.09.18 Release Version 2.6.5
+- **Update**：update rtc sdk to tag 134，fix NMS-31525
+
 ## 2026.06.23 Release Version 2.6.4
 - **Bug Fix**: Upgraded RTC SDK to 4.6.x to resolve the issue where the `direc_audio_track_with_apm` parameter did not work on Linux.
 
