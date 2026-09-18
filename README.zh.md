@@ -273,6 +273,11 @@ con.PushVideoFrame(frame)
 	})
 ```
 
+
+## 2026.09.18 发布 2.6.5 版本
+- **更新**：更新rtc sdk到tag 134，解决NMS-31525
+
+
 ## 2026.06.23 发布 2.6.4 版本
 - **bug修改**：更新rtc sdk到4.6.x., 解决direc_audio_track_with_apm parameter 在linux 上不工作的问题
 

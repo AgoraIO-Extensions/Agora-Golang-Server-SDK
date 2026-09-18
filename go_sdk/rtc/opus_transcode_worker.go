@@ -45,7 +45,7 @@ func NewAudioTranscodingWorker(conn *RtcConnection, in_channels int) *AudioTrans
 		stopOnce:         sync.Once{},
 		decoder:          nil,
 		out_channels:     1,
-		out_sampleRate:   16000,
+		out_sampleRate:   48000, // opus always decodes at 48kHz internally
 	}
 	out_channels := ret.out_channels
 	out_sampleRate := ret.out_sampleRate
@@ -128,7 +128,7 @@ func (worker *AudioTranscodingWorker) PushEncodedData(data []byte, channels int,
 		data:      data,
 		channels:  channels,
 		codecType: codecType,
-		sampleRate: 16000, // no need for opus
+		sampleRate: 48000, // no need for opus
 	}
 }
 func (worker *AudioTranscodingWorker) Stop() {
