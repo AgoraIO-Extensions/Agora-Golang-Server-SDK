@@ -323,6 +323,12 @@ con.PushVideoFrame(frame)
 
 ---
 
+
+## 2026.09.20 Release Version 2.4.21
+### 更新
+- **RTC SDK Updated**： update shared lib aosl to higher version with rtm sdk 2.3.1
+- **示例与文档更新**：无。
+
 ## 2026.09.14 Release Version 2.4.20
 ### Updates
 - **RTC SDK Update**: rtc sdk for linux and arm updated to 179 tag

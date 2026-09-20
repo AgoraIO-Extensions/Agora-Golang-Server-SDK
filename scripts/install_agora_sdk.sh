@@ -103,7 +103,7 @@ linux_sdk="https://download.agora.io/sdk/release/agora_rtc_sdk_x86_64-linux-gnu-
 mac_sdk="https://download.agora.io/sdk/release/agora_sdk_mac_v4.4.32.169_27334_FULL_20260407_2130_1066977_20260824_1848-3a.zip"
 
 #date: 20260914 update sdk to 179   
-linux_sdk="https://download.agora.io/sdk/release/agora_rtc_sdk.v4.4.32.179_28561_SERVER_20260910_1922_ubuntu14_04_5_1290937_external-20260824_1848-3a.zip "
+linux_sdk="https://download.agora.io/sdk/release/agora_rtc_sdk.v4.4.32.179_28561_SERVER_20260910_1922_ubuntu14_04_5_1290937_external-20260824_1848-3a.zip"
 arm_sdk="https://download.agora.io/sdk/release/agora_rtc_sdk_aarch64-linux-gnu-v4.4.32.179_1292102_SERVER_20260911_105817-1292102.zip"
 
 if [[ $UNAME_S == Linux ]]; then
