@@ -347,6 +347,10 @@ How to run ut test:
 cd go_sdk/rtc
 CGO_ENABLED=1 go test -vet=off -v .
 
+## 2026.10.13 发布 2.4.22 版本
+- **RTC SDK 更新**：update rtc sdk to 44.33, 支持265 编码。注意：如果要使用265 codec，请联系agora！！！！！
+- **示例与文档更新**：更新send_recv_yuv_pcm， 支持设置参数的命令行模式
+
 ## 2026.09.20 发布 2.4.21 版本
 ### 更新
 - **RTC SDK 更新**：update shared lib aosl to higher version with rtm sdk 2.3.1
