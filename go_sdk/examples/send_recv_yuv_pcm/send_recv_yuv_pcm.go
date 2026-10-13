@@ -86,6 +86,28 @@ func main() {
 	}
 	appid := argus[1]
 	channelName := argus[2]
+	// add video codec type from arguments
+	var videoCodecType = agoraservice.VideoCodecTypeH264
+	if len(argus) > 3 {
+		videoCodecTypeStr := argus[3]
+		if videoCodecTypeStr == "h264" {
+			videoCodecType = agoraservice.VideoCodecTypeH264
+		} else if videoCodecTypeStr == "h265" {
+			videoCodecType = agoraservice.VideoCodecTypeH265
+		} else if videoCodecTypeStr == "av1" {
+			videoCodecType = agoraservice.VideoCodecTypeAv1
+		} else if videoCodecTypeStr == "vp8" {
+			videoCodecType = agoraservice.VideoCodecTypeVp8
+		} else if videoCodecTypeStr == "vp9" {
+			videoCodecType = agoraservice.VideoCodecTypeVp9
+		} else {
+			fmt.Println("Invalid video codec type, use default h264")
+			videoCodecType = agoraservice.VideoCodecTypeH264
+		}
+	} else {
+		fmt.Println("No video codec type specified, use default h264")
+		videoCodecType = agoraservice.VideoCodecTypeH264
+	}
 
 	// get environment variable
 	//appid := os.Getenv("AGORA_APP_ID")
@@ -325,7 +347,7 @@ func main() {
 	<-conSignal
 
 	con.SetVideoEncoderConfiguration(&agoraservice.VideoEncoderConfiguration{
-		CodecType:         agoraservice.VideoCodecTypeAv1,
+		CodecType:         agoraservice.VideoCodecType(videoCodecType),
 		Width:             640,
 		Height:            480,
 		Framerate:         30,
