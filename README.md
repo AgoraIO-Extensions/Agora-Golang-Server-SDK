@@ -323,11 +323,14 @@ con.PushVideoFrame(frame)
 
 ---
 
+## 2026.10.13 Release 2.4.22 version
+- **RTC SDK Update**：update rtc sdk to 44.33, support 265 encoder. NOTE: For H.265 codec usage, please contact Agora!!！
+- **Example & Documentation Updates**：update send_recv_yuv_pcm，  to configure codec from command line argus
 
 ## 2026.09.20 Release Version 2.4.21
-### 更新
+### Updates
 - **RTC SDK Updated**： update shared lib aosl to higher version with rtm sdk 2.3.1
-- **示例与文档更新**：无。
+- **Example & Documentation Updates**：No。
 
 ## 2026.09.14 Release Version 2.4.20
 ### Updates
