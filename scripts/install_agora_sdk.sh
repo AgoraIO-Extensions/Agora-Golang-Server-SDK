@@ -106,6 +106,11 @@ mac_sdk="https://download.agora.io/sdk/release/agora_sdk_mac_v4.4.32.169_27334_F
 linux_sdk="https://download.agora.io/sdk/release/agora_rtc_sdk.v4.4.32.179_28561_SERVER_20260910_1922_ubuntu14_04_5_1290937_external-20260824_1848-3a.zip"
 arm_sdk="https://download.agora.io/sdk/release/agora_rtc_sdk_aarch64-linux-gnu-v4.4.32.179_1292102_SERVER_20260911_105817-1292102.zip"
 
+#date: 20261013 update sdk to 180 to support 265 encoder。and from this version, 
+# 265 and av1 encoder are supported by extension methods!
+linux_sdk="https://download.agora.io/sdk/release/agora_rtc_sdk.v4.4.33.1_28748_SERVER_20261008_1133_ubuntu14_04_5_1333106_external-20260824_1848-3a.zip"
+
+
 if [[ $UNAME_S == Linux ]]; then
     OS=linux
 elif [[ $UNAME_S == Darwin ]]; then
