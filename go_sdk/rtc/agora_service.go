@@ -277,6 +277,11 @@ func Initialize(cfg *AgoraServiceConfig) int {
 	agoraParam.SetParameters("{\"rtc.video.enable_minor_stream_intra_request\":true}")
 
 	agoraService.mediaFactory = newMediaNodeFactory()
+	// date: 2026-10-13, enable high video encoder
+	ret = EnableHighVideoEncoder()
+	if ret != 0 {
+		fmt.Printf("enable high video encoder failed, ret: %d\n", ret)
+	}
 
 	agoraService.inited = true
 	// and start the timer
@@ -839,3 +844,24 @@ func SetLocalAccessPoint(config *LocalAccessPointConfiguration) int {
 	return ret
 }
 
+// date: 2026-10-13, enable video encoder by extension methods
+func EnableHighVideoEncoder() int {
+	var ret int
+	ret = LoadExtensionProvider("libagora_video_encoder_extension.so", false)
+	if ret != 0 {
+		fmt.Printf("load video encoder extension failed, ret: %d\n", ret)
+	}
+	ret = LoadExtensionProvider("libagora_video_av1_encoder_extension.so", false)
+	if ret != 0 {
+		fmt.Printf("load video av1 encoder extension failed, ret: %d\n", ret)
+	}
+	EnableExtension("agora_av1_encoder", "agora_av1_encoder", "", true)
+	if ret != 0 {
+		fmt.Printf("enable video av1 encoder failed, ret: %d\n", ret)
+	}
+	ret = EnableExtension("agora_h265_encoder", "agora_h265_encoder", "", true)
+	if ret != 0 {
+		fmt.Printf("enable video h265 encoder failed, ret: %d\n", ret)
+	}
+	return ret
+}
