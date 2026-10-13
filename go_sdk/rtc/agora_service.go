@@ -251,6 +251,11 @@ func Initialize(cfg *AgoraServiceConfig) int {
 
 	agoraService.mediaFactory = newMediaNodeFactory()
 
+	// date: 2026-10-13, enable 265 encoder and av1 encoder by extension methods
+	EnableHighVideoEncoder()
+	if ret != 0 {
+		fmt.Printf("enable high video encoder failed, ret: %d\n", ret)
+	}
 	agoraService.inited = true
 	// and start the timer
 	if cfg.IdleMode {
@@ -341,7 +346,7 @@ func Release() int {
 	return 0
 }
 
-// LoadExtensionProvider loads an extension provider.
+// LoadExtensionProvider loads an extension provider. unloadAfterUse default to false
 func LoadExtensionProvider(path string, unloadAfterUse bool) int {
 	cPath := C.CString(path)
 	defer C.free(unsafe.Pointer(cPath))
@@ -352,6 +357,8 @@ func LoadExtensionProvider(path string, unloadAfterUse bool) int {
 	return int(C.agora_service_load_extension_provider(agoraService.service, cPath, cUnloadAfterUse))
 }
 
+// EnableExtension enables an extension. autoEnableOnTrack default to false
+// if autoEnableOnTrack is true, the extension will be enabled automatically on the track, default to true
 func EnableExtension(providerName, extensionName, trackId string, autoEnableOnTrack bool) int {
 	cProviderName := C.CString(providerName)
 	defer C.free(unsafe.Pointer(cProviderName))
@@ -811,3 +818,24 @@ func SetLocalAccessPoint(config *LocalAccessPointConfiguration) int {
 	return ret
 }
 
+// date: 2026-10-13, enable video encoder by extension methods
+func EnableHighVideoEncoder() int {
+	var ret int
+	ret = LoadExtensionProvider("libagora_video_encoder_extension.so", false)
+	if ret != 0 {
+		fmt.Printf("load video encoder extension failed, ret: %d\n", ret)
+	}
+	ret = LoadExtensionProvider("libagora_video_av1_encoder_extension.so", false)
+	if ret != 0 {
+		fmt.Printf("load video av1 encoder extension failed, ret: %d\n", ret)
+	}
+	EnableExtension("agora_av1_encoder", "agora_av1_encoder", "", true)
+	if ret != 0 {
+		fmt.Printf("enable video av1 encoder failed, ret: %d\n", ret)
+	}
+	ret = EnableExtension("agora_h265_encoder", "agora_h265_encoder", "", true)
+	if ret != 0 {
+		fmt.Printf("enable video h265 encoder failed, ret: %d\n", ret)
+	}
+	return ret
+}
