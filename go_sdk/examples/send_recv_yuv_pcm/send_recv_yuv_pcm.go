@@ -87,6 +87,27 @@ func main() {
 	appid := argus[1]
 	channelName := argus[2]
 
+	// date: 2026-10-13, support codec type through command line argument
+	codecType := agoraservice.VideoCodecTypeH264
+	if len(argus) > 3 {
+		codecTypeStr := argus[3]
+		if codecTypeStr == "h264" {
+			codecType = agoraservice.VideoCodecTypeH264
+		} else if codecTypeStr == "h265" {
+			codecType = agoraservice.VideoCodecTypeH265
+		} else if codecTypeStr == "av1" {
+			codecType = agoraservice.VideoCodecTypeAv1
+		} else if codecTypeStr == "vp8" {
+			codecType = agoraservice.VideoCodecTypeVp8
+		} else if codecTypeStr == "vp9" {
+			codecType = agoraservice.VideoCodecTypeVp9
+		} else {
+			fmt.Println("Invalid codec type, please use h264, h265, av1, vp8, vp9")
+			codecType = agoraservice.VideoCodecTypeH264
+		}
+	}
+	fmt.Printf("codec type: %s\n", codecType)
+
 	// get environment variable
 	//appid := os.Getenv("AGORA_APP_ID")
 	cert := os.Getenv("AGORA_APP_CERTIFICATE")
@@ -168,16 +189,16 @@ func main() {
 			return defaultFallbackSenario
 		},
 	}
-	// for calling onFrame
+	// Observe received frames before rendering.
 
 	videoObserver := &agoraservice.VideoFrameObserver{
-		OnFrame: func(channelId string, userId string, frame *agoraservice.VideoFrame) bool {
+		OnRenderVideoFrame: func(channelId string, userId uint32, frame *agoraservice.VideoFrame) bool {
 			if frame == nil {
 				return true
 
 			}
 
-			//fmt.Printf("recv video frame, from channel %s, user %s, type %d, width %d, height %d, stride %d, ysize %d, usize %d, vsize %d\n",channelId, userId, frame.Type, frame.Width, frame.Height, frame.YStride, len(frame.YBuffer), len(frame.UBuffer), len(frame.VBuffer))
+			//fmt.Printf("recv video frame, from channel %s, user %d, type %d, width %d, height %d, stride %d, ysize %d, usize %d, vsize %d\n",channelId, userId, frame.Type, frame.Width, frame.Height, frame.YStride, len(frame.YBuffer), len(frame.UBuffer), len(frame.VBuffer))
 
 			yuvQueue.Enqueue(frame)
 
@@ -326,7 +347,7 @@ func main() {
 	<-conSignal
 
 	con.SetVideoEncoderConfiguration(&agoraservice.VideoEncoderConfiguration{
-		CodecType:         agoraservice.VideoCodecTypeAv1,
+		CodecType:         codecType,
 		Width:             640,
 		Height:            480,
 		Framerate:         30,

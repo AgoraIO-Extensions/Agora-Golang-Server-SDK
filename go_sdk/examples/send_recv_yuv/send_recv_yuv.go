@@ -143,11 +143,11 @@ func main() {
 		},
 	}
 
-	// for calling onFrame
+	// Observe received frames before rendering.
 	frameCount := 0
 	frameLastRecvTime := time.Now().UnixMilli()
 	videoObserver := &agoraservice.VideoFrameObserver{
-		OnFrame: func(channelId string, userId string, frame *agoraservice.VideoFrame) bool {
+		OnRenderVideoFrame: func(channelId string, userId uint32, frame *agoraservice.VideoFrame) bool {
 			if frame == nil {
 				return true
 
@@ -161,7 +161,7 @@ func main() {
 				frameLastRecvTime = time.Now().UnixMilli()
 			}
 			// do something
-			//fmt.Printf("recv video frame, from channel %s, user %s\n", channelId, userId)
+			//fmt.Printf("recv video frame, from channel %s, user %d\n", channelId, userId)
 			return true
 		},
 	}

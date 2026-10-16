@@ -17,6 +17,31 @@ make deps
 make build
 ```
 
+# Video frame observer migration
+
+`VideoFrameObserver` maps all ten callbacks of the synchronous native
+`video_frame_observer` interface. Replace `OnFrame` with
+`OnRenderVideoFrame(channelId string, uid uint32, frame *VideoFrame) bool`.
+`VideoFrame.Type` now uses `VideoPixelFormat`, matching the native pixel-format field.
+Use `RegisterVideoFrameObserver` to attach it. The connection manages cleanup
+internally when replacing the observer, calling `Disconnect`, or calling
+`Release`; there is no public unregister method.
+
+Unset callbacks accept frames; defaults are read-only processing, I420, no
+rotation/mirroring, and post-capture plus pre-render observation. Go frame
+buffers are independent copies and may be retained. All frame callbacks,
+including media-player callbacks, operate only on these copies; frame edits
+are not written back to the SDK. `GetVideoFrameProcessMode` forwards the
+application's return value to the SDK without caching it or implementing
+processing modes in Go. Configure callbacks before registration and do not
+register, unregister, disconnect or release from within a callback.
+
+The native library must export `agora_local_user_set_video_frame_observer`
+and `agora_local_user_unset_video_frame_observer`. The bundled Linux library
+supports these symbols; the bundled macOS library requires an SDK update.
+Bridge/lifecycle tests use an explicit native test double:
+`go test -vet=off -tags agora_video_observer_test ./go_sdk/rtc`.
+
 # Build and run basic examples
 - Download testing data for testing examples. You can also use your own data and modify the data path in examples.
 ```
@@ -263,6 +288,16 @@ con.PushVideoFrame(frame)
 ```
 
 Release Note:
+
+## 2026.10.16 发布 2.6.6 版本
+- **Update**： updated RTC SDK to v4.6.31.135_28737
+- **Update&Change**： updated the VideoFrameObserver interface, adding callback parameters to obtain encoded video data and specify internal decoding properties such as rotation, mirror, etc.
+- **Note**： ​ OnFrame has been replaced by OnRenderVideoFrame!!
+
+## 2026.09.18 发布 2.6.5 版本
+- **Update**： updated RTC SDK to v4.6.31.134_28737
+- **Fix**： fixed NMS-31525
+
 
 ## 2026.09.18 Release Version 2.6.5
 - **Update**：update rtc sdk to tag 134，fix NMS-31525

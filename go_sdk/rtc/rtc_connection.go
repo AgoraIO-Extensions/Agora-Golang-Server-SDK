@@ -15,9 +15,10 @@ import "C"
 import (
 	"fmt"
 	"strconv"
+	"sync"
+	"sync/atomic"
 	"time"
 	"unsafe"
-	//"sync/atomic"
 )
 
 type RtcConnectionInfo struct {
@@ -305,8 +306,24 @@ type AudioFrameObserver struct {
 	OnGetEarMonitoringAudioFrameParam func(localUser *LocalUser) AudioFrameObserverAudioParams
 }
 
+// VideoFrameObserver observes synchronous native video-frame callbacks.
+// Frame buffers are Go-owned copies and may be retained after a callback.
+// Frame edits affect only the Go copies and are not written back to the SDK.
+// Configure callbacks before registration; do not change them while registered.
+// The connection manages observer cleanup internally.
 type VideoFrameObserver struct {
-	OnFrame func(channelId string, userId string, frame *VideoFrame) bool
+	OnCaptureVideoFrame     func(sourceType int, frame *VideoFrame) bool
+	OnPreEncodeVideoFrame   func(sourceType int, frame *VideoFrame) bool
+	OnMediaPlayerVideoFrame func(frame *VideoFrame, mediaPlayerId int) bool
+	OnRenderVideoFrame      func(channelId string, uid uint32, frame *VideoFrame) bool
+	OnTranscodedVideoFrame  func(frame *VideoFrame) bool
+
+	// Defaults: read-only, I420, no rotation/mirroring, post-capture and pre-render.
+	GetVideoFrameProcessMode func() VideoFrameProcessMode
+	GetVideoFormatPreference func() VideoPixelFormat
+	GetRotationApplied       func() bool
+	GetMirrorApplied         func() bool
+	GetObservedFramePosition func() VideoModulePosition
 }
 
 type VideoEncodedFrameObserver struct {
@@ -419,8 +436,9 @@ type RtcConnection struct {
 	cLocalUserObserver    *C.struct__local_user_observer
 	audioObserver         *AudioFrameObserver
 	cAudioObserver        *C.struct__audio_frame_observer
-	videoObserver         *VideoFrameObserver
+	videoObserver         atomic.Pointer[VideoFrameObserver]
 	cVideoObserver        unsafe.Pointer
+	videoObserverMu       sync.Mutex
 	encodedVideoObserver  *VideoEncodedFrameObserver
 	cEncodedVideoObserver unsafe.Pointer
 
@@ -516,7 +534,6 @@ func NewRtcConnection(cfg *RtcConnectionConfig, publishConfig *RtcConnectionPubl
 		handler:              nil,
 		localUserObserver:    nil,
 		audioObserver:        nil,
-		videoObserver:        nil,
 		encodedVideoObserver: nil,
 		// remoteVideoRWMutex:          &sync.RWMutex{},
 		// remoteEncodedVideoReceivers: make(map[*VideoEncodedImageReceiver]*videoEncodedImageReceiverInner),
@@ -638,6 +655,8 @@ func NewRtcConnection(cfg *RtcConnectionConfig, publishConfig *RtcConnectionPubl
 }
 
 func (conn *RtcConnection) Release() {
+	conn.videoObserverMu.Lock()
+	defer conn.videoObserverMu.Unlock()
 	if conn.cConnection == nil {
 		return
 	}
@@ -674,8 +693,9 @@ func (conn *RtcConnection) Release() {
 	if conn.cAudioObserver != nil {
 		C.agora_local_user_unregister_audio_frame_observer(localUser.cLocalUser)
 	}
+	videoObserverUnset := true
 	if conn.cVideoObserver != nil {
-		C.agora_local_user_unregister_video_frame_observer(localUser.cLocalUser, conn.cVideoObserver)
+		videoObserverUnset = C.agora_local_user_unset_video_frame_observer(localUser.cLocalUser, conn.cVideoObserver) == 0
 	}
 	if conn.cEncodedVideoObserver != nil {
 		C.agora_local_user_unregister_video_encoded_frame_observer(localUser.cLocalUser, conn.cEncodedVideoObserver)
@@ -686,7 +706,8 @@ func (conn *RtcConnection) Release() {
 	if conn.cHandler != nil {
 		C.agora_rtc_conn_unregister_observer(conn.cConnection)
 	}
-	if agoraService.idleMode {
+	// If unset fails, tear down the connection before freeing its observer.
+	if agoraService.idleMode && videoObserverUnset {
 		addIdleItem(conn.cConnection, 2000) // set to delay 2s
 	} else {
 		C.agora_rtc_conn_destroy(conn.cConnection)
@@ -739,7 +760,7 @@ func (conn *RtcConnection) Release() {
 	conn.handler = nil
 	conn.localUserObserver = nil
 	conn.audioObserver = nil
-	conn.videoObserver = nil
+	conn.videoObserver.Store(nil)
 
 	// finally to release all tracks
 	if conn.audioTrack != nil {
@@ -994,40 +1015,65 @@ func (conn *RtcConnection) unregisterAudioFrameObserver() int {
 }
 
 func (conn *RtcConnection) RegisterVideoFrameObserver(observer *VideoFrameObserver) int {
-	if conn.cConnection == nil || observer == nil {
+	if conn == nil || observer == nil {
 		return -1
 	}
-	// avoid re-register observer
-	if conn.videoObserver == observer {
+	conn.videoObserverMu.Lock()
+	defer conn.videoObserverMu.Unlock()
+	if conn.cConnection == nil || conn.localUser == nil || conn.localUser.cLocalUser == nil {
+		return -1
+	}
+	if conn.videoObserver.Load() == observer && conn.cVideoObserver != nil {
 		return 0
 	}
-	// unregister old observer
-	conn.unregisterVideoFrameObserver()
-
-	conn.videoObserver = observer
-	if conn.cVideoObserver == nil {
-		conn.cVideoObserver = CVideoFrameObserver()
-		// store to sync map
-		agoraService.setConFromHandle(conn.cVideoObserver, conn, ConTypeCVideoObserver)
-		C.agora_local_user_register_video_frame_observer(conn.localUser.cLocalUser, conn.cVideoObserver)
+	if ret := conn.unsetVideoFrameObserver(); ret != 0 {
+		return ret
 	}
-	return 0
+	handle := CVideoFrameObserver()
+	if handle == nil {
+		return -1
+	}
+	conn.cVideoObserver = handle
+	conn.videoObserver.Store(observer)
+	// The SDK may query configuration synchronously during registration.
+	agoraService.setConFromHandle(handle, conn, ConTypeCVideoObserver)
+	ret := int(C.agora_local_user_set_video_frame_observer(conn.localUser.cLocalUser, handle))
+	if ret != 0 {
+		agoraService.deleteConFromHandle(handle, ConTypeCVideoObserver)
+		conn.videoObserver.Store(nil)
+		conn.cVideoObserver = nil
+		FreeCVideoFrameObserver(handle)
+	}
+	return ret
 }
 
+// unregisterVideoFrameObserver is connection-owned cleanup for the video observer.
+// On native failure the observer remains registered and can be retried.
 func (conn *RtcConnection) unregisterVideoFrameObserver() int {
-	// check if need to unregister
-	if conn.cConnection == nil {
+	if conn == nil {
 		return 0
 	}
+	conn.videoObserverMu.Lock()
+	defer conn.videoObserverMu.Unlock()
+	return conn.unsetVideoFrameObserver()
+}
+
+// unsetVideoFrameObserver requires videoObserverMu to be held.
+func (conn *RtcConnection) unsetVideoFrameObserver() int {
 	if conn.cVideoObserver != nil {
-		C.agora_local_user_unregister_video_frame_observer(conn.localUser.cLocalUser, conn.cVideoObserver)
-		// delete from sync map
+		if conn.localUser == nil || conn.localUser.cLocalUser == nil {
+			return -1
+		}
+		ret := int(C.agora_local_user_unset_video_frame_observer(conn.localUser.cLocalUser, conn.cVideoObserver))
+		if ret != 0 {
+			return ret
+		}
 		agoraService.deleteConFromHandle(conn.cVideoObserver, ConTypeCVideoObserver)
+		conn.videoObserver.Store(nil)
 		FreeCVideoFrameObserver(conn.cVideoObserver)
 		conn.cVideoObserver = nil
 	}
-	conn.cVideoObserver = nil
-	conn.videoObserver = nil
+	conn.videoObserver.Store(nil)
 	return 0
 }
 
