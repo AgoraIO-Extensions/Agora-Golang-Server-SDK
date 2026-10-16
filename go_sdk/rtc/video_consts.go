@@ -1,5 +1,23 @@
 package agoraservice
 
+// VideoFrameProcessMode is the native processing mode returned by the observer.
+type VideoFrameProcessMode int
+
+const (
+	VideoFrameProcessModeReadOnly VideoFrameProcessMode = iota
+	VideoFrameProcessModeReadWrite
+)
+
+// VideoModulePosition is a bitmask of video observation positions.
+type VideoModulePosition uint32
+
+const (
+	VideoPositionPostCapturer VideoModulePosition = 1 << iota
+	VideoPositionPreRenderer
+	VideoPositionPreEncoder
+	VideoPositionPostCapturerOrigin
+)
+
 type VideoCodecType int
 
 const (

@@ -17,6 +17,27 @@ make deps
 make build
 ```
 
+# 视频帧 Observer 迁移
+
+`VideoFrameObserver` 完整映射同步原生 `video_frame_observer` 的 10 个回调。
+原 `OnFrame` 改为
+`OnRenderVideoFrame(channelId string, uid uint32, frame *VideoFrame) bool`。
+`VideoFrame.Type` 同步更正为 `VideoPixelFormat`，对应原生的像素格式字段。
+通过 `RegisterVideoFrameObserver` 注册；替换 observer、调用 `Disconnect` 或
+`Release` 时，由连接内部负责注销和清理，不提供公开的主动注销方法。
+
+未设置的帧回调默认接受帧；配置默认值为只读、I420、不旋转、不镜像，观察采集后和渲染前位置。
+Go 帧缓冲区是独立拷贝，可以在回调返回后继续持有。所有帧回调（包括媒体播放器帧）只操作 Go 拷贝，
+对帧的修改不会写回 SDK。`GetVideoFrameProcessMode` 仅将开发者返回的模式透传给 SDK，
+Go 层不缓存模式，也不实现对应的帧处理逻辑。
+请在注册前配置好回调，注册期间不要修改，也不要在回调内部注册、注销、断连或释放连接。
+
+原生库需要提供 `agora_local_user_set_video_frame_observer` 和
+`agora_local_user_unset_video_frame_observer`。仓库中的 Linux 库已支持；
+当前 macOS 库缺少这两个符号，需要更新匹配的 SDK。
+桥接和生命周期测试使用显式原生测试替身：
+`go test -vet=off -tags agora_video_observer_test ./go_sdk/rtc`。
+
 # 构建并运行基础示例
 - 下载测试数据用于测试示例。你也可以使用自己的数据并修改示例中的数据路径。
 ```
@@ -1020,4 +1041,3 @@ s->setParameters("{\"rtc.local_ap_list\":[\"10.62.0.95\"]}");
 -- playbackbeforemixing 和playbackAudioFrame是可以同时触发的，但不建议这样使用，因为这样会导致回调的频率很高，从而影响性能。
 -- onMixed 不会触发：因为server sdk并没有采集，所以不会触发。在sever sdk可以用onPlaybackAudioFrame来获取。
 			
-

@@ -189,16 +189,16 @@ func main() {
 			return defaultFallbackSenario
 		},
 	}
-	// for calling onFrame
+	// Observe received frames before rendering.
 
 	videoObserver := &agoraservice.VideoFrameObserver{
-		OnFrame: func(channelId string, userId string, frame *agoraservice.VideoFrame) bool {
+		OnRenderVideoFrame: func(channelId string, userId uint32, frame *agoraservice.VideoFrame) bool {
 			if frame == nil {
 				return true
 
 			}
 
-			//fmt.Printf("recv video frame, from channel %s, user %s, type %d, width %d, height %d, stride %d, ysize %d, usize %d, vsize %d\n",channelId, userId, frame.Type, frame.Width, frame.Height, frame.YStride, len(frame.YBuffer), len(frame.UBuffer), len(frame.VBuffer))
+			//fmt.Printf("recv video frame, from channel %s, user %d, type %d, width %d, height %d, stride %d, ysize %d, usize %d, vsize %d\n",channelId, userId, frame.Type, frame.Width, frame.Height, frame.YStride, len(frame.YBuffer), len(frame.UBuffer), len(frame.VBuffer))
 
 			yuvQueue.Enqueue(frame)
 

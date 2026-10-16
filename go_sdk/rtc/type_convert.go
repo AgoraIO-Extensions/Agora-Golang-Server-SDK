@@ -230,16 +230,22 @@ func GoSinkAudioFrame(frame *C.struct__audio_pcm_frame) *AudioFrame {
 }
 
 func CVideoFrameObserver() unsafe.Pointer {
-	// ret := (*C.struct__video_frame_observer2)(C.malloc(C.sizeof_struct__video_frame_observer2))
-	ret := C.struct__video_frame_observer2{}
-	C.memset(unsafe.Pointer(&ret), 0, C.sizeof_struct__video_frame_observer2)
-	ret.on_frame = (*[0]byte)(C.cgo_on_video_frame)
-	obs := C.agora_video_frame_observer2_create(&ret)
-	return obs
+	ret := C.struct__video_frame_observer{}
+	ret.on_capture_video_frame = (*[0]byte)(C.cgo_on_capture_video_frame)
+	ret.on_pre_encode_video_frame = (*[0]byte)(C.cgo_on_pre_encode_video_frame)
+	ret.on_media_player_video_frame = (*[0]byte)(C.cgo_on_media_player_video_frame)
+	ret.on_render_video_frame = (*[0]byte)(C.cgo_on_render_video_frame)
+	ret.on_transcoded_video_frame = (*[0]byte)(C.cgo_on_transcoded_video_frame)
+	ret.get_video_frame_process_mode = (*[0]byte)(C.cgo_get_video_frame_process_mode)
+	ret.get_video_format_preference = (*[0]byte)(C.cgo_get_video_format_preference)
+	ret.get_rotation_applied = (*[0]byte)(C.cgo_get_rotation_applied)
+	ret.get_mirror_applied = (*[0]byte)(C.cgo_get_mirror_applied)
+	ret.get_observed_frame_position = (*[0]byte)(C.cgo_get_observed_frame_position)
+	return C.agora_video_frame_observer_create(&ret)
 }
 
 func FreeCVideoFrameObserver(observer unsafe.Pointer) {
-	C.agora_video_frame_observer2_destroy(observer)
+	C.agora_video_frame_observer_destroy(observer)
 }
 
 func CVideoEncodedFrameObserver() unsafe.Pointer {
@@ -259,6 +265,9 @@ func Uint8PtrToUintptr(p *C.uint8_t) uintptr {
 }
 
 func GoVideoFrame(frame *C.struct__video_frame) *VideoFrame {
+	if frame == nil {
+		return nil
+	}
 	// var buf []byte = nil
 	// bufLen := frame.y_stride*frame.height + frame.u_stride*frame.height/2 + frame.v_stride*frame.height/2
 	// uStart := frame.y_stride * frame.height
@@ -272,33 +281,29 @@ func GoVideoFrame(frame *C.struct__video_frame) *VideoFrame {
 	// 	copy(buf[uStart:], unsafe.Slice((*byte)(unsafe.Pointer(frame.u_buffer)), frame.u_stride*frame.height/2))
 	// 	copy(buf[vStart:], unsafe.Slice((*byte)(unsafe.Pointer(frame.v_buffer)), frame.v_stride*frame.height/2))
 	// }
-	yLen := frame.y_stride * frame.height
-	uLen := frame.u_stride * frame.height / 2
-	vLen := frame.v_stride * frame.height / 2
+	yLen, uLen, vLen := videoFrameBufferLengths(frame)
 	ret := &VideoFrame{
-		Type:           VideoBufferType(frame._type),
+		Type:           VideoPixelFormat(frame._type),
 		Width:          int(frame.width),
 		Height:         int(frame.height),
 		YStride:        int(frame.y_stride),
 		UStride:        int(frame.u_stride),
 		VStride:        int(frame.v_stride),
-		YBuffer:        C.GoBytes(unsafe.Pointer(frame.y_buffer), yLen),
-		UBuffer:        C.GoBytes(unsafe.Pointer(frame.u_buffer), uLen),
-		VBuffer:        C.GoBytes(unsafe.Pointer(frame.v_buffer), vLen),
+		YBuffer:        copyVideoFrameBuffer(frame.y_buffer, yLen),
+		UBuffer:        copyVideoFrameBuffer(frame.u_buffer, uLen),
+		VBuffer:        copyVideoFrameBuffer(frame.v_buffer, vLen),
 		Rotation:       VideoOrientation(frame.rotation),
 		RenderTimeMs:   int64(frame.render_time_ms),
 		AVSyncType:     int(frame.avsync_type),
-		MetadataBuffer: C.GoBytes(unsafe.Pointer(frame.metadata_buffer), frame.metadata_size),
+		MetadataBuffer: copyVideoFrameBuffer(frame.metadata_buffer, int(frame.metadata_size)),
 		SharedContext:  frame.shared_context,
 		TextureID:      int(frame.texture_id),
 		Matrix:         [16]float32{},
-		AlphaBuffer:    nil,
+		AlphaBuffer:    copyVideoFrameBuffer(frame.alpha_buffer, int(frame.width)*int(frame.height)),
+		AlphaMode:      int(frame.alpha_mode),
 	}
 	for i := 0; i < 16; i++ {
 		ret.Matrix[i] = float32(frame.matrix[i])
-	}
-	if frame.alpha_buffer != nil {
-		ret.AlphaBuffer = C.GoBytes(unsafe.Pointer(frame.alpha_buffer), frame.y_stride*frame.height)
 	}
 	return ret
 }

@@ -162,9 +162,9 @@ func main() {
 		},
 	}
 	videoObserver := &agoraservice.VideoFrameObserver{
-		OnFrame: func(channelId string, userId string, frame *agoraservice.VideoFrame) bool {
+		OnRenderVideoFrame: func(channelId string, userId uint32, frame *agoraservice.VideoFrame) bool {
 			// do something
-			fmt.Printf("recv video frame, from channel %s, user %s\n", channelId, userId)
+			fmt.Printf("recv video frame, from channel %s, user %d\n", channelId, userId)
 			return true
 		},
 	}

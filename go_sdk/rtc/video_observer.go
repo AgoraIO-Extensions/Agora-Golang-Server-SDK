@@ -13,31 +13,133 @@ import (
 	"unsafe"
 )
 
-//export goOnVideoFrame
-func goOnVideoFrame(cObserver unsafe.Pointer, channelId *C.char, uid *C.char, frame *C.struct__video_frame) C.int {
-	// validity check
-	if cObserver == nil {
-		return C.int(0)
+func videoObserverForHandle(handle unsafe.Pointer) *VideoFrameObserver {
+	conn := agoraService.getConFromHandle(handle, ConTypeCVideoObserver)
+	if conn == nil {
+		return nil
 	}
-	// added by wei to avoid uid=0 i.e local users callback , which is a bug in current 44.3.1 sdk version
-	// but fix it from cgo layer is not a good idea
-	goUid := C.GoString(uid)
-	if goUid == "0" {
-		return C.int(0)
+	return conn.videoObserver.Load()
+}
+
+func dispatchVideoFrame(frame *C.video_frame, callback func(*VideoFrame) bool) C.int {
+	if frame == nil {
+		return 0
 	}
-	
-	con := agoraService.getConFromHandle(cObserver, ConTypeCVideoObserver)
-	if con == nil || con.videoObserver == nil || con.videoObserver.OnFrame == nil {
-		return C.int(0)
+	if callback == nil {
+		return 1
 	}
-	goChannelId := C.GoString(channelId)
-	
-	goFrame := GoVideoFrame(frame)
-	ret := con.videoObserver.OnFrame(goChannelId, goUid, goFrame)
-	if ret {
-		return C.int(1)
+	if !callback(GoVideoFrame(frame)) {
+		return 0
 	}
-	return C.int(0)
+	return 1
+}
+
+//export goOnCaptureVideoFrame
+func goOnCaptureVideoFrame(handle unsafe.Pointer, sourceType C.int, frame *C.video_frame) C.int {
+	observer := videoObserverForHandle(handle)
+	if observer == nil {
+		return 0
+	}
+	var callback func(*VideoFrame) bool
+	if observer.OnCaptureVideoFrame != nil {
+		callback = func(frame *VideoFrame) bool { return observer.OnCaptureVideoFrame(int(sourceType), frame) }
+	}
+	return dispatchVideoFrame(frame, callback)
+}
+
+//export goOnPreEncodeVideoFrame
+func goOnPreEncodeVideoFrame(handle unsafe.Pointer, sourceType C.int, frame *C.video_frame) C.int {
+	observer := videoObserverForHandle(handle)
+	if observer == nil {
+		return 0
+	}
+	var callback func(*VideoFrame) bool
+	if observer.OnPreEncodeVideoFrame != nil {
+		callback = func(frame *VideoFrame) bool { return observer.OnPreEncodeVideoFrame(int(sourceType), frame) }
+	}
+	return dispatchVideoFrame(frame, callback)
+}
+
+//export goOnMediaPlayerVideoFrame
+func goOnMediaPlayerVideoFrame(handle unsafe.Pointer, frame *C.video_frame, mediaPlayerId C.int) C.int {
+	observer := videoObserverForHandle(handle)
+	if observer == nil {
+		return 0
+	}
+	var callback func(*VideoFrame) bool
+	if observer.OnMediaPlayerVideoFrame != nil {
+		callback = func(frame *VideoFrame) bool { return observer.OnMediaPlayerVideoFrame(frame, int(mediaPlayerId)) }
+	}
+	return dispatchVideoFrame(frame, callback)
+}
+
+//export goOnRenderVideoFrame
+func goOnRenderVideoFrame(handle unsafe.Pointer, channelId *C.char, uid C.uid_t, frame *C.video_frame) C.int {
+	observer := videoObserverForHandle(handle)
+	if observer == nil {
+		return 0
+	}
+	var callback func(*VideoFrame) bool
+	if observer.OnRenderVideoFrame != nil {
+		callback = func(frame *VideoFrame) bool {
+			return observer.OnRenderVideoFrame(C.GoString(channelId), uint32(uid), frame)
+		}
+	}
+	return dispatchVideoFrame(frame, callback)
+}
+
+//export goOnTranscodedVideoFrame
+func goOnTranscodedVideoFrame(handle unsafe.Pointer, frame *C.video_frame) C.int {
+	observer := videoObserverForHandle(handle)
+	if observer == nil {
+		return 0
+	}
+	return dispatchVideoFrame(frame, observer.OnTranscodedVideoFrame)
+}
+
+//export goGetVideoFrameProcessMode
+func goGetVideoFrameProcessMode(handle unsafe.Pointer) C.int {
+	observer := videoObserverForHandle(handle)
+	if observer == nil || observer.GetVideoFrameProcessMode == nil {
+		return C.int(VideoFrameProcessModeReadOnly)
+	}
+	return C.int(observer.GetVideoFrameProcessMode())
+}
+
+//export goGetVideoFormatPreference
+func goGetVideoFormatPreference(handle unsafe.Pointer) C.int {
+	observer := videoObserverForHandle(handle)
+	if observer == nil || observer.GetVideoFormatPreference == nil {
+		return C.int(VideoPixelI420)
+	}
+	return C.int(observer.GetVideoFormatPreference())
+}
+
+//export goGetRotationApplied
+func goGetRotationApplied(handle unsafe.Pointer) C.int {
+	observer := videoObserverForHandle(handle)
+	if observer != nil && observer.GetRotationApplied != nil && observer.GetRotationApplied() {
+		return 1
+	}
+	return 0
+}
+
+//export goGetMirrorApplied
+func goGetMirrorApplied(handle unsafe.Pointer) C.int {
+	observer := videoObserverForHandle(handle)
+	if observer != nil && observer.GetMirrorApplied != nil && observer.GetMirrorApplied() {
+		return 1
+	}
+	return 0
+}
+
+//export goGetObservedFramePosition
+func goGetObservedFramePosition(handle unsafe.Pointer) C.uint32_t {
+	observer := videoObserverForHandle(handle)
+	if observer == nil || observer.GetObservedFramePosition == nil {
+		return C.uint32_t(VideoPositionPostCapturer | VideoPositionPreRenderer)
+	}
+	return C.uint32_t(observer.GetObservedFramePosition())
 }
 
 //export goOnEncodedVideoFrame

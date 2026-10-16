@@ -79,7 +79,7 @@ type ExternalVideoFrame struct {
 
 // VideoFrame represents a video frame.
 type VideoFrame struct {
-	Type           VideoBufferType  // Type is the buffer type.
+	Type           VideoPixelFormat // Type is the native video pixel format.
 	Width          int              // Width is the video pixel width.
 	Height         int              // Height is the video pixel height.
 	YStride        int              // YStride is the line span of Y buffer in YUV data.

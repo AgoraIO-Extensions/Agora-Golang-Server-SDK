@@ -9,6 +9,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 	"unsafe"
@@ -556,11 +557,11 @@ func (taskCtx *TaskContext) startTask() {
 	}
 	if cfg.recvYuv {
 		recvVideoFrameObs := &agoraservice.VideoFrameObserver{
-			OnFrame: func(channelId string, userId string, frame *agoraservice.VideoFrame) bool {
+			OnRenderVideoFrame: func(channelId string, userId uint32, frame *agoraservice.VideoFrame) bool {
 				// do something
-				// fmt.Printf("recv video frame, from channel %s, user %s, video size %dx%d\n",
+				// fmt.Printf("recv video frame, from channel %s, user %d, video size %dx%d\n",
 				// 	channelId, userId, frame.Width, frame.Height)
-				if userId == senderId {
+				if strconv.FormatUint(uint64(userId), 10) == senderId {
 					return true
 				}
 				if cfg.dumpYuv {
