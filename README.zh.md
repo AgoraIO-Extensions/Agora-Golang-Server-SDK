@@ -294,6 +294,10 @@ con.PushVideoFrame(frame)
 	})
 ```
 
+## 2026.10.16 发布 2.6.6 版本
+- **更新**：更新rtc sdk到v4.6.31.135_28737
+- **更新**：更新 VideoFrameObbserver 接口，增加回调参数，用于获取编码后的视频数据、指定内部解码的属性，如rotaion/mirror 等
+- **注意**：OnFrame 已经被 OnRenderVideoFrame 替代！！
 
 ## 2026.09.18 发布 2.6.5 版本
 - **更新**：更新rtc sdk到tag 134，解决NMS-31525

@@ -289,6 +289,16 @@ con.PushVideoFrame(frame)
 
 Release Note:
 
+## 2026.10.16 发布 2.6.6 版本
+- **Update**： updated RTC SDK to v4.6.31.135_28737
+- **Update&Change**： updated the VideoFrameObserver interface, adding callback parameters to obtain encoded video data and specify internal decoding properties such as rotation, mirror, etc.
+- **Note**： ​ OnFrame has been replaced by OnRenderVideoFrame!!
+
+## 2026.09.18 发布 2.6.5 版本
+- **Update**： updated RTC SDK to v4.6.31.134_28737
+- **Fix**： fixed NMS-31525
+
+
 ## 2026.09.18 Release Version 2.6.5
 - **Update**：update rtc sdk to tag 134，fix NMS-31525
 
